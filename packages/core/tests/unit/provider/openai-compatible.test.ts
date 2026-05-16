@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+import { AetherError } from "../../../src/errors.js";
+import { OpenAICompatibleProvider } from "../../../src/provider/openai-compatible.js";
+
+function mkProvider(fetchImpl: (i: string, init?: RequestInit) => Promise<Response>) {
+  return new OpenAICompatibleProvider({
+    id: "p",
+    baseUrl: "https://api.test/v1",
+    apiKey: "k",
+    defaultHeaders: {},
+    fetch: fetchImpl,
+  });
+}
+
+function sseBody(events: string[]): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  return new ReadableStream({
+    start(ctl) {
+      for (const e of events) ctl.enqueue(enc.encode(e));
+      ctl.close();
+    },
+  });
+}
+
+describe("OpenAICompatibleProvider", () => {
+  it("listModels parses {data: [{id}]}", async () => {
+    const p = mkProvider(
+      async () =>
+        new Response(JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    expect(await p.listModels()).toEqual(["m1", "m2"]);
+  });
+
+  it("testConnection returns ok when listModels succeeds", async () => {
+    const p = mkProvider(
+      async () => new Response(JSON.stringify({ data: [{ id: "m" }] }), { status: 200 }),
+    );
+    const r = await p.testConnection();
+    expect(r.ok).toBe(true);
+    expect(r.models).toEqual(["m"]);
+  });
+
+  it("testConnection returns error on 401", async () => {
+    const p = mkProvider(async () => new Response("unauthorized", { status: 401 }));
+    const r = await p.testConnection();
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/401/);
+  });
+
+  it("embed maps vectors + dim + usage", async () => {
+    const p = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: [0.1, 0.2, 0.3] }],
+            usage: { prompt_tokens: 4, completion_tokens: 0 },
+          }),
+          { status: 200 },
+        ),
+    );
+    const r = await p.embed({ inputs: ["x"], model: "m" });
+    expect(r.dim).toBe(3);
+    expect(r.vectors[0]).toEqual([0.1, 0.2, 0.3]);
+    expect(r.usage?.promptTokens).toBe(4);
+  });
+
+  it("embed throws PROVIDER_HTTP_ERROR on 401 (no retry for 401)", async () => {
+    let calls = 0;
+    const p = mkProvider(async () => {
+      calls++;
+      return new Response("nope", { status: 401 });
+    });
+    await expect(p.embed({ inputs: ["x"], model: "m" })).rejects.toBeInstanceOf(AetherError);
+    expect(calls).toBe(1);
+  });
+
+  it("chat streams SSE chunks", async () => {
+    const events = [
+      `data: ${JSON.stringify({
+        choices: [{ delta: { content: "Hel" }, finish_reason: null }],
+      })}\n`,
+      `data: ${JSON.stringify({
+        choices: [{ delta: { content: "lo" }, finish_reason: null }],
+      })}\n`,
+      `data: ${JSON.stringify({
+        choices: [{ delta: { content: "" }, finish_reason: "stop" }],
+      })}\n`,
+      `data: [DONE]\n`,
+    ];
+    const p = mkProvider(
+      async () =>
+        new Response(sseBody(events), {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+    );
+    const out: string[] = [];
+    let finish: string | null = null;
+    for await (const c of p.chat({
+      messages: [{ role: "user", content: "hi" }],
+      model: "m",
+      stream: true,
+    })) {
+      out.push(c.delta);
+      if (c.finishReason) finish = c.finishReason;
+    }
+    expect(out.join("")).toBe("Hello");
+    expect(finish).toBe("stop");
+  });
+
+  it("chat falls back to non-streaming JSON when body absent", async () => {
+    const p = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "full reply" }, finish_reason: "stop" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    );
+    const out: string[] = [];
+    for await (const c of p.chat({
+      messages: [{ role: "user", content: "x" }],
+      model: "m",
+      stream: false,
+    })) {
+      out.push(c.delta);
+    }
+    expect(out.join("")).toBe("full reply");
+  });
+});
