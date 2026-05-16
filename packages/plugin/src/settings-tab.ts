@@ -177,13 +177,11 @@ export class AetherSettingsTab extends PluginSettingTab {
   private renderAdvanced(root: HTMLElement): void {
     root.createEl("h3", { text: "Advanced" });
     new Setting(root).setName("Aether Inbox folder").addText((t) =>
-      t
-        .setValue(this.plugin.core.settings.current.ui.aetherInboxFolder)
-        .onChange((v) =>
-          this.patch((s) => {
-            s.ui.aetherInboxFolder = v;
-          }),
-        ),
+      t.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
+        this.patch((s) => {
+          s.ui.aetherInboxFolder = v;
+        }),
+      ),
     );
     new Setting(root).setName("Scan scope").addDropdown((d) =>
       d

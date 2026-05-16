@@ -32,8 +32,7 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions = {}
   const base = opts.baseDelayMs ?? 500;
   const jitter = opts.jitter ?? 0.2;
   const shouldRetry = opts.shouldRetry ?? defaultShouldRetry;
-  const sleep =
-    opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
   let attempt = 0;
   let lastErr: unknown;

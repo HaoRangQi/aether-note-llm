@@ -20,12 +20,7 @@ function fakeNote(id: string, path: string, tags: string[] = []): Note {
   };
 }
 
-function fakeChunk(
-  noteId: string,
-  ordinal: number,
-  content: string,
-  embedding: number[],
-): Chunk {
+function fakeChunk(noteId: string, ordinal: number, content: string, embedding: number[]): Chunk {
   return {
     id: `${noteId}-${ordinal}`,
     noteId,
@@ -78,20 +73,16 @@ describe("OramaIndexStore", () => {
 
   it("EMBED_DIM_MISMATCH when chunk dim wrong", async () => {
     store.upsertNote(fakeNote("n1", "a.md"));
-    await expect(
-      store.setChunks("n1", [fakeChunk("n1", 0, "x", [0, 0, 0])]),
-    ).rejects.toMatchObject({ code: "EMBED_DIM_MISMATCH" });
+    await expect(store.setChunks("n1", [fakeChunk("n1", 0, "x", [0, 0, 0])])).rejects.toMatchObject(
+      { code: "EMBED_DIM_MISMATCH" },
+    );
   });
 
   it("hybrid search returns matching chunks", async () => {
     store.upsertNote(fakeNote("n1", "alpha.md"));
     store.upsertNote(fakeNote("n2", "beta.md"));
-    await store.setChunks("n1", [
-      fakeChunk("n1", 0, "alpha keyword in this chunk", vec(1)),
-    ]);
-    await store.setChunks("n2", [
-      fakeChunk("n2", 0, "completely different content", vec(9)),
-    ]);
+    await store.setChunks("n1", [fakeChunk("n1", 0, "alpha keyword in this chunk", vec(1))]);
+    await store.setChunks("n2", [fakeChunk("n2", 0, "completely different content", vec(9))]);
     const hits = await store.searchHybrid({
       query: "alpha",
       vector: vec(1),

@@ -70,10 +70,7 @@ hello`;
   });
 
   it("emits known keys in canonical order", () => {
-    const out = serializeDocument(
-      { title: "T", aether_id: "I", aether_kind: "note" },
-      "body",
-    );
+    const out = serializeDocument({ title: "T", aether_id: "I", aether_kind: "note" }, "body");
     const idIdx = out.indexOf("aether_id");
     const kindIdx = out.indexOf("aether_kind");
     const titleIdx = out.indexOf("title");

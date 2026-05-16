@@ -29,9 +29,7 @@ export default class AetherPlugin extends Plugin {
       statusEl.setText(`Aether: Inbox ${pending}`);
     };
     updateStatus();
-    this.registerInterval(
-      window.setInterval(updateStatus, 5000) as unknown as number,
-    );
+    this.registerInterval(window.setInterval(updateStatus, 5000) as unknown as number);
 
     registerCommands(this);
   }

@@ -57,8 +57,7 @@ export class ImportPipeline {
   }
 
   private async toInboxItem(candidate: RawCandidate, batchId: string): Promise<InboxItem> {
-    const fallbackTitle =
-      candidate.sourceRef.split("/").pop()?.replace(/\.md$/i, "") ?? "Untitled";
+    const fallbackTitle = candidate.sourceRef.split("/").pop()?.replace(/\.md$/i, "") ?? "Untitled";
     const proposal = await proposeMetadata({
       registry: this.deps.registry,
       candidate,

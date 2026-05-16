@@ -15,10 +15,7 @@ export {
 } from "./markdown/frontmatter.js";
 export { chunkMarkdown, chunkPlain, type ChunkInput } from "./markdown/chunker.js";
 export type { Provider, ProviderFactory } from "./provider/types.js";
-export {
-  openAICompatibleFactory,
-  OpenAICompatibleProvider,
-} from "./provider/openai-compatible.js";
+export { openAICompatibleFactory, OpenAICompatibleProvider } from "./provider/openai-compatible.js";
 export { MockProvider, type MockProviderOptions } from "./provider/mock-provider.js";
 export {
   withRetry,
@@ -40,11 +37,7 @@ export { PlainTextConnector } from "./connectors/plain-text-connector.js";
 export { NotionZipConnector } from "./connectors/notion-zip-connector.js";
 export { BookmarksJsonConnector } from "./connectors/bookmarks-json-connector.js";
 export { UrlListConnector } from "./connectors/url-list-connector.js";
-export {
-  ImportPipeline,
-  type ImportEvent,
-  type ImportPipelineDeps,
-} from "./import/pipeline.js";
+export { ImportPipeline, type ImportEvent, type ImportPipelineDeps } from "./import/pipeline.js";
 export { InboxStore } from "./import/inbox-store.js";
 export { detectDuplicate } from "./import/duplicate-detector.js";
 export { proposeMetadata, parseProposal, type MetadataProposal } from "./ai/metadata.js";

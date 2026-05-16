@@ -11,9 +11,7 @@ describe("normalizeUrl", () => {
   });
 
   it("removes UTM tracking parameters", () => {
-    expect(normalizeUrl("https://x.com/a?utm_source=foo&keep=1")).toBe(
-      "https://x.com/a?keep=1",
-    );
+    expect(normalizeUrl("https://x.com/a?utm_source=foo&keep=1")).toBe("https://x.com/a?keep=1");
   });
 
   it("removes fbclid", () => {

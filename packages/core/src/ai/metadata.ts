@@ -76,7 +76,11 @@ export function parseProposal(raw: string): MetadataProposal | null {
 }
 
 function fallbackProposal(c: RawCandidate, fallbackTitle: string): MetadataProposal {
-  const firstLine = c.content.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
+  const firstLine =
+    c.content
+      .split("\n")
+      .find((l) => l.trim().length > 0)
+      ?.trim() ?? "";
   const title = c.title ?? (firstLine.length > 0 ? firstLine.slice(0, 80) : fallbackTitle);
   return { title, tags: c.tags, summary: "" };
 }

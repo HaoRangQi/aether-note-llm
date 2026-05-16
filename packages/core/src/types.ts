@@ -72,13 +72,7 @@ export interface InboxBatch {
 
 // ---- Provider / Feature -------------------------------------------------
 
-export type Feature =
-  | "chat"
-  | "embedding"
-  | "summarize"
-  | "rewrite"
-  | "extract"
-  | "inbox_metadata";
+export type Feature = "chat" | "embedding" | "summarize" | "rewrite" | "extract" | "inbox_metadata";
 
 export interface ProviderConfig {
   id: string;

@@ -24,10 +24,7 @@ describe("InMemoryHostAdapter", () => {
       },
     });
     const list = await h.listMarkdown("Aether Inbox/notes");
-    expect(list.map((f) => f.path)).toEqual([
-      "Aether Inbox/notes/x.md",
-      "Aether Inbox/notes/y.md",
-    ]);
+    expect(list.map((f) => f.path)).toEqual(["Aether Inbox/notes/x.md", "Aether Inbox/notes/y.md"]);
   });
 
   it("notify records notices", () => {

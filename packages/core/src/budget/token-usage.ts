@@ -18,12 +18,7 @@ export class TokenUsageStore {
   private entries: UsageEntry[] = [];
   constructor(private readonly now: () => number = Date.now) {}
 
-  record(args: {
-    providerId: string;
-    feature: Feature;
-    model: string;
-    usage: TokenUsage;
-  }): void {
+  record(args: { providerId: string; feature: Feature; model: string; usage: TokenUsage }): void {
     const d = new Date(this.now());
     const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
     this.entries.push({

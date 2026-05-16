@@ -1,10 +1,5 @@
 import type { IHostAdapter } from "../host/adapter.js";
-import type {
-  InboxBatch,
-  InboxItem,
-  InboxStatus,
-  PersistedInbox,
-} from "../types.js";
+import type { InboxBatch, InboxItem, InboxStatus, PersistedInbox } from "../types.js";
 
 const STORAGE_KEY = "inbox.json";
 

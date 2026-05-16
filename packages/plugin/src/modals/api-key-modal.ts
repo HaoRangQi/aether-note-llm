@@ -15,9 +15,7 @@ export class ApiKeyModal extends Modal {
     this.contentEl.createEl("h2", { text: "Set API key" });
     new Setting(this.contentEl)
       .setName("API key")
-      .setDesc(
-        "Stored locally in plugin data. Treat your vault as containing this secret.",
-      )
+      .setDesc("Stored locally in plugin data. Treat your vault as containing this secret.")
       .addText((t) => {
         t.inputEl.type = "password";
         t.setValue(this.value).onChange((v) => (this.value = v));

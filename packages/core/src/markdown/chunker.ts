@@ -24,11 +24,7 @@ function approxTokens(s: string): number {
  * boundaries when the section exceeds MAX_CHARS. Mutates `out` and returns
  * the next ordinal to use.
  */
-function pushSplitParts(
-  out: ChunkInput[],
-  section: Section,
-  ordinalStart: number,
-): number {
+function pushSplitParts(out: ChunkInput[], section: Section, ordinalStart: number): number {
   let ord = ordinalStart;
   const paragraphs = section.text.split(/\n{2,}/);
   let buf = "";

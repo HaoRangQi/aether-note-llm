@@ -64,8 +64,7 @@ export class ObsidianHostAdapter implements IHostAdapter {
   }
 
   async writeData(key: string, value: string): Promise<void> {
-    const data =
-      ((await this.plugin.loadData()) as Record<string, string> | null) ?? {};
+    const data = ((await this.plugin.loadData()) as Record<string, string> | null) ?? {};
     data[key] = value;
     await this.plugin.saveData(data);
   }

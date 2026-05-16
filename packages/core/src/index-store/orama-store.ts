@@ -1,10 +1,4 @@
-import {
-  create,
-  insertMultiple,
-  removeMultiple,
-  search,
-  type AnyOrama,
-} from "@orama/orama";
+import { create, insertMultiple, removeMultiple, search, type AnyOrama } from "@orama/orama";
 import { AetherError } from "../errors.js";
 import type { Chunk, Note, NoteKind, SearchFilters } from "../types.js";
 
@@ -178,10 +172,9 @@ export class OramaIndexStore {
       limit: args.limit,
     };
     if (where) searchParams["where"] = where;
-    const result = (await search(
-      this.orama,
-      searchParams as Parameters<typeof search>[1],
-    )) as { hits: Array<{ document: OramaRow; score: number }> };
+    const result = (await search(this.orama, searchParams as Parameters<typeof search>[1])) as {
+      hits: Array<{ document: OramaRow; score: number }>;
+    };
     return result.hits.map((h) => {
       const row = this.chunkRows.get(h.document.id) ?? h.document;
       return {

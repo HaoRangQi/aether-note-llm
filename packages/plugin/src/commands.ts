@@ -41,11 +41,7 @@ const AI_ACTIONS: AiAction[] = [
   },
 ];
 
-async function runAi(
-  plugin: AetherPlugin,
-  editor: Editor,
-  action: AiAction,
-): Promise<void> {
+async function runAi(plugin: AetherPlugin, editor: Editor, action: AiAction): Promise<void> {
   const sel = editor.getSelection();
   if (!sel) {
     new Notice("Select some text first", 3000);

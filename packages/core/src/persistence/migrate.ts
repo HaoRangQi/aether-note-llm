@@ -16,9 +16,7 @@ export function migrateSettings(raw: unknown): PersistedSettings {
       ui: {
         alpha: typeof obj.ui?.alpha === "number" ? obj.ui.alpha : 0.4,
         aetherInboxFolder:
-          typeof obj.ui?.aetherInboxFolder === "string"
-            ? obj.ui.aetherInboxFolder
-            : "Aether Inbox",
+          typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
         scanScope: obj.ui?.scanScope === "aether-inbox-only" ? "aether-inbox-only" : "vault",
       },
       budgets: {

@@ -225,9 +225,7 @@ describe("ImportPipeline", () => {
     ]);
     reg.setApiKeys({ k: "s" });
     // Only metadata bound; no embedding → pipeline must skip dup detection.
-    reg.setBindings([
-      { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-    ]);
+    reg.setBindings([{ feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} }]);
     const p = new ImportPipeline({
       host,
       registry: reg,

@@ -11,6 +11,7 @@
 **Reference spec:** `docs/superpowers/specs/2026-05-16-aether-note-llm-design.md`. Every task below cites the relevant section (e.g. `[spec §4]`).
 
 **Conventions for this plan:**
+
 - Code blocks in steps are the **complete file content** unless an `:line-range` is shown.
 - Commands assume the project root as the working directory unless otherwise stated.
 - Every task ends with a green test + a commit. Commit messages are in Chinese (matches repo convention in the existing design-doc commit).
@@ -135,6 +136,7 @@ aether-note-llm/                          # repo root
 ```
 
 **Decomposition rationale:**
+
 - **One responsibility per file.** `markdown/frontmatter.ts` only handles YAML; `chunker.ts` only splits content. Cross-cutting concerns get their own folder (`ai/`, `provider/`, `connectors/`).
 - **`host/` is the seam.** Every side effect a host can perform sits behind `IHostAdapter`. Core never imports `node:fs` or `obsidian`.
 - **`app.ts` is the façade.** Hosts only need to call methods on `AetherCore`; the wiring of provider registry → search engine → import pipeline happens once there.
@@ -206,6 +208,7 @@ Each task ends with a green test (where applicable) and a commit. Branches are n
 **Goal:** pnpm monorepo skeleton with TypeScript base config and ignore files. No code yet — just the harness.
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.base.json`
@@ -362,6 +365,7 @@ git commit -m "chore: 初始化 pnpm monorepo 与共享配置"
 **Goal:** Empty but typecheckable core package with vitest wired up.
 
 **Files:**
+
 - Create: `packages/core/package.json`
 - Create: `packages/core/tsconfig.json`
 - Create: `packages/core/vitest.config.ts`
@@ -478,6 +482,7 @@ git commit -m "chore(core): 创建 @aether/core 包脚手架"
 **Goal:** Establish the type contract once. All downstream tasks import from here.
 
 **Files:**
+
 - Create: `packages/core/src/types.ts`
 - Create: `packages/core/src/errors.ts`
 - Create: `packages/core/tests/unit/errors.test.ts`
@@ -561,13 +566,7 @@ export interface InboxBatch {
 
 // ---- Provider / Feature -------------------------------------------------
 
-export type Feature =
-  | "chat"
-  | "embedding"
-  | "summarize"
-  | "rewrite"
-  | "extract"
-  | "inbox_metadata";
+export type Feature = "chat" | "embedding" | "summarize" | "rewrite" | "extract" | "inbox_metadata";
 
 export interface ProviderConfig {
   id: string;
@@ -819,6 +818,7 @@ git commit -m "feat(core): 定义领域类型与 AetherError"
 **Goal:** Declare the only seam between core and the outside world, and provide an in-memory implementation that all integration tests will use.
 
 **Files:**
+
 - Create: `packages/core/src/host/adapter.ts`
 - Create: `packages/core/src/host/in-memory.ts`
 - Create: `packages/core/tests/unit/host/in-memory.test.ts`
@@ -829,14 +829,14 @@ git commit -m "feat(core): 定义领域类型与 AetherError"
 
 ```typescript
 export interface VaultFileMeta {
-  path: string;   // vault-relative POSIX path
-  mtime: number;  // UTC ms
-  size: number;   // bytes
+  path: string; // vault-relative POSIX path
+  mtime: number; // UTC ms
+  size: number; // bytes
 }
 
 export interface NoticeOptions {
   level?: "info" | "warn" | "error";
-  timeoutMs?: number;  // 0 = sticky, default 5000
+  timeoutMs?: number; // 0 = sticky, default 5000
 }
 
 export interface IHostAdapter {
@@ -867,7 +867,10 @@ export interface IHostAdapter {
 ```typescript
 import type { IHostAdapter, NoticeOptions, VaultFileMeta } from "./adapter.js";
 
-interface MemoryFile { content: string; mtime: number; }
+interface MemoryFile {
+  content: string;
+  mtime: number;
+}
 
 export interface InMemoryHostOptions {
   files?: Record<string, string>;
@@ -876,7 +879,10 @@ export interface InMemoryHostOptions {
   newId?: () => string;
 }
 
-interface RecordedNotice { message: string; options: NoticeOptions | undefined; }
+interface RecordedNotice {
+  message: string;
+  options: NoticeOptions | undefined;
+}
 
 export class InMemoryHostAdapter implements IHostAdapter {
   private files = new Map<string, MemoryFile>();
@@ -893,14 +899,18 @@ export class InMemoryHostAdapter implements IHostAdapter {
     for (const [p, c] of Object.entries(opts.files ?? {})) {
       this.files.set(p, { content: c, mtime: t0 });
     }
-    this.fetchImpl = opts.fetch ?? (async () => {
-      throw new Error("InMemoryHostAdapter.fetch not stubbed");
-    });
+    this.fetchImpl =
+      opts.fetch ??
+      (async () => {
+        throw new Error("InMemoryHostAdapter.fetch not stubbed");
+      });
     this.nowImpl = opts.now ?? (() => Date.now());
-    this.newIdImpl = opts.newId ?? (() => {
-      this.idCounter += 1;
-      return `mem-${String(this.idCounter).padStart(6, "0")}`;
-    });
+    this.newIdImpl =
+      opts.newId ??
+      (() => {
+        this.idCounter += 1;
+        return `mem-${String(this.idCounter).padStart(6, "0")}`;
+      });
   }
 
   async listMarkdown(dir: string): Promise<VaultFileMeta[]> {
@@ -923,16 +933,34 @@ export class InMemoryHostAdapter implements IHostAdapter {
   async writeFile(p: string, c: string): Promise<void> {
     this.files.set(p, { content: c, mtime: this.nowImpl() });
   }
-  async deleteFile(p: string): Promise<void> { this.files.delete(p); }
-  async exists(p: string): Promise<boolean> { return this.files.has(p); }
+  async deleteFile(p: string): Promise<void> {
+    this.files.delete(p);
+  }
+  async exists(p: string): Promise<boolean> {
+    return this.files.has(p);
+  }
   async ensureDir(_p: string): Promise<void> {}
-  async readData(k: string): Promise<string | null> { return this.data.get(k) ?? null; }
-  async writeData(k: string, v: string): Promise<void> { this.data.set(k, v); }
-  fetch(i: string, init?: RequestInit): Promise<Response> { return this.fetchImpl(i, init); }
-  notify(m: string, o?: NoticeOptions): void { this.notices.push({ message: m, options: o }); }
-  async openExternal(u: string): Promise<void> { this.opened.push(u); }
-  now(): number { return this.nowImpl(); }
-  newId(): string { return this.newIdImpl(); }
+  async readData(k: string): Promise<string | null> {
+    return this.data.get(k) ?? null;
+  }
+  async writeData(k: string, v: string): Promise<void> {
+    this.data.set(k, v);
+  }
+  fetch(i: string, init?: RequestInit): Promise<Response> {
+    return this.fetchImpl(i, init);
+  }
+  notify(m: string, o?: NoticeOptions): void {
+    this.notices.push({ message: m, options: o });
+  }
+  async openExternal(u: string): Promise<void> {
+    this.opened.push(u);
+  }
+  now(): number {
+    return this.nowImpl();
+  }
+  newId(): string {
+    return this.newIdImpl();
+  }
 }
 ```
 
@@ -965,10 +993,7 @@ describe("InMemoryHostAdapter", () => {
       },
     });
     const list = await h.listMarkdown("Aether Inbox/notes");
-    expect(list.map((f) => f.path)).toEqual([
-      "Aether Inbox/notes/x.md",
-      "Aether Inbox/notes/y.md",
-    ]);
+    expect(list.map((f) => f.path)).toEqual(["Aether Inbox/notes/x.md", "Aether Inbox/notes/y.md"]);
   });
 
   it("notify records notices", () => {
@@ -1031,6 +1056,7 @@ git commit -m "feat(core): 定义 IHostAdapter 接口并提供内存实现"
 **Goal:** Three small pure utilities used everywhere. Each in its own file with its own test.
 
 **Files:**
+
 - Create: `packages/core/src/ids.ts`
 - Create: `packages/core/src/hash.ts`
 - Create: `packages/core/src/url-normalize.ts`
@@ -1083,14 +1109,30 @@ export async function sha256Hex(input: string): Promise<string> {
 
 ```typescript
 const TRACKING = new Set([
-  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
-  "fbclid", "gclid", "msclkid", "mc_cid", "mc_eid", "yclid",
-  "ref", "ref_src", "spm",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "utm_id",
+  "fbclid",
+  "gclid",
+  "msclkid",
+  "mc_cid",
+  "mc_eid",
+  "yclid",
+  "ref",
+  "ref_src",
+  "spm",
 ]);
 
 export function normalizeUrl(raw: string): string {
   let u: URL;
-  try { u = new URL(raw); } catch { return raw.trim(); }
+  try {
+    u = new URL(raw);
+  } catch {
+    return raw.trim();
+  }
   u.protocol = u.protocol.toLowerCase();
   u.hostname = u.hostname.toLowerCase();
   u.hash = "";
@@ -1135,7 +1177,7 @@ describe("slugify", () => {
   });
 
   it("strips reserved filesystem characters", () => {
-    expect(slugify('foo/bar:baz?<>|')).toBe("foobarbaz");
+    expect(slugify("foo/bar:baz?<>|")).toBe("foobarbaz");
   });
 
   it("returns 'untitled' for empty / whitespace", () => {
@@ -1194,9 +1236,7 @@ describe("normalizeUrl", () => {
   });
 
   it("removes UTM tracking parameters", () => {
-    expect(normalizeUrl("https://x.com/a?utm_source=foo&keep=1")).toBe(
-      "https://x.com/a?keep=1",
-    );
+    expect(normalizeUrl("https://x.com/a?utm_source=foo&keep=1")).toBe("https://x.com/a?keep=1");
   });
 
   it("removes fbclid", () => {
@@ -1236,6 +1276,7 @@ git commit -m "feat(core): ids / hash / url-normalize 工具"
 **Goal:** Read / write Obsidian-compatible YAML frontmatter plus Aether private fields (`aether_*`). Tolerant: malformed YAML must not crash callers.
 
 **Files:**
+
 - Create: `packages/core/src/markdown/frontmatter.ts`
 - Create: `packages/core/tests/unit/markdown/frontmatter.test.ts`
 
@@ -1276,7 +1317,9 @@ export function parseDocument(raw: string): ParsedDocument {
     return { frontmatter: {}, body: raw, malformed: false };
   }
   try {
-    const m = matter(raw, { engines: { yaml: { parse: yamlParse as never, stringify: yamlStringify as never } } });
+    const m = matter(raw, {
+      engines: { yaml: { parse: yamlParse as never, stringify: yamlStringify as never } },
+    });
     const fm = (m.data ?? {}) as AetherFrontmatter;
     return { frontmatter: fm, body: m.content, malformed: false };
   } catch {
@@ -1284,7 +1327,10 @@ export function parseDocument(raw: string): ParsedDocument {
     const lines = raw.split("\n");
     let end = -1;
     for (let i = 1; i < lines.length; i++) {
-      if (lines[i] === DELIM) { end = i; break; }
+      if (lines[i] === DELIM) {
+        end = i;
+        break;
+      }
     }
     if (end === -1) {
       return { frontmatter: {}, body: raw, malformed: true };
@@ -1296,9 +1342,15 @@ export function parseDocument(raw: string): ParsedDocument {
 export function serializeDocument(fm: AetherFrontmatter, body: string): string {
   const ordered: Record<string, unknown> = {};
   const known = [
-    "aether_id", "aether_kind", "title", "tags",
-    "aether_summary", "aether_source", "aether_url",
-    "aether_created", "aether_updated",
+    "aether_id",
+    "aether_kind",
+    "title",
+    "tags",
+    "aether_summary",
+    "aether_source",
+    "aether_url",
+    "aether_created",
+    "aether_updated",
   ];
   for (const k of known) {
     if (fm[k] !== undefined) ordered[k] = fm[k];
@@ -1313,7 +1365,8 @@ export function serializeDocument(fm: AetherFrontmatter, body: string): string {
 
 /** Derive a display title using fallback chain: frontmatter.title → first H1 → filename stem. */
 export function deriveTitle(parsed: ParsedDocument, vaultPath: string): string {
-  const fmTitle = typeof parsed.frontmatter.title === "string" ? parsed.frontmatter.title.trim() : "";
+  const fmTitle =
+    typeof parsed.frontmatter.title === "string" ? parsed.frontmatter.title.trim() : "";
   if (fmTitle) return fmTitle;
   const h1 = /^#\s+(.+)$/m.exec(parsed.body);
   if (h1 && h1[1]) return h1[1].trim();
@@ -1397,10 +1450,7 @@ hello`;
   });
 
   it("emits known keys in canonical order", () => {
-    const out = serializeDocument(
-      { title: "T", aether_id: "I", aether_kind: "note" },
-      "body",
-    );
+    const out = serializeDocument({ title: "T", aether_id: "I", aether_kind: "note" }, "body");
     const idIdx = out.indexOf("aether_id");
     const kindIdx = out.indexOf("aether_kind");
     const titleIdx = out.indexOf("title");
@@ -1459,6 +1509,7 @@ git commit -m "feat(core): frontmatter 解析/序列化与 deriveTitle 兜底"
 **Goal:** Split a markdown body into chunks roughly aligned with headings, capped at ~400 tokens (≈1600 chars heuristic). Each chunk carries its heading path "H1 > H2 > H3".
 
 **Files:**
+
 - Create: `packages/core/src/markdown/chunker.ts`
 - Create: `packages/core/tests/unit/markdown/chunker.test.ts`
 
@@ -1667,6 +1718,7 @@ git commit -m "feat(core): markdown chunker（heading-aware 切片）"
 **Goal:** Define the `Provider` interface (chat / embed / listModels / testConnection) and a `ProviderRegistry` that resolves `(feature, providerId, model)` based on FeatureBinding.
 
 **Files:**
+
 - Create: `packages/core/src/provider/types.ts`
 - Create: `packages/core/src/provider/registry.ts`
 - Create: `packages/core/tests/unit/provider/registry.test.ts`
@@ -1810,10 +1862,18 @@ function fakeFactory(captured: { args?: unknown }): ProviderFactory {
       captured.args = args;
       const p: Provider = {
         id: args.id,
-        async *chat() { yield { delta: "x", finishReason: "stop" as const }; },
-        async embed() { return { vectors: [[1]], model: "m", dim: 1 }; },
-        async listModels() { return ["m"]; },
-        async testConnection() { return { ok: true }; },
+        async *chat() {
+          yield { delta: "x", finishReason: "stop" as const };
+        },
+        async embed() {
+          return { vectors: [[1]], model: "m", dim: 1 };
+        },
+        async listModels() {
+          return ["m"];
+        },
+        async testConnection() {
+          return { ok: true };
+        },
       };
       return p;
     },
@@ -1829,14 +1889,19 @@ describe("ProviderRegistry", () => {
       factories: [fakeFactory(captured)],
       fetch: async () => new Response("{}"),
     });
-    reg.setConfigs([{
-      id: "p1", name: "Test", baseUrl: "https://x", apiKeyRef: "k1",
-      defaultHeaders: {}, enabled: true, createdAt: 0,
-    }]);
-    reg.setApiKeys({ k1: "secret" });
-    reg.setBindings([
-      { feature: "chat", providerId: "p1", modelName: "m", params: {} },
+    reg.setConfigs([
+      {
+        id: "p1",
+        name: "Test",
+        baseUrl: "https://x",
+        apiKeyRef: "k1",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
     ]);
+    reg.setApiKeys({ k1: "secret" });
+    reg.setBindings([{ feature: "chat", providerId: "p1", modelName: "m", params: {} }]);
   });
 
   it("resolves binding to provider + model", () => {
@@ -1900,10 +1965,18 @@ describe("ProviderRegistry", () => {
       kind: "openai-compatible",
       create: () => ({
         id: "p1",
-        async *chat() { yield { delta: "from-replacement", finishReason: "stop" as const }; },
-        async embed() { return { vectors: [[2]], model: "m", dim: 1 }; },
-        async listModels() { return ["m"]; },
-        async testConnection() { return { ok: true }; },
+        async *chat() {
+          yield { delta: "from-replacement", finishReason: "stop" as const };
+        },
+        async embed() {
+          return { vectors: [[2]], model: "m", dim: 1 };
+        },
+        async listModels() {
+          return ["m"];
+        },
+        async testConnection() {
+          return { ok: true };
+        },
       }),
     };
     reg.registerFactory(replacement);
@@ -1932,6 +2005,7 @@ git commit -m "feat(core): Provider 接口与注册表"
 **Goal:** Implement the OpenAI-compatible adapter (chat + SSE streaming + embed + listModels + testConnection) plus a tiny retry helper and a `MockProvider` for tests.
 
 **Files:**
+
 - Create: `packages/core/src/provider/retry.ts`
 - Create: `packages/core/src/provider/openai-compatible.ts`
 - Create: `packages/core/src/provider/mock-provider.ts`
@@ -2048,7 +2122,7 @@ export class OpenAICompatibleProvider implements Provider {
   private headers(extra: Record<string, string> = {}): Record<string, string> {
     return {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${this.apiKey}`,
+      Authorization: `Bearer ${this.apiKey}`,
       ...this.defaultHeaders,
       ...extra,
     };
@@ -2178,15 +2252,18 @@ async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncIterable<
 }
 
 function httpError(status: number, text: string): AetherError {
-  return new AetherError(
-    "PROVIDER_HTTP_ERROR",
-    `HTTP ${status}: ${text.slice(0, 500)}`,
-    { status, text },
-  );
+  return new AetherError("PROVIDER_HTTP_ERROR", `HTTP ${status}: ${text.slice(0, 500)}`, {
+    status,
+    text,
+  });
 }
 
 async function safeText(res: Response): Promise<string> {
-  try { return await res.text(); } catch { return ""; }
+  try {
+    return await res.text();
+  } catch {
+    return "";
+  }
 }
 ```
 
@@ -2223,9 +2300,10 @@ export class MockProvider implements Provider {
 
   async *chat(req: ChatRequest): AsyncIterable<ChatChunk> {
     this.calls.chat.push(req);
-    const chunks = typeof this.opts.chatChunks === "function"
-      ? this.opts.chatChunks(req)
-      : (this.opts.chatChunks ?? [{ delta: "mock-response", finishReason: "stop" }]);
+    const chunks =
+      typeof this.opts.chatChunks === "function"
+        ? this.opts.chatChunks(req)
+        : (this.opts.chatChunks ?? [{ delta: "mock-response", finishReason: "stop" }]);
     for (const c of chunks) yield c;
   }
 
@@ -2264,7 +2342,11 @@ function deterministicVector(seed: string, dim: number): number[] {
 ```typescript
 import { describe, expect, it } from "vitest";
 import { AetherError } from "../../../src/errors.js";
-import { defaultShouldRetry, isRetriableHttpStatus, withRetry } from "../../../src/provider/retry.js";
+import {
+  defaultShouldRetry,
+  isRetriableHttpStatus,
+  withRetry,
+} from "../../../src/provider/retry.js";
 
 describe("isRetriableHttpStatus", () => {
   it("retries 429 / 5xx / 408", () => {
@@ -2300,7 +2382,13 @@ describe("defaultShouldRetry", () => {
 describe("withRetry", () => {
   it("returns first success without retry", async () => {
     let n = 0;
-    const v = await withRetry(async () => { n++; return "ok"; }, { sleep: async () => {} });
+    const v = await withRetry(
+      async () => {
+        n++;
+        return "ok";
+      },
+      { sleep: async () => {} },
+    );
     expect(v).toBe("ok");
     expect(n).toBe(1);
   });
@@ -2358,7 +2446,11 @@ import { OpenAICompatibleProvider } from "../../../src/provider/openai-compatibl
 
 function mkProvider(fetchImpl: (i: string, init?: RequestInit) => Promise<Response>) {
   return new OpenAICompatibleProvider({
-    id: "p", baseUrl: "https://api.test/v1", apiKey: "k", defaultHeaders: {}, fetch: fetchImpl,
+    id: "p",
+    baseUrl: "https://api.test/v1",
+    apiKey: "k",
+    defaultHeaders: {},
+    fetch: fetchImpl,
   });
 }
 
@@ -2374,18 +2466,20 @@ function sseBody(events: string[]): ReadableStream<Uint8Array> {
 
 describe("OpenAICompatibleProvider", () => {
   it("listModels parses {data: [{id}]}", async () => {
-    const p = mkProvider(async () => new Response(
-      JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }] }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
+    const p = mkProvider(
+      async () =>
+        new Response(JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
     expect(await p.listModels()).toEqual(["m1", "m2"]);
   });
 
   it("testConnection returns ok when listModels succeeds", async () => {
-    const p = mkProvider(async () => new Response(
-      JSON.stringify({ data: [{ id: "m" }] }),
-      { status: 200 },
-    ));
+    const p = mkProvider(
+      async () => new Response(JSON.stringify({ data: [{ id: "m" }] }), { status: 200 }),
+    );
     const r = await p.testConnection();
     expect(r.ok).toBe(true);
     expect(r.models).toEqual(["m"]);
@@ -2399,13 +2493,16 @@ describe("OpenAICompatibleProvider", () => {
   });
 
   it("embed maps vectors + dim + usage", async () => {
-    const p = mkProvider(async () => new Response(
-      JSON.stringify({
-        data: [{ embedding: [0.1, 0.2, 0.3] }],
-        usage: { prompt_tokens: 4, completion_tokens: 0 },
-      }),
-      { status: 200 },
-    ));
+    const p = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: [0.1, 0.2, 0.3] }],
+            usage: { prompt_tokens: 4, completion_tokens: 0 },
+          }),
+          { status: 200 },
+        ),
+    );
     const r = await p.embed({ inputs: ["x"], model: "m" });
     expect(r.dim).toBe(3);
     expect(r.vectors[0]).toEqual([0.1, 0.2, 0.3]);
@@ -2414,7 +2511,10 @@ describe("OpenAICompatibleProvider", () => {
 
   it("embed throws PROVIDER_HTTP_ERROR on 401 (no retry for 401)", async () => {
     let calls = 0;
-    const p = mkProvider(async () => { calls++; return new Response("nope", { status: 401 }); });
+    const p = mkProvider(async () => {
+      calls++;
+      return new Response("nope", { status: 401 });
+    });
     await expect(p.embed({ inputs: ["x"], model: "m" })).rejects.toBeInstanceOf(AetherError);
     expect(calls).toBe(1);
   });
@@ -2426,12 +2526,20 @@ describe("OpenAICompatibleProvider", () => {
       `data: ${JSON.stringify({ choices: [{ delta: { content: "" }, finish_reason: "stop" }] })}\n`,
       `data: [DONE]\n`,
     ];
-    const p = mkProvider(async () => new Response(sseBody(events), {
-      status: 200, headers: { "Content-Type": "text/event-stream" },
-    }));
+    const p = mkProvider(
+      async () =>
+        new Response(sseBody(events), {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+    );
     const out: string[] = [];
     let finish: string | null = null;
-    for await (const c of p.chat({ messages: [{ role: "user", content: "hi" }], model: "m", stream: true })) {
+    for await (const c of p.chat({
+      messages: [{ role: "user", content: "hi" }],
+      model: "m",
+      stream: true,
+    })) {
       out.push(c.delta);
       if (c.finishReason) finish = c.finishReason;
     }
@@ -2440,14 +2548,21 @@ describe("OpenAICompatibleProvider", () => {
   });
 
   it("chat falls back to non-streaming JSON when body absent", async () => {
-    const p = mkProvider(async () => new Response(
-      JSON.stringify({
-        choices: [{ message: { content: "full reply" }, finish_reason: "stop" }],
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
+    const p = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "full reply" }, finish_reason: "stop" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    );
     const out: string[] = [];
-    for await (const c of p.chat({ messages: [{ role: "user", content: "x" }], model: "m", stream: false })) {
+    for await (const c of p.chat({
+      messages: [{ role: "user", content: "x" }],
+      model: "m",
+      stream: false,
+    })) {
       out.push(c.delta);
     }
     expect(out.join("")).toBe("full reply");
@@ -2476,6 +2591,7 @@ git commit -m "feat(core): OpenAI 兼容 Provider + 重试 + Mock"
 **Goal:** Append-only usage log + monthly aggregate query + soft budget warning.
 
 **Files:**
+
 - Create: `packages/core/src/budget/token-usage.ts`
 - Create: `packages/core/tests/unit/budget/token-usage.test.ts`
 
@@ -2487,7 +2603,7 @@ git commit -m "feat(core): OpenAI 兼容 Provider + 重试 + Mock"
 import type { Feature, TokenUsage } from "../types.js";
 
 export interface UsageEntry {
-  date: string;       // ISO yyyy-mm-dd
+  date: string; // ISO yyyy-mm-dd
   providerId: string;
   feature: Feature;
   model: string;
@@ -2504,12 +2620,7 @@ export class TokenUsageStore {
   private entries: UsageEntry[] = [];
   constructor(private readonly now: () => number = Date.now) {}
 
-  record(args: {
-    providerId: string;
-    feature: Feature;
-    model: string;
-    usage: TokenUsage;
-  }): void {
+  record(args: { providerId: string; feature: Feature; model: string; usage: TokenUsage }): void {
     const d = new Date(this.now());
     const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
     this.entries.push({
@@ -2547,8 +2658,12 @@ export class TokenUsageStore {
   }
 
   /** Serialise entries for persistence. */
-  toJSON(): UsageEntry[] { return [...this.entries]; }
-  fromJSON(entries: UsageEntry[]): void { this.entries = [...entries]; }
+  toJSON(): UsageEntry[] {
+    return [...this.entries];
+  }
+  fromJSON(entries: UsageEntry[]): void {
+    this.entries = [...entries];
+  }
 }
 ```
 
@@ -2562,8 +2677,18 @@ describe("TokenUsageStore", () => {
   it("aggregates within the current month", () => {
     const fixed = Date.UTC(2026, 4, 16, 0, 0, 0); // 2026-05-16 UTC
     const s = new TokenUsageStore(() => fixed);
-    s.record({ providerId: "p", feature: "chat", model: "m", usage: { promptTokens: 10, completionTokens: 5 } });
-    s.record({ providerId: "p", feature: "chat", model: "m", usage: { promptTokens: 3, completionTokens: 2 } });
+    s.record({
+      providerId: "p",
+      feature: "chat",
+      model: "m",
+      usage: { promptTokens: 10, completionTokens: 5 },
+    });
+    s.record({
+      providerId: "p",
+      feature: "chat",
+      model: "m",
+      usage: { promptTokens: 3, completionTokens: 2 },
+    });
     const snap = s.snapshot();
     expect(snap.monthTotal).toEqual({ promptTokens: 13, completionTokens: 7 });
     expect(snap.perFeature.chat).toEqual({ promptTokens: 13, completionTokens: 7 });
@@ -2571,7 +2696,12 @@ describe("TokenUsageStore", () => {
 
   it("ignores entries from prior months", () => {
     const store = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
-    store.record({ providerId: "p", feature: "chat", model: "m", usage: { promptTokens: 10, completionTokens: 0 } });
+    store.record({
+      providerId: "p",
+      feature: "chat",
+      model: "m",
+      usage: { promptTokens: 10, completionTokens: 0 },
+    });
     // simulate that current time advanced into next month
     const newStore = new TokenUsageStore(() => Date.UTC(2026, 5, 1));
     newStore.fromJSON(store.toJSON());
@@ -2581,20 +2711,35 @@ describe("TokenUsageStore", () => {
 
   it("isOverBudget returns false when threshold null", () => {
     const s = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
-    s.record({ providerId: "p", feature: "chat", model: "m", usage: { promptTokens: 1_000_000, completionTokens: 0 } });
+    s.record({
+      providerId: "p",
+      feature: "chat",
+      model: "m",
+      usage: { promptTokens: 1_000_000, completionTokens: 0 },
+    });
     expect(s.isOverBudget(null)).toBe(false);
   });
 
   it("isOverBudget triggers at threshold", () => {
     const s = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
-    s.record({ providerId: "p", feature: "chat", model: "m", usage: { promptTokens: 600, completionTokens: 400 } });
+    s.record({
+      providerId: "p",
+      feature: "chat",
+      model: "m",
+      usage: { promptTokens: 600, completionTokens: 400 },
+    });
     expect(s.isOverBudget(1000)).toBe(true);
     expect(s.isOverBudget(2000)).toBe(false);
   });
 
   it("toJSON / fromJSON round-trip", () => {
     const a = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
-    a.record({ providerId: "p", feature: "embedding", model: "m", usage: { promptTokens: 1, completionTokens: 0 } });
+    a.record({
+      providerId: "p",
+      feature: "embedding",
+      model: "m",
+      usage: { promptTokens: 1, completionTokens: 0 },
+    });
     const b = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
     b.fromJSON(a.toJSON());
     expect(b.snapshot()).toEqual(a.snapshot());
@@ -2623,6 +2768,7 @@ git commit -m "feat(core): token 用量统计与月度预算"
 **Goal:** Encapsulate orama into a typed API that the rest of core uses: upsert/remove notes & chunks, BM25 search, vector search, persistence.
 
 **Files:**
+
 - Create: `packages/core/src/index-store/orama-store.ts`
 - Create: `packages/core/src/index-store/serialize.ts`
 - Create: `packages/core/tests/unit/index-store/orama-store.test.ts`
@@ -2635,12 +2781,7 @@ git commit -m "feat(core): token 用量统计与月度预算"
 import { create, insertMultiple, removeMultiple, search } from "@orama/orama";
 import type { Orama } from "@orama/orama";
 import { AetherError } from "../errors.js";
-import type {
-  Chunk,
-  Note,
-  NoteKind,
-  SearchFilters,
-} from "../types.js";
+import type { Chunk, Note, NoteKind, SearchFilters } from "../types.js";
 
 interface ChunkRow {
   id: string;
@@ -2710,7 +2851,9 @@ export class OramaIndexStore {
   getNote(noteId: string): Note | undefined {
     return this.notes.get(noteId);
   }
-  allNotes(): Note[] { return [...this.notes.values()]; }
+  allNotes(): Note[] {
+    return [...this.notes.values()];
+  }
 
   // ---- Chunks ----
   async setChunks(noteId: string, chunks: Chunk[]): Promise<void> {
@@ -2774,18 +2917,24 @@ export class OramaIndexStore {
     alpha: number; // text weight
   }): Promise<VectorSearchHit[]> {
     if (args.vector.length !== this.embeddingDim) {
-      throw new AetherError("EMBED_DIM_MISMATCH", `query dim ${args.vector.length} != index dim ${this.embeddingDim}`);
+      throw new AetherError(
+        "EMBED_DIM_MISMATCH",
+        `query dim ${args.vector.length} != index dim ${this.embeddingDim}`,
+      );
     }
     const where = buildWhere(args.filters);
-    const result = await search(this.orama as never, {
-      mode: "hybrid",
-      term: args.query,
-      vector: { value: args.vector, property: "embedding" },
-      similarity: 0.0,
-      hybridWeights: { text: args.alpha, vector: 1 - args.alpha },
-      limit: args.limit,
-      where: where as never,
-    } as never);
+    const result = await search(
+      this.orama as never,
+      {
+        mode: "hybrid",
+        term: args.query,
+        vector: { value: args.vector, property: "embedding" },
+        similarity: 0.0,
+        hybridWeights: { text: args.alpha, vector: 1 - args.alpha },
+        limit: args.limit,
+        where: where as never,
+      } as never,
+    );
     const hits = (result as unknown as { hits: Array<{ document: ChunkRow; score: number }> }).hits;
     return hits.map((h) => ({
       chunkId: h.document.id,
@@ -2815,7 +2964,7 @@ function buildWhere(f: SearchFilters | undefined): Record<string, unknown> | und
 }
 ```
 
-> **Engineer note:** The orama API surface evolves rapidly. If a method signature differs between versions (e.g. `search` returns `{ hits, count }` or accepts a different `where` shape), prefer the version installed at task time (`@orama/orama@^3.0.0`). Fix this file *only* — the public `OramaIndexStore` API is stable for the rest of core.
+> **Engineer note:** The orama API surface evolves rapidly. If a method signature differs between versions (e.g. `search` returns `{ hits, count }` or accepts a different `where` shape), prefer the version installed at task time (`@orama/orama@^3.0.0`). Fix this file _only_ — the public `OramaIndexStore` API is stable for the rest of core.
 
 - [ ] **Step 2: Write `packages/core/src/index-store/serialize.ts`**
 
@@ -2869,9 +3018,19 @@ import type { Chunk, Note } from "../../../src/types.js";
 
 function fakeNote(id: string, path: string, tags: string[] = []): Note {
   return {
-    id, vaultPath: path, kind: "note", title: id, summary: null, tags, url: null,
-    source: "manual", sourceMeta: {}, createdAt: 1_000_000, updatedAt: 1_000_000,
-    contentHash: "h", indexState: "fresh",
+    id,
+    vaultPath: path,
+    kind: "note",
+    title: id,
+    summary: null,
+    tags,
+    url: null,
+    source: "manual",
+    sourceMeta: {},
+    createdAt: 1_000_000,
+    updatedAt: 1_000_000,
+    contentHash: "h",
+    indexState: "fresh",
   };
 }
 
@@ -2928,9 +3087,9 @@ describe("OramaIndexStore", () => {
 
   it("EMBED_DIM_MISMATCH when chunk dim wrong", async () => {
     store.upsertNote(fakeNote("n1", "a.md"));
-    await expect(
-      store.setChunks("n1", [fakeChunk("n1", 0, "x", [0, 0, 0])]),
-    ).rejects.toMatchObject({ code: "EMBED_DIM_MISMATCH" });
+    await expect(store.setChunks("n1", [fakeChunk("n1", 0, "x", [0, 0, 0])])).rejects.toMatchObject(
+      { code: "EMBED_DIM_MISMATCH" },
+    );
   });
 
   it("hybrid search returns matching chunks", async () => {
@@ -2939,7 +3098,10 @@ describe("OramaIndexStore", () => {
     await store.setChunks("n1", [fakeChunk("n1", 0, "alpha keyword in this chunk", vec(1))]);
     await store.setChunks("n2", [fakeChunk("n2", 0, "completely different content", vec(9))]);
     const hits = await store.searchHybrid({
-      query: "alpha", vector: vec(1), limit: 5, alpha: 0.5,
+      query: "alpha",
+      vector: vec(1),
+      limit: 5,
+      alpha: 0.5,
     });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.noteId).toBe("n1");
@@ -2953,7 +3115,10 @@ describe("OramaIndexStore", () => {
     await store.setChunks("n1", [fakeChunk("n1", 0, "x", vec(1))]);
     await store.setChunks("n2", [fakeChunk("n2", 0, "x", vec(1))]);
     const hits = await store.searchHybrid({
-      query: "x", vector: vec(1), limit: 5, alpha: 0.5,
+      query: "x",
+      vector: vec(1),
+      limit: 5,
+      alpha: 0.5,
       filters: { kind: "bookmark" },
     });
     expect(hits.every((h) => h.kind === "bookmark")).toBe(true);
@@ -2980,6 +3145,7 @@ git commit -m "feat(core): OramaIndexStore（混合检索 + 序列化）"
 **Goal:** Tie ProviderRegistry + OramaIndexStore together. Embeds the query → calls hybrid search → groups chunk hits by note → returns `SearchHit[]`.
 
 **Files:**
+
 - Create: `packages/core/src/search/search-engine.ts`
 - Create: `packages/core/tests/unit/search/search-engine.test.ts`
 
@@ -2989,12 +3155,7 @@ git commit -m "feat(core): OramaIndexStore（混合检索 + 序列化）"
 
 ```typescript
 import type { ProviderRegistry } from "../provider/registry.js";
-import type {
-  HitChunk,
-  Note,
-  SearchHit,
-  SearchRequest,
-} from "../types.js";
+import type { HitChunk, Note, SearchHit, SearchRequest } from "../types.js";
 import type { OramaIndexStore } from "../index-store/orama-store.js";
 
 export interface SearchEngineDeps {
@@ -3013,7 +3174,9 @@ export class SearchEngine {
     const staleRatio = this.deps.getStaleRatio?.() ?? 0;
     // When more than 30% of chunks are stale, raise alpha towards 0.8 linearly.
     const alpha = clamp01(
-      staleRatio > 0.3 ? Math.max(baseAlpha, 0.4 + (staleRatio - 0.3) * (0.8 - 0.4) / 0.7) : baseAlpha,
+      staleRatio > 0.3
+        ? Math.max(baseAlpha, 0.4 + ((staleRatio - 0.3) * (0.8 - 0.4)) / 0.7)
+        : baseAlpha,
     );
 
     const { provider, model } = this.deps.registry.resolve("embedding");
@@ -3092,9 +3255,19 @@ import type { Note } from "../../../src/types.js";
 
 function fakeNote(id: string, path: string, title: string): Note {
   return {
-    id, vaultPath: path, kind: "note", title, summary: null, tags: [], url: null,
-    source: "manual", sourceMeta: {}, createdAt: 1_000_000, updatedAt: 1_000_000,
-    contentHash: "h", indexState: "fresh",
+    id,
+    vaultPath: path,
+    kind: "note",
+    title,
+    summary: null,
+    tags: [],
+    url: null,
+    source: "manual",
+    sourceMeta: {},
+    createdAt: 1_000_000,
+    updatedAt: 1_000_000,
+    contentHash: "h",
+    indexState: "fresh",
   };
 }
 
@@ -3104,10 +3277,17 @@ async function makeRig() {
   const mock = new MockProvider({ embedDim: 8 });
   const factory: ProviderFactory = { kind: "openai-compatible", create: () => mock };
   const reg = new ProviderRegistry({ factories: [factory], fetch: async () => new Response("{}") });
-  reg.setConfigs([{
-    id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-    defaultHeaders: {}, enabled: true, createdAt: 0,
-  }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "secret" });
   reg.setBindings([{ feature: "embedding", providerId: "p", modelName: "m", params: {} }]);
   const engine = new SearchEngine({ registry: reg, store });
@@ -3119,18 +3299,32 @@ describe("SearchEngine", () => {
     const { store, mock, engine } = await makeRig();
     store.upsertNote(fakeNote("n1", "alpha.md", "Alpha"));
     store.upsertNote(fakeNote("n2", "beta.md", "Beta"));
-    await store.setChunks("n1", [{
-      id: "c1", noteId: "n1", ordinal: 0, headingPath: "",
-      content: "How to debug SwiftUI state loss",
-      tokenCount: 8, embeddingModel: "m", embedding: mock["opts"].embed
-        ? [] : await deterministic("How to debug SwiftUI state loss", 8),
-    }]);
-    await store.setChunks("n2", [{
-      id: "c2", noteId: "n2", ordinal: 0, headingPath: "",
-      content: "Completely unrelated text",
-      tokenCount: 4, embeddingModel: "m",
-      embedding: await deterministic("Completely unrelated text", 8),
-    }]);
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "How to debug SwiftUI state loss",
+        tokenCount: 8,
+        embeddingModel: "m",
+        embedding: mock["opts"].embed
+          ? []
+          : await deterministic("How to debug SwiftUI state loss", 8),
+      },
+    ]);
+    await store.setChunks("n2", [
+      {
+        id: "c2",
+        noteId: "n2",
+        ordinal: 0,
+        headingPath: "",
+        content: "Completely unrelated text",
+        tokenCount: 4,
+        embeddingModel: "m",
+        embedding: await deterministic("Completely unrelated text", 8),
+      },
+    ]);
     const hits = await engine.search({ query: "SwiftUI", limit: 5 });
     expect(hits[0]?.noteId).toBe("n1");
   });
@@ -3139,8 +3333,13 @@ describe("SearchEngine", () => {
     const { store, engine } = await makeRig();
     store.upsertNote(fakeNote("n1", "a.md", "A"));
     const chunks = Array.from({ length: 5 }, (_, i) => ({
-      id: `c${i}`, noteId: "n1", ordinal: i, headingPath: "",
-      content: `chunk ${i} keyword`, tokenCount: 4, embeddingModel: "m",
+      id: `c${i}`,
+      noteId: "n1",
+      ordinal: i,
+      headingPath: "",
+      content: `chunk ${i} keyword`,
+      tokenCount: 4,
+      embeddingModel: "m",
       embedding: await deterministic(`chunk ${i} keyword`, 8),
     }));
     // Resolve promises
@@ -3161,11 +3360,18 @@ describe("SearchEngine", () => {
       return orig(args);
     };
     store.upsertNote(fakeNote("n1", "a.md", "A"));
-    await store.setChunks("n1", [{
-      id: "c1", noteId: "n1", ordinal: 0, headingPath: "",
-      content: "x", tokenCount: 1, embeddingModel: "m",
-      embedding: await deterministic("x", 8),
-    }]);
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "x",
+        tokenCount: 1,
+        embeddingModel: "m",
+        embedding: await deterministic("x", 8),
+      },
+    ]);
     const engine2 = new SearchEngine({
       registry: (engine as unknown as { deps: { registry: unknown } }).deps.registry as never,
       store,
@@ -3208,6 +3414,7 @@ git commit -m "feat(core): SearchEngine（向量 + BM25 融合）"
 **Goal:** Define `SourceConnector` interface plus two simplest connectors. Each yields `RawCandidate` items.
 
 **Files:**
+
 - Create: `packages/core/src/connectors/connector.ts`
 - Create: `packages/core/src/connectors/markdown-connector.ts`
 - Create: `packages/core/src/connectors/plain-text-connector.ts`
@@ -3257,9 +3464,10 @@ export class MarkdownConnector implements SourceConnector {
       const tags = Array.isArray(parsed.frontmatter.tags)
         ? parsed.frontmatter.tags.filter((t): t is string => typeof t === "string")
         : [];
-      const url = typeof parsed.frontmatter["aether_url"] === "string"
-        ? (parsed.frontmatter["aether_url"] as string)
-        : null;
+      const url =
+        typeof parsed.frontmatter["aether_url"] === "string"
+          ? (parsed.frontmatter["aether_url"] as string)
+          : null;
       yield {
         title,
         content: parsed.body.trim(),
@@ -3315,7 +3523,9 @@ import { MarkdownConnector } from "../../../src/connectors/markdown-connector.js
 import type { ImportSource } from "../../../src/types.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 describe("MarkdownConnector", () => {
@@ -3323,7 +3533,8 @@ describe("MarkdownConnector", () => {
 
   it("canHandle markdown-file", () => {
     const s: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "" },
     };
     expect(c.canHandle(s)).toBe(true);
@@ -3331,9 +3542,11 @@ describe("MarkdownConnector", () => {
 
   it("extracts title from frontmatter when present", async () => {
     const s: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: {
-        type: "markdown-file", path: "a.md",
+        type: "markdown-file",
+        path: "a.md",
         content: "---\ntitle: Hello\ntags: [x, y]\n---\nBody",
       },
     };
@@ -3345,7 +3558,8 @@ describe("MarkdownConnector", () => {
 
   it("falls back to H1 when no frontmatter title", async () => {
     const s: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "# Heading\ntext" },
     };
     const r = await collect(c.parse(s));
@@ -3354,9 +3568,11 @@ describe("MarkdownConnector", () => {
 
   it("marks bookmark when aether_kind=bookmark", async () => {
     const s: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: {
-        type: "markdown-file", path: "a.md",
+        type: "markdown-file",
+        path: "a.md",
         content: "---\naether_kind: bookmark\naether_url: https://x\n---\n",
       },
     };
@@ -3367,7 +3583,8 @@ describe("MarkdownConnector", () => {
 
   it("emits one candidate per file in markdown-files", async () => {
     const s: ImportSource = {
-      kind: "file", label: "batch",
+      kind: "file",
+      label: "batch",
       payload: {
         type: "markdown-files",
         files: [
@@ -3383,9 +3600,11 @@ describe("MarkdownConnector", () => {
 
   it("flags malformed frontmatter in sourceMeta", async () => {
     const s: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: {
-        type: "markdown-file", path: "a.md",
+        type: "markdown-file",
+        path: "a.md",
         content: "---\ntitle: [unclosed\n---\nBody",
       },
     };
@@ -3403,19 +3622,29 @@ import { PlainTextConnector } from "../../../src/connectors/plain-text-connector
 import type { ImportSource } from "../../../src/types.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 describe("PlainTextConnector", () => {
   const c = new PlainTextConnector();
 
   it("canHandle paste-text", () => {
-    const s: ImportSource = { kind: "paste", label: "x", payload: { type: "paste-text", text: "hi" } };
+    const s: ImportSource = {
+      kind: "paste",
+      label: "x",
+      payload: { type: "paste-text", text: "hi" },
+    };
     expect(c.canHandle(s)).toBe(true);
   });
 
   it("emits one candidate with null title", async () => {
-    const s: ImportSource = { kind: "paste", label: "x", payload: { type: "paste-text", text: "Hello" } };
+    const s: ImportSource = {
+      kind: "paste",
+      label: "x",
+      payload: { type: "paste-text", text: "Hello" },
+    };
     const r = await collect(c.parse(s));
     expect(r).toHaveLength(1);
     expect(r[0]?.title).toBeNull();
@@ -3423,7 +3652,11 @@ describe("PlainTextConnector", () => {
   });
 
   it("emits nothing for whitespace-only text", async () => {
-    const s: ImportSource = { kind: "paste", label: "x", payload: { type: "paste-text", text: "   " } };
+    const s: ImportSource = {
+      kind: "paste",
+      label: "x",
+      payload: { type: "paste-text", text: "   " },
+    };
     const r = await collect(c.parse(s));
     expect(r).toEqual([]);
   });
@@ -3449,6 +3682,7 @@ git commit -m "feat(core): SourceConnector + Markdown / PlainText"
 **Goal:** Accept pre-extracted Notion export entries (path + content). Filter markdown files, strip Notion-id suffix from titles, preserve database property tags when present.
 
 **Files:**
+
 - Create: `packages/core/src/connectors/notion-zip-connector.ts`
 - Create: `packages/core/tests/unit/connectors/notion-zip-connector.test.ts`
 - Create: `packages/core/tests/fixtures/notion-entries.ts`
@@ -3478,7 +3712,8 @@ export class NotionZipConnector implements SourceConnector {
       if (!e.path.toLowerCase().endsWith(".md")) continue;
       const parsed = parseDocument(e.content);
       const title = (() => {
-        const t = typeof parsed.frontmatter.title === "string" ? parsed.frontmatter.title.trim() : "";
+        const t =
+          typeof parsed.frontmatter.title === "string" ? parsed.frontmatter.title.trim() : "";
         if (t) return t;
         const base = (e.path.split("/").pop() ?? e.path).replace(/\.md$/i, "");
         return base.replace(NOTION_ID_RE, "").trim();
@@ -3529,13 +3764,16 @@ import { NOTION_FIXTURE } from "../../fixtures/notion-entries.js";
 import type { ImportSource } from "../../../src/types.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 describe("NotionZipConnector", () => {
   const c = new NotionZipConnector();
   const src: ImportSource = {
-    kind: "file", label: "notion.zip",
+    kind: "file",
+    label: "notion.zip",
     payload: { type: "notion-zip", entries: NOTION_FIXTURE },
   };
 
@@ -3582,6 +3820,7 @@ git commit -m "feat(core): NotionZipConnector"
 **Goal:** Parse Chrome bookmark JSON (flattened to `kind: bookmark` candidates) plus a simple URL-list connector for pasted URL lines.
 
 **Files:**
+
 - Create: `packages/core/src/connectors/bookmarks-json-connector.ts`
 - Create: `packages/core/src/connectors/url-list-connector.ts`
 - Create: `packages/core/tests/fixtures/chrome-bookmarks.ts`
@@ -3632,7 +3871,11 @@ export class BookmarksJsonConnector implements SourceConnector {
   }
 }
 
-async function* walk(node: ChromeNode, path: string[], seen: Set<string>): AsyncIterable<RawCandidate> {
+async function* walk(
+  node: ChromeNode,
+  path: string[],
+  seen: Set<string>,
+): AsyncIterable<RawCandidate> {
   if (node.type === "url" && node.url) {
     const normalized = normalizeUrl(node.url);
     if (seen.has(normalized)) return;
@@ -3748,13 +3991,16 @@ import { CHROME_FIXTURE } from "../../fixtures/chrome-bookmarks.js";
 import type { ImportSource } from "../../../src/types.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 describe("BookmarksJsonConnector", () => {
   const c = new BookmarksJsonConnector();
   const src: ImportSource = {
-    kind: "file", label: "chrome.json",
+    kind: "file",
+    label: "chrome.json",
     payload: { type: "bookmarks-json", raw: JSON.stringify(CHROME_FIXTURE) },
   };
 
@@ -3788,7 +4034,9 @@ describe("BookmarksJsonConnector", () => {
 
   it("silently ignores invalid JSON", async () => {
     const bad: ImportSource = {
-      kind: "file", label: "x", payload: { type: "bookmarks-json", raw: "not json" },
+      kind: "file",
+      label: "x",
+      payload: { type: "bookmarks-json", raw: "not json" },
     };
     const r = await collect(c.parse(bad));
     expect(r).toEqual([]);
@@ -3804,7 +4052,9 @@ import { UrlListConnector } from "../../../src/connectors/url-list-connector.js"
 import type { ImportSource } from "../../../src/types.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 describe("UrlListConnector", () => {
@@ -3812,7 +4062,8 @@ describe("UrlListConnector", () => {
 
   it("emits one bookmark per non-empty URL", async () => {
     const s: ImportSource = {
-      kind: "paste", label: "x",
+      kind: "paste",
+      label: "x",
       payload: { type: "url-list", urls: ["https://a.com", "https://b.com", "", "  "] },
     };
     const r = await collect(c.parse(s));
@@ -3822,7 +4073,8 @@ describe("UrlListConnector", () => {
 
   it("dedupes after normalize", async () => {
     const s: ImportSource = {
-      kind: "paste", label: "x",
+      kind: "paste",
+      label: "x",
       payload: {
         type: "url-list",
         urls: ["https://x.com/a", "https://x.com/a?utm_source=foo"],
@@ -3853,6 +4105,7 @@ git commit -m "feat(core): BookmarksJsonConnector + UrlListConnector"
 **Goal:** Persist pending / approved / discarded / merged Inbox items + batches. Stateless from the consumer's perspective; serialises to a JSON blob the HostAdapter can write to plugin data.
 
 **Files:**
+
 - Create: `packages/core/src/import/inbox-store.ts`
 - Create: `packages/core/tests/unit/import/inbox-store.test.ts`
 
@@ -3862,12 +4115,7 @@ git commit -m "feat(core): BookmarksJsonConnector + UrlListConnector"
 
 ```typescript
 import type { IHostAdapter } from "../host/adapter.js";
-import type {
-  InboxBatch,
-  InboxItem,
-  InboxStatus,
-  PersistedInbox,
-} from "../types.js";
+import type { InboxBatch, InboxItem, InboxStatus, PersistedInbox } from "../types.js";
 
 const STORAGE_KEY = "inbox.json";
 
@@ -3974,10 +4222,20 @@ import type { InboxItem } from "../../../src/types.js";
 
 function mkItem(id: string, batchId: string, overrides: Partial<InboxItem> = {}): InboxItem {
   return {
-    id, batchId, sourceKind: "file", sourceRef: "x",
-    proposedTitle: id, proposedTags: [], proposedSummary: "",
-    content: "body", kind: "note", url: null, duplicateOf: null,
-    status: "pending", createdAt: 1_000_000, decidedAt: null,
+    id,
+    batchId,
+    sourceKind: "file",
+    sourceRef: "x",
+    proposedTitle: id,
+    proposedTags: [],
+    proposedSummary: "",
+    content: "body",
+    kind: "note",
+    url: null,
+    duplicateOf: null,
+    status: "pending",
+    createdAt: 1_000_000,
+    decidedAt: null,
     ...overrides,
   };
 }
@@ -4067,6 +4325,7 @@ git commit -m "feat(core): InboxStore（持久化 + GC）"
 **Goal:** Given a `RawCandidate` with `title=null` or sparse tags, ask the LLM (feature=`inbox_metadata`) to propose `{title, tags, summary}` in strict JSON. On parse failure, fall back to filename/first-line title.
 
 **Files:**
+
 - Create: `packages/core/src/ai/metadata.ts`
 - Create: `packages/core/tests/unit/ai/metadata.test.ts`
 
@@ -4153,7 +4412,11 @@ export function parseProposal(raw: string): MetadataProposal | null {
 }
 
 function fallbackProposal(c: RawCandidate, fallbackTitle: string): MetadataProposal {
-  const firstLine = c.content.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
+  const firstLine =
+    c.content
+      .split("\n")
+      .find((l) => l.trim().length > 0)
+      ?.trim() ?? "";
   const title = c.title ?? (firstLine.length > 0 ? firstLine.slice(0, 80) : fallbackTitle);
   return { title, tags: c.tags, summary: "" };
 }
@@ -4173,19 +4436,34 @@ function rig(provider: MockProvider) {
     factories: [{ kind: "openai-compatible", create: () => provider }],
     fetch: async () => new Response("{}"),
   });
-  reg.setConfigs([{
-    id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-    defaultHeaders: {}, enabled: true, createdAt: 0,
-  }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "s" });
-  reg.setBindings([{ feature: "inbox_metadata", providerId: "p", modelName: "m", params: { temperature: 0.1 } }]);
+  reg.setBindings([
+    { feature: "inbox_metadata", providerId: "p", modelName: "m", params: { temperature: 0.1 } },
+  ]);
   return reg;
 }
 
 function fakeCandidate(content: string, title: string | null = null): RawCandidate {
   return {
-    title, content, tags: [], url: null, kind: "note",
-    assets: [], sourceRef: "x.md", sourceMeta: {},
+    title,
+    content,
+    tags: [],
+    url: null,
+    kind: "note",
+    assets: [],
+    sourceRef: "x.md",
+    sourceMeta: {},
   };
 }
 
@@ -4214,11 +4492,15 @@ describe("parseProposal", () => {
 describe("proposeMetadata", () => {
   it("uses LLM response when valid", async () => {
     const provider = new MockProvider({
-      chatChunks: () => [{ delta: '{"title":"AI Title","tags":["x"],"summary":"Sum"}', finishReason: "stop" }],
+      chatChunks: () => [
+        { delta: '{"title":"AI Title","tags":["x"],"summary":"Sum"}', finishReason: "stop" },
+      ],
     });
     const reg = rig(provider);
     const proposal = await proposeMetadata({
-      registry: reg, candidate: fakeCandidate("body"), fallbackTitle: "fb",
+      registry: reg,
+      candidate: fakeCandidate("body"),
+      fallbackTitle: "fb",
     });
     expect(proposal.title).toBe("AI Title");
     expect(proposal.tags).toEqual(["x"]);
@@ -4287,6 +4569,7 @@ git commit -m "feat(core): inbox_metadata AI 提议 + 兜底解析"
 **Goal:** End-to-end orchestration: source → connector → metadata proposal → duplicate detection → InboxStore. Yields events for UI streaming.
 
 **Files:**
+
 - Create: `packages/core/src/import/duplicate-detector.ts`
 - Create: `packages/core/src/import/pipeline.ts`
 - Create: `packages/core/tests/unit/import/duplicate-detector.test.ts`
@@ -4303,7 +4586,7 @@ export interface DupCheckArgs {
   store: OramaIndexStore;
   content: string;
   vector: number[];
-  vectorThreshold?: number;  // default 0.92
+  vectorThreshold?: number; // default 0.92
 }
 
 export async function detectDuplicate(args: DupCheckArgs): Promise<string | null> {
@@ -4337,11 +4620,7 @@ import type { OramaIndexStore } from "../index-store/orama-store.js";
 import { proposeMetadata } from "../ai/metadata.js";
 import { detectDuplicate } from "./duplicate-detector.js";
 import type { InboxStore } from "./inbox-store.js";
-import type {
-  ImportSource,
-  InboxItem,
-  RawCandidate,
-} from "../types.js";
+import type { ImportSource, InboxItem, RawCandidate } from "../types.js";
 import type { SourceConnector } from "../connectors/connector.js";
 
 export type ImportEvent =
@@ -4404,9 +4683,17 @@ export class ImportPipeline {
       const { provider, model } = this.deps.registry.resolve("embedding");
       const embedded = await provider.embed({ inputs: [candidate.content.slice(0, 2000)], model });
       const vector = embedded.vectors[0] ?? [];
-      duplicateOf = await detectDuplicate({ store: this.deps.store, content: candidate.content, vector });
+      duplicateOf = await detectDuplicate({
+        store: this.deps.store,
+        content: candidate.content,
+        vector,
+      });
     } catch (e) {
-      if (e instanceof AetherError && e.code !== "BINDING_NOT_FOUND" && e.code !== "API_KEY_MISSING") {
+      if (
+        e instanceof AetherError &&
+        e.code !== "BINDING_NOT_FOUND" &&
+        e.code !== "API_KEY_MISSING"
+      ) {
         throw e;
       }
       // No embedding available — skip dup detection.
@@ -4448,9 +4735,19 @@ function vec(seed: number, dim = 4): number[] {
 
 function fakeNote(id: string): Note {
   return {
-    id, vaultPath: `${id}.md`, kind: "note", title: id, summary: null, tags: [],
-    url: null, source: "manual", sourceMeta: {}, createdAt: 0, updatedAt: 0,
-    contentHash: "h", indexState: "fresh",
+    id,
+    vaultPath: `${id}.md`,
+    kind: "note",
+    title: id,
+    summary: null,
+    tags: [],
+    url: null,
+    source: "manual",
+    sourceMeta: {},
+    createdAt: 0,
+    updatedAt: 0,
+    contentHash: "h",
+    indexState: "fresh",
   };
 }
 
@@ -4467,13 +4764,23 @@ describe("detectDuplicate", () => {
     await store.init();
     store.upsertNote(fakeNote("n1"));
     const v = vec(1);
-    await store.setChunks("n1", [{
-      id: "c1", noteId: "n1", ordinal: 0, headingPath: "",
-      content: "same identical text", tokenCount: 4,
-      embeddingModel: "m", embedding: v,
-    }]);
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "same identical text",
+        tokenCount: 4,
+        embeddingModel: "m",
+        embedding: v,
+      },
+    ]);
     const dup = await detectDuplicate({
-      store, content: "same identical text", vector: v, vectorThreshold: 0.5,
+      store,
+      content: "same identical text",
+      vector: v,
+      vectorThreshold: 0.5,
     });
     expect(dup).toBe("n1");
   });
@@ -4482,12 +4789,23 @@ describe("detectDuplicate", () => {
     const store = new OramaIndexStore({ embeddingDim: 4 });
     await store.init();
     store.upsertNote(fakeNote("n1"));
-    await store.setChunks("n1", [{
-      id: "c1", noteId: "n1", ordinal: 0, headingPath: "",
-      content: "alpha", tokenCount: 1, embeddingModel: "m", embedding: vec(1),
-    }]);
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "alpha",
+        tokenCount: 1,
+        embeddingModel: "m",
+        embedding: vec(1),
+      },
+    ]);
     const dup = await detectDuplicate({
-      store, content: "totally different", vector: vec(99), vectorThreshold: 0.99,
+      store,
+      content: "totally different",
+      vector: vec(99),
+      vectorThreshold: 0.99,
     });
     expect(dup).toBeNull();
   });
@@ -4508,45 +4826,64 @@ import { ProviderRegistry } from "../../../src/provider/registry.js";
 import type { ImportSource } from "../../../src/types.js";
 
 async function makeRig() {
-  const host = new InMemoryHostAdapter({ now: () => 5_000_000, newId: (() => {
-    let n = 0; return () => `id-${++n}`;
-  })() });
+  const host = new InMemoryHostAdapter({
+    now: () => 5_000_000,
+    newId: (() => {
+      let n = 0;
+      return () => `id-${++n}`;
+    })(),
+  });
   const store = new OramaIndexStore({ embeddingDim: 8 });
   await store.init();
   const inbox = new InboxStore(host);
   const provider = new MockProvider({
-    chatChunks: () => [{ delta: '{"title":"AI","tags":["t"],"summary":"S"}', finishReason: "stop" }],
+    chatChunks: () => [
+      { delta: '{"title":"AI","tags":["t"],"summary":"S"}', finishReason: "stop" },
+    ],
     embedDim: 8,
   });
   const reg = new ProviderRegistry({
     factories: [{ kind: "openai-compatible", create: () => provider }],
     fetch: async () => new Response("{}"),
   });
-  reg.setConfigs([{
-    id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-    defaultHeaders: {}, enabled: true, createdAt: 0,
-  }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "s" });
   reg.setBindings([
     { feature: "embedding", providerId: "p", modelName: "m", params: {} },
     { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
   ]);
   const pipeline = new ImportPipeline({
-    host, registry: reg, store, inbox,
+    host,
+    registry: reg,
+    store,
+    inbox,
     connectors: [new MarkdownConnector()],
   });
   return { host, store, inbox, pipeline, provider };
 }
 
 async function collect(iter: AsyncIterable<ImportEvent>): Promise<ImportEvent[]> {
-  const out: ImportEvent[] = []; for await (const e of iter) out.push(e); return out;
+  const out: ImportEvent[] = [];
+  for await (const e of iter) out.push(e);
+  return out;
 }
 
 describe("ImportPipeline", () => {
   it("emits batch-started, item-added*, batch-finished", async () => {
     const { pipeline } = await makeRig();
     const src: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "Hello world" },
     };
     const events = await collect(pipeline.run(src));
@@ -4558,7 +4895,8 @@ describe("ImportPipeline", () => {
   it("uses AI proposal title when binding present", async () => {
     const { pipeline, inbox } = await makeRig();
     const src: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "Hello" },
     };
     await collect(pipeline.run(src));
@@ -4569,7 +4907,8 @@ describe("ImportPipeline", () => {
   it("emits error event when no connector matches", async () => {
     const { pipeline } = await makeRig();
     const src: ImportSource = {
-      kind: "file", label: "x",
+      kind: "file",
+      label: "x",
       payload: { type: "url-list", urls: ["https://x"] }, // no UrlListConnector wired
     };
     const events = await collect(pipeline.run(src));
@@ -4579,7 +4918,8 @@ describe("ImportPipeline", () => {
   it("persists inbox after batch", async () => {
     const { pipeline, host } = await makeRig();
     const src: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "Hello" },
     };
     await collect(pipeline.run(src));
@@ -4592,22 +4932,33 @@ describe("ImportPipeline", () => {
       factories: [{ kind: "openai-compatible", create: () => provider }],
       fetch: async () => new Response("{}"),
     });
-    reg.setConfigs([{
-      id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-      defaultHeaders: {}, enabled: true, createdAt: 0,
-    }]);
+    reg.setConfigs([
+      {
+        id: "p",
+        name: "p",
+        baseUrl: "https://x",
+        apiKeyRef: "k",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
     reg.setApiKeys({ k: "s" });
     reg.setBindings([
       { feature: "embedding", providerId: "p", modelName: "m", params: {} },
       { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
     ]);
     const p = new ImportPipeline({
-      host, registry: reg, store, inbox,
+      host,
+      registry: reg,
+      store,
+      inbox,
       connectors: [new MarkdownConnector()],
       maxItemsPerBatch: 2,
     });
     const src: ImportSource = {
-      kind: "file", label: "batch",
+      kind: "file",
+      label: "batch",
       payload: {
         type: "markdown-files",
         files: Array.from({ length: 5 }, (_, i) => ({ path: `${i}.md`, content: `n${i}` })),
@@ -4623,33 +4974,51 @@ describe("ImportPipeline", () => {
       factories: [{ kind: "openai-compatible", create: () => provider }],
       fetch: async () => new Response("{}"),
     });
-    reg.setConfigs([{
-      id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-      defaultHeaders: {}, enabled: true, createdAt: 0,
-    }]);
+    reg.setConfigs([
+      {
+        id: "p",
+        name: "p",
+        baseUrl: "https://x",
+        apiKeyRef: "k",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
     reg.setApiKeys({ k: "s" });
     reg.setBindings([
       { feature: "embedding", providerId: "p", modelName: "m", params: {} },
       { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
     ]);
-    const { BookmarksJsonConnector } = await import("../../../src/connectors/bookmarks-json-connector.js");
+    const { BookmarksJsonConnector } =
+      await import("../../../src/connectors/bookmarks-json-connector.js");
     const p = new ImportPipeline({
-      host, registry: reg, store, inbox,
+      host,
+      registry: reg,
+      store,
+      inbox,
       connectors: [new BookmarksJsonConnector()],
     });
     const src: ImportSource = {
-      kind: "file", label: "chrome.json",
+      kind: "file",
+      label: "chrome.json",
       payload: {
         type: "bookmarks-json",
         raw: JSON.stringify({
-          roots: { bookmark_bar: { type: "folder", name: "bar", children: [
-            { type: "url", url: "https://x.com", name: "X" },
-          ] } },
+          roots: {
+            bookmark_bar: {
+              type: "folder",
+              name: "bar",
+              children: [{ type: "url", url: "https://x.com", name: "X" }],
+            },
+          },
         }),
       },
     };
     const events = await collect(p.run(src));
-    const added = events.filter((e) => e.type === "item-added") as Array<{ item: { kind: string; url: string | null } }>;
+    const added = events.filter((e) => e.type === "item-added") as Array<{
+      item: { kind: string; url: string | null };
+    }>;
     expect(added).toHaveLength(1);
     expect(added[0]?.item.kind).toBe("bookmark");
     expect(added[0]?.item.url).toBe("https://x.com");
@@ -4661,21 +5030,30 @@ describe("ImportPipeline", () => {
       factories: [{ kind: "openai-compatible", create: () => provider }],
       fetch: async () => new Response("{}"),
     });
-    reg.setConfigs([{
-      id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k",
-      defaultHeaders: {}, enabled: true, createdAt: 0,
-    }]);
+    reg.setConfigs([
+      {
+        id: "p",
+        name: "p",
+        baseUrl: "https://x",
+        apiKeyRef: "k",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
     reg.setApiKeys({ k: "s" });
     // Only metadata bound; no embedding → pipeline must skip dup detection.
-    reg.setBindings([
-      { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-    ]);
+    reg.setBindings([{ feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} }]);
     const p = new ImportPipeline({
-      host, registry: reg, store, inbox,
+      host,
+      registry: reg,
+      store,
+      inbox,
       connectors: [new MarkdownConnector()],
     });
     const src: ImportSource = {
-      kind: "file", label: "a.md",
+      kind: "file",
+      label: "a.md",
       payload: { type: "markdown-file", path: "a.md", content: "Hello" },
     };
     const events = await collect(p.run(src));
@@ -4707,6 +5085,7 @@ git commit -m "feat(core): ImportPipeline 与查重器"
 **Goal:** Three small functions for the editor right-click menu. Each calls `Provider.chat` once with a feature-specific system prompt; output is plain text (no JSON). Shared streaming helper used by all three.
 
 **Files:**
+
 - Create: `packages/core/src/ai/rewrite.ts`
 - Create: `packages/core/src/ai/summarize.ts`
 - Create: `packages/core/src/ai/extract.ts`
@@ -4840,7 +5219,17 @@ function rig(provider: MockProvider, feature: "rewrite" = "rewrite") {
     factories: [{ kind: "openai-compatible", create: () => provider }],
     fetch: async () => new Response("{}"),
   });
-  reg.setConfigs([{ id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k", defaultHeaders: {}, enabled: true, createdAt: 0 }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "s" });
   reg.setBindings([{ feature, providerId: "p", modelName: "m", params: {} }]);
   return reg;
@@ -4883,7 +5272,17 @@ function rig(provider: MockProvider) {
     factories: [{ kind: "openai-compatible", create: () => provider }],
     fetch: async () => new Response("{}"),
   });
-  reg.setConfigs([{ id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k", defaultHeaders: {}, enabled: true, createdAt: 0 }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "s" });
   reg.setBindings([{ feature: "summarize", providerId: "p", modelName: "m", params: {} }]);
   return reg;
@@ -4902,7 +5301,11 @@ describe("summarizeSelection", () => {
     const provider = new MockProvider({
       chatChunks: (req) => [{ delta: req.messages[0]!.content, finishReason: "stop" }],
     });
-    const out = await summarizeSelection({ registry: rig(provider), selection: "x", maxSentences: 5 });
+    const out = await summarizeSelection({
+      registry: rig(provider),
+      selection: "x",
+      maxSentences: 5,
+    });
     expect(out).toContain("5 sentences");
   });
 });
@@ -4921,7 +5324,17 @@ function rig(provider: MockProvider) {
     factories: [{ kind: "openai-compatible", create: () => provider }],
     fetch: async () => new Response("{}"),
   });
-  reg.setConfigs([{ id: "p", name: "p", baseUrl: "https://x", apiKeyRef: "k", defaultHeaders: {}, enabled: true, createdAt: 0 }]);
+  reg.setConfigs([
+    {
+      id: "p",
+      name: "p",
+      baseUrl: "https://x",
+      apiKeyRef: "k",
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: 0,
+    },
+  ]);
   reg.setApiKeys({ k: "s" });
   reg.setBindings([{ feature: "extract", providerId: "p", modelName: "m", params: {} }]);
   return reg;
@@ -4948,7 +5361,11 @@ describe("extractKeyPoints", () => {
     const provider = new MockProvider({
       chatChunks: () => [{ delta: "- 1\n- 2\n- 3\n- 4", finishReason: "stop" }],
     });
-    const points = await extractKeyPoints({ registry: rig(provider), selection: "x", maxPoints: 2 });
+    const points = await extractKeyPoints({
+      registry: rig(provider),
+      selection: "x",
+      maxPoints: 2,
+    });
     expect(points).toEqual(["1", "2"]);
   });
 });
@@ -4975,6 +5392,7 @@ git commit -m "feat(core): 段落级 AI 辅助（rewrite/summarize/extract）"
 **Goal:** Read / write `PersistedSettings` via HostAdapter data slot. Versioned with a no-op v1 migration to set the upgrade pattern.
 
 **Files:**
+
 - Create: `packages/core/src/persistence/settings-store.ts`
 - Create: `packages/core/src/persistence/migrate.ts`
 - Create: `packages/core/tests/unit/persistence/settings-store.test.ts`
@@ -4995,14 +5413,19 @@ export function migrateSettings(raw: unknown): PersistedSettings {
       schemaVersion: 1,
       providers: Array.isArray(obj.providers) ? obj.providers : [],
       bindings: Array.isArray(obj.bindings) ? obj.bindings : [],
-      apiKeys: typeof obj.apiKeys === "object" && obj.apiKeys !== null ? obj.apiKeys as Record<string, string> : {},
+      apiKeys:
+        typeof obj.apiKeys === "object" && obj.apiKeys !== null
+          ? (obj.apiKeys as Record<string, string>)
+          : {},
       ui: {
         alpha: typeof obj.ui?.alpha === "number" ? obj.ui.alpha : 0.4,
-        aetherInboxFolder: typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
+        aetherInboxFolder:
+          typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
         scanScope: obj.ui?.scanScope === "aether-inbox-only" ? "aether-inbox-only" : "vault",
       },
       budgets: {
-        monthlyTokenWarn: typeof obj.budgets?.monthlyTokenWarn === "number" ? obj.budgets.monthlyTokenWarn : null,
+        monthlyTokenWarn:
+          typeof obj.budgets?.monthlyTokenWarn === "number" ? obj.budgets.monthlyTokenWarn : null,
       },
       flags: {
         aiTrace: Boolean(obj.flags?.aiTrace),
@@ -5049,7 +5472,9 @@ export class SettingsStore {
     await this.host.writeData(KEY, JSON.stringify(next, null, 2));
   }
 
-  get current(): PersistedSettings { return this.settings; }
+  get current(): PersistedSettings {
+    return this.settings;
+  }
 }
 ```
 
@@ -5139,6 +5564,7 @@ git commit -m "feat(core): SettingsStore + migrate v1"
 **Goal:** Wire everything (ProviderRegistry + SearchEngine + ImportPipeline + InboxStore + SettingsStore + TokenUsageStore) behind a single class. Host calls this — nothing else.
 
 **Files:**
+
 - Create: `packages/core/src/app.ts`
 - Create: `packages/core/tests/unit/app.test.ts`
 
@@ -5282,9 +5708,10 @@ export class AetherCore {
       aether_created: this.host.now(),
       aether_updated: this.host.now(),
     };
-    const body = item.kind === "bookmark" && item.url
-      ? `[${item.proposedTitle}](${item.url})\n\n${item.content}`
-      : item.content;
+    const body =
+      item.kind === "bookmark" && item.url
+        ? `[${item.proposedTitle}](${item.url})\n\n${item.content}`
+        : item.content;
     const md = serializeDocument(fm, body);
     const parent = vaultPath.split("/").slice(0, -1).join("/");
     if (parent) await this.host.ensureDir(parent);
@@ -5334,7 +5761,12 @@ export class AetherCore {
     const next = serializeDocument(updatedFm, updatedBody);
     await this.host.writeFile(target.vaultPath, next);
     const contentHash = await sha256Hex(next);
-    const updated: Note = { ...target, updatedAt: this.host.now(), contentHash, indexState: "indexing" };
+    const updated: Note = {
+      ...target,
+      updatedAt: this.host.now(),
+      contentHash,
+      indexState: "indexing",
+    };
     this.store.upsertNote(updated);
     await this.reindexNote(updated, updatedBody);
     this.inbox.updateStatus(itemId, "merged");
@@ -5364,15 +5796,22 @@ export class AetherCore {
   async indexExistingVaultFile(vaultPath: string): Promise<Note | null> {
     const raw = await this.host.readFile(vaultPath);
     const parsed = parseDocument(raw);
-    const fmId = typeof parsed.frontmatter.aether_id === "string" ? parsed.frontmatter.aether_id : null;
+    const fmId =
+      typeof parsed.frontmatter.aether_id === "string" ? parsed.frontmatter.aether_id : null;
     const id = fmId ?? `path:${vaultPath}`;
     const title = deriveTitle(parsed, vaultPath);
     const tags = Array.isArray(parsed.frontmatter.tags)
       ? parsed.frontmatter.tags.filter((t): t is string => typeof t === "string")
       : [];
-    const url = typeof parsed.frontmatter["aether_url"] === "string" ? (parsed.frontmatter["aether_url"] as string) : null;
+    const url =
+      typeof parsed.frontmatter["aether_url"] === "string"
+        ? (parsed.frontmatter["aether_url"] as string)
+        : null;
     const kind = parsed.frontmatter.aether_kind === "bookmark" ? "bookmark" : "note";
-    const summary = typeof parsed.frontmatter["aether_summary"] === "string" ? (parsed.frontmatter["aether_summary"] as string) : null;
+    const summary =
+      typeof parsed.frontmatter["aether_summary"] === "string"
+        ? (parsed.frontmatter["aether_summary"] as string)
+        : null;
     const contentHash = await sha256Hex(raw);
     const note: Note = {
       id,
@@ -5412,7 +5851,9 @@ export class AetherCore {
 
   private async reindexNote(note: Note, body: string): Promise<void> {
     const chunks = chunkMarkdown(body);
-    let resolvedEmbeddings: number[][] = chunks.map(() => new Array<number>(this.embeddingDim).fill(0));
+    let resolvedEmbeddings: number[][] = chunks.map(() =>
+      new Array<number>(this.embeddingDim).fill(0),
+    );
     try {
       const { provider, model } = this.registry.resolve("embedding");
       if (chunks.length > 0) {
@@ -5438,11 +5879,19 @@ export class AetherCore {
         this.embeddingModel = model;
         resolvedEmbeddings = embed.vectors;
         if (embed.usage) {
-          this.usage.record({ providerId: provider.id, feature: "embedding", model, usage: embed.usage });
+          this.usage.record({
+            providerId: provider.id,
+            feature: "embedding",
+            model,
+            usage: embed.usage,
+          });
         }
       }
     } catch (e) {
-      if (e instanceof AetherError && (e.code === "BINDING_NOT_FOUND" || e.code === "API_KEY_MISSING")) {
+      if (
+        e instanceof AetherError &&
+        (e.code === "BINDING_NOT_FOUND" || e.code === "API_KEY_MISSING")
+      ) {
         // Skip embedding; index BM25-only.
       } else {
         throw e;
@@ -5484,7 +5933,10 @@ export class AetherCore {
         await this.store.setChunks(noteId, chunks);
       }
     } catch {
-      this.host.notify("Index corrupt; please rebuild from settings", { level: "warn", timeoutMs: 0 });
+      this.host.notify("Index corrupt; please rebuild from settings", {
+        level: "warn",
+        timeoutMs: 0,
+      });
     }
   }
 
@@ -5541,9 +5993,13 @@ import { InMemoryHostAdapter } from "../../src/host/in-memory.js";
 
 describe("AetherCore", () => {
   it("init loads defaults when no settings present", async () => {
-    const host = new InMemoryHostAdapter({ now: () => 1, newId: (() => {
-      let n = 0; return () => `id-${++n}`;
-    })() });
+    const host = new InMemoryHostAdapter({
+      now: () => 1,
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
+    });
     const core = new AetherCore(host);
     await core.init();
     expect(core.settings.current.providers).toEqual([]);
@@ -5556,7 +6012,10 @@ describe("AetherCore", () => {
         "notes/a.md": "---\naether_id: 01ID\ntitle: My Note\n---\nbody about cats",
       },
       now: () => 100,
-      newId: (() => { let n = 0; return () => `id-${++n}`; })(),
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
     });
     const core = new AetherCore(host);
     await core.init();
@@ -5573,7 +6032,10 @@ describe("AetherCore", () => {
         "Other/c.md": "# C\nbody",
       },
       now: () => 100,
-      newId: (() => { let n = 0; return () => `id-${++n}`; })(),
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
     });
     const core = new AetherCore(host);
     await core.init();
@@ -5606,6 +6068,7 @@ git commit -m "feat(core): AetherCore 总装与生命周期"
 **Goal:** Single `src/index.ts` exposing the public API. Hosts import from `@aether/core` only.
 
 **Files:**
+
 - Create: `packages/core/src/index.ts`
 
 - [ ] **Step 1: Write `packages/core/src/index.ts`**
@@ -5619,14 +6082,29 @@ export { AetherCore } from "./app.js";
 export { newUlid, slugify } from "./ids.js";
 export { sha256Hex } from "./hash.js";
 export { normalizeUrl } from "./url-normalize.js";
-export { parseDocument, serializeDocument, deriveTitle, type AetherFrontmatter, type ParsedDocument } from "./markdown/frontmatter.js";
+export {
+  parseDocument,
+  serializeDocument,
+  deriveTitle,
+  type AetherFrontmatter,
+  type ParsedDocument,
+} from "./markdown/frontmatter.js";
 export { chunkMarkdown, chunkPlain, type ChunkInput } from "./markdown/chunker.js";
 export type { Provider, ProviderFactory } from "./provider/types.js";
 export { openAICompatibleFactory, OpenAICompatibleProvider } from "./provider/openai-compatible.js";
 export { MockProvider, type MockProviderOptions } from "./provider/mock-provider.js";
-export { withRetry, isRetriableHttpStatus, defaultShouldRetry, type RetryOptions } from "./provider/retry.js";
+export {
+  withRetry,
+  isRetriableHttpStatus,
+  defaultShouldRetry,
+  type RetryOptions,
+} from "./provider/retry.js";
 export { ProviderRegistry } from "./provider/registry.js";
-export { OramaIndexStore, type VectorSearchHit, type OramaStoreOptions } from "./index-store/orama-store.js";
+export {
+  OramaIndexStore,
+  type VectorSearchHit,
+  type OramaStoreOptions,
+} from "./index-store/orama-store.js";
 export { serialize, deserialize } from "./index-store/serialize.js";
 export { SearchEngine, type SearchEngineDeps } from "./search/search-engine.js";
 export type { SourceConnector } from "./connectors/connector.js";
@@ -5676,6 +6154,7 @@ git commit -m "feat(core): 公开 barrel 导出"
 **Goal:** End-to-end flow through AetherCore using real `OramaIndexStore` + `MockProvider`. Verifies: import → approve → write file → search hits the newly-approved note.
 
 **Files:**
+
 - Create: `packages/core/tests/integration/import-search-flow.test.ts`
 - Create: `packages/core/tests/integration/rebuild-flow.test.ts`
 
@@ -5690,28 +6169,42 @@ import { newUlid } from "../../src/ids.js";
 import type { ImportEvent } from "../../src/import/pipeline.js";
 
 async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const out: T[] = []; for await (const v of iter) out.push(v); return out;
+  const out: T[] = [];
+  for await (const v of iter) out.push(v);
+  return out;
 }
 
 async function bootstrap() {
   const host = new InMemoryHostAdapter({
     now: () => 1_700_000_000_000,
-    newId: (() => { let n = 0; return () => `id-${++n}`; })(),
+    newId: (() => {
+      let n = 0;
+      return () => `id-${++n}`;
+    })(),
   });
   const core = new AetherCore(host);
   await core.init();
 
   const mock = new MockProvider({
     embedDim: 8,
-    chatChunks: () => [{ delta: '{"title":"Hello Notes","tags":["greeting"],"summary":"S"}', finishReason: "stop" }],
+    chatChunks: () => [
+      { delta: '{"title":"Hello Notes","tags":["greeting"],"summary":"S"}', finishReason: "stop" },
+    ],
   });
   core.registry.registerFactory({ kind: "openai-compatible", create: () => mock });
   await core.settings.save({
     ...core.settings.current,
-    providers: [{
-      id: "p", name: "Mock", baseUrl: "https://x", apiKeyRef: "k",
-      defaultHeaders: {}, enabled: true, createdAt: 0,
-    }],
+    providers: [
+      {
+        id: "p",
+        name: "Mock",
+        baseUrl: "https://x",
+        apiKeyRef: "k",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ],
     bindings: [
       { feature: "embedding", providerId: "p", modelName: "m", params: {} },
       { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
@@ -5725,11 +6218,16 @@ async function bootstrap() {
 describe("import → approve → search flow", () => {
   it("approves an inbox item and finds it via search", async () => {
     const { host, core } = await bootstrap();
-    const events = await collect(core.importSource({
-      kind: "paste", label: "test",
-      payload: { type: "paste-text", text: "Hello notes about Aether searching" },
-    }));
-    const added = events.find((e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added");
+    const events = await collect(
+      core.importSource({
+        kind: "paste",
+        label: "test",
+        payload: { type: "paste-text", text: "Hello notes about Aether searching" },
+      }),
+    );
+    const added = events.find(
+      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
+    );
     expect(added).toBeDefined();
     if (!added) throw new Error("no item-added event");
 
@@ -5744,11 +6242,16 @@ describe("import → approve → search flow", () => {
 
   it("discards an inbox item without writing a file", async () => {
     const { host, core } = await bootstrap();
-    const events = await collect(core.importSource({
-      kind: "paste", label: "test",
-      payload: { type: "paste-text", text: "Will be discarded" },
-    }));
-    const added = events.find((e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added");
+    const events = await collect(
+      core.importSource({
+        kind: "paste",
+        label: "test",
+        payload: { type: "paste-text", text: "Will be discarded" },
+      }),
+    );
+    const added = events.find(
+      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
+    );
     expect(added).toBeDefined();
     if (!added) throw new Error("no item-added event");
     await core.discardInboxItem(added.item.id);
@@ -5777,7 +6280,10 @@ describe("rebuild flow", () => {
         "notes/b.md": "---\naether_id: 01ID-B\ntitle: Dogs\n---\ndog content here",
       },
       now: () => 1_700_000_000_000,
-      newId: (() => { let n = 0; return () => `id-${++n}`; })(),
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
     });
     const core = new AetherCore(host);
     await core.init();
@@ -5786,10 +6292,17 @@ describe("rebuild flow", () => {
     core.registry.registerFactory({ kind: "openai-compatible", create: () => mock });
     await core.settings.save({
       ...core.settings.current,
-      providers: [{
-        id: "p", name: "Mock", baseUrl: "https://x", apiKeyRef: "k",
-        defaultHeaders: {}, enabled: true, createdAt: 0,
-      }],
+      providers: [
+        {
+          id: "p",
+          name: "Mock",
+          baseUrl: "https://x",
+          apiKeyRef: "k",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+        },
+      ],
       bindings: [{ feature: "embedding", providerId: "p", modelName: "m", params: {} }],
       apiKeys: { k: "secret" },
     });
@@ -5809,7 +6322,10 @@ describe("rebuild flow", () => {
         "notes/a.md": "---\naether_id: 01ID-A\ntitle: Cats\n---\ncat content here",
       },
       now: () => 1_700_000_000_000,
-      newId: (() => { let n = 0; return () => `id-${++n}`; })(),
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
     });
     const core = new AetherCore(host);
     await core.init();
@@ -5850,6 +6366,7 @@ git commit -m "test(core): 集成测试（导入→审核→检索；重建）"
 **Goal:** `packages/plugin/` builds a single `main.js` bundle consumable by Obsidian.
 
 **Files:**
+
 - Create: `packages/plugin/package.json`
 - Create: `packages/plugin/tsconfig.json`
 - Create: `packages/plugin/esbuild.config.mjs`
@@ -6006,6 +6523,7 @@ git commit -m "chore(plugin): 创建 Obsidian 插件包脚手架"
 **Goal:** Wire `AetherCore` into Obsidian's lifecycle. `ObsidianHostAdapter` implements `IHostAdapter` against the Obsidian API. Main plugin class loads settings → core.init → registers views.
 
 **Files:**
+
 - Create: `packages/plugin/src/host-adapter.ts`
 - Create: `packages/plugin/src/main.ts`
 - Create: `packages/plugin/tests/host-adapter.test.ts`
@@ -6025,7 +6543,10 @@ import { newUlid } from "@aether/core";
  * Stays small: no business logic, just translation.
  */
 export class ObsidianHostAdapter implements IHostAdapter {
-  constructor(private readonly app: App, private readonly plugin: Plugin) {}
+  constructor(
+    private readonly app: App,
+    private readonly plugin: Plugin,
+  ) {}
 
   async listMarkdown(dir: string): Promise<VaultFileMeta[]> {
     const all = this.app.vault.getMarkdownFiles();
@@ -6111,8 +6632,12 @@ export class ObsidianHostAdapter implements IHostAdapter {
     window.open(url, "_blank");
   }
 
-  now(): number { return Date.now(); }
-  newId(): string { return newUlid(); }
+  now(): number {
+    return Date.now();
+  }
+  newId(): string {
+    return newUlid();
+  }
 
   async openInEditor(vaultPath: string): Promise<void> {
     await this.app.workspace.openLinkText(vaultPath, "", false);
@@ -6216,6 +6741,7 @@ Expected: NO errors. (At this stage settings-tab.ts / views / commands reference
 **Goal:** Obsidian Settings panel for managing Providers (CRUD), Feature Bindings, and editing the API key per provider via a modal.
 
 **Files:**
+
 - Create: `packages/plugin/src/settings-tab.ts`
 - Create: `packages/plugin/src/modals/api-key-modal.ts`
 
@@ -6249,10 +6775,13 @@ export class ApiKeyModal extends Modal {
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
       .addButton((b) =>
-        b.setButtonText("Save").setCta().onClick(() => {
-          this.onSubmit(this.value.trim());
-          this.close();
-        }),
+        b
+          .setButtonText("Save")
+          .setCta()
+          .onClick(() => {
+            this.onSubmit(this.value.trim());
+            this.close();
+          }),
       );
   }
 
@@ -6271,10 +6800,20 @@ import type { Feature, FeatureBinding, ProviderConfig } from "@aether/core";
 import { newUlid } from "@aether/core";
 import { ApiKeyModal } from "./modals/api-key-modal.js";
 
-const FEATURES: Feature[] = ["chat", "embedding", "summarize", "rewrite", "extract", "inbox_metadata"];
+const FEATURES: Feature[] = [
+  "chat",
+  "embedding",
+  "summarize",
+  "rewrite",
+  "extract",
+  "inbox_metadata",
+];
 
 export class AetherSettingsTab extends PluginSettingTab {
-  constructor(app: App, private readonly plugin: AetherPlugin) {
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+  ) {
     super(app, plugin);
   }
 
@@ -6304,24 +6843,28 @@ export class AetherSettingsTab extends PluginSettingTab {
     root.createEl("h3", { text: "Providers" });
     const providers = this.plugin.core.settings.current.providers;
     for (const p of providers) {
-      const setting = new Setting(root)
-        .setName(p.name)
-        .setDesc(`Base URL: ${p.baseUrl}`);
+      const setting = new Setting(root).setName(p.name).setDesc(`Base URL: ${p.baseUrl}`);
       setting.addText((t) =>
-        t.setPlaceholder("Display name").setValue(p.name).onChange((v) =>
-          this.patch((s) => {
-            const found = s.providers.find((x) => x.id === p.id);
-            if (found) found.name = v;
-          }),
-        ),
+        t
+          .setPlaceholder("Display name")
+          .setValue(p.name)
+          .onChange((v) =>
+            this.patch((s) => {
+              const found = s.providers.find((x) => x.id === p.id);
+              if (found) found.name = v;
+            }),
+          ),
       );
       setting.addText((t) =>
-        t.setPlaceholder("https://api...").setValue(p.baseUrl).onChange((v) =>
-          this.patch((s) => {
-            const found = s.providers.find((x) => x.id === p.id);
-            if (found) found.baseUrl = v;
-          }),
-        ),
+        t
+          .setPlaceholder("https://api...")
+          .setValue(p.baseUrl)
+          .onChange((v) =>
+            this.patch((s) => {
+              const found = s.providers.find((x) => x.id === p.id);
+              if (found) found.baseUrl = v;
+            }),
+          ),
       );
       setting.addButton((b) =>
         b.setButtonText("Edit key").onClick(() => {
@@ -6348,29 +6891,37 @@ export class AetherSettingsTab extends PluginSettingTab {
         }),
       );
       setting.addExtraButton((b) =>
-        b.setIcon("trash").setTooltip("Remove").onClick(() =>
-          this.patch((s) => {
-            s.providers = s.providers.filter((x) => x.id !== p.id);
-            s.bindings = s.bindings.filter((b2) => b2.providerId !== p.id);
-            delete s.apiKeys[p.apiKeyRef];
-          }),
-        ),
+        b
+          .setIcon("trash")
+          .setTooltip("Remove")
+          .onClick(() =>
+            this.patch((s) => {
+              s.providers = s.providers.filter((x) => x.id !== p.id);
+              s.bindings = s.bindings.filter((b2) => b2.providerId !== p.id);
+              delete s.apiKeys[p.apiKeyRef];
+            }),
+          ),
       );
     }
     new Setting(root).addButton((b) =>
-      b.setButtonText("Add provider").setCta().onClick(() => {
-        const id = newUlid();
-        const config: ProviderConfig = {
-          id,
-          name: "New provider",
-          baseUrl: "https://api.openai.com/v1",
-          apiKeyRef: `key:${id}`,
-          defaultHeaders: {},
-          enabled: true,
-          createdAt: Date.now(),
-        };
-        this.patch((s) => { s.providers.push(config); });
-      }),
+      b
+        .setButtonText("Add provider")
+        .setCta()
+        .onClick(() => {
+          const id = newUlid();
+          const config: ProviderConfig = {
+            id,
+            name: "New provider",
+            baseUrl: "https://api.openai.com/v1",
+            apiKeyRef: `key:${id}`,
+            defaultHeaders: {},
+            enabled: true,
+            createdAt: Date.now(),
+          };
+          this.patch((s) => {
+            s.providers.push(config);
+          });
+        }),
     );
   }
 
@@ -6406,44 +6957,50 @@ export class AetherSettingsTab extends PluginSettingTab {
           );
         })
         .addText((t) =>
-          t.setPlaceholder("model name").setValue(existing?.modelName ?? "").onChange((v) =>
-            this.patch((s) => {
-              const b = s.bindings.find((x) => x.feature === f);
-              if (b) b.modelName = v;
-            }),
-          ),
+          t
+            .setPlaceholder("model name")
+            .setValue(existing?.modelName ?? "")
+            .onChange((v) =>
+              this.patch((s) => {
+                const b = s.bindings.find((x) => x.feature === f);
+                if (b) b.modelName = v;
+              }),
+            ),
         );
     }
   }
 
   private renderAdvanced(root: HTMLElement): void {
     root.createEl("h3", { text: "Advanced" });
-    new Setting(root)
-      .setName("Aether Inbox folder")
-      .addText((t) =>
-        t.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
-          this.patch((s) => { s.ui.aetherInboxFolder = v; }),
+    new Setting(root).setName("Aether Inbox folder").addText((t) =>
+      t.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
+        this.patch((s) => {
+          s.ui.aetherInboxFolder = v;
+        }),
+      ),
+    );
+    new Setting(root).setName("Scan scope").addDropdown((d) =>
+      d
+        .addOption("vault", "Entire vault")
+        .addOption("aether-inbox-only", "Aether Inbox only")
+        .setValue(this.plugin.core.settings.current.ui.scanScope)
+        .onChange((v) =>
+          this.patch((s) => {
+            s.ui.scanScope = v as typeof s.ui.scanScope;
+          }),
         ),
-      );
-    new Setting(root)
-      .setName("Scan scope")
-      .addDropdown((d) =>
-        d.addOption("vault", "Entire vault")
-          .addOption("aether-inbox-only", "Aether Inbox only")
-          .setValue(this.plugin.core.settings.current.ui.scanScope)
-          .onChange((v) =>
-            this.patch((s) => { s.ui.scanScope = v as typeof s.ui.scanScope; }),
-          ),
-      );
-    new Setting(root)
-      .setName("Hybrid α (text weight)")
-      .addSlider((sl) =>
-        sl.setLimits(0, 1, 0.05).setDynamicTooltip()
-          .setValue(this.plugin.core.settings.current.ui.alpha)
-          .onChange((v) =>
-            this.patch((s) => { s.ui.alpha = v; }),
-          ),
-      );
+    );
+    new Setting(root).setName("Hybrid α (text weight)").addSlider((sl) =>
+      sl
+        .setLimits(0, 1, 0.05)
+        .setDynamicTooltip()
+        .setValue(this.plugin.core.settings.current.ui.alpha)
+        .onChange((v) =>
+          this.patch((s) => {
+            s.ui.alpha = v;
+          }),
+        ),
+    );
     new Setting(root)
       .setName("Rebuild index")
       .setDesc("Re-scans the configured scope and rebuilds chunks + vectors.")
@@ -6466,6 +7023,7 @@ export class AetherSettingsTab extends PluginSettingTab {
 **Goal:** SearchView, InboxView, ImportModal, RewriteResultModal, registerCommands, basic CSS. All UI lives here.
 
 **Files:**
+
 - Create: `packages/plugin/src/views/search-view.ts`
 - Create: `packages/plugin/src/views/inbox-view.ts`
 - Create: `packages/plugin/src/modals/import-modal.ts`
@@ -6506,20 +7064,32 @@ import { escapeHtml, highlight } from "../ui/render.js";
 export const SEARCH_VIEW_TYPE = "aether-search-view";
 
 export class SearchView extends ItemView {
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: AetherPlugin) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    private readonly plugin: AetherPlugin,
+  ) {
     super(leaf);
   }
 
-  getViewType(): string { return SEARCH_VIEW_TYPE; }
-  getDisplayText(): string { return "Aether Search"; }
-  getIcon(): string { return "search"; }
+  getViewType(): string {
+    return SEARCH_VIEW_TYPE;
+  }
+  getDisplayText(): string {
+    return "Aether Search";
+  }
+  getIcon(): string {
+    return "search";
+  }
 
   async onOpen(): Promise<void> {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
     root.addClass("aether-search-view");
 
-    const input = root.createEl("input", { type: "text", placeholder: "Search your knowledge base…" });
+    const input = root.createEl("input", {
+      type: "text",
+      placeholder: "Search your knowledge base…",
+    });
     input.addClass("aether-search-input");
 
     const results = root.createDiv({ cls: "aether-search-results" });
@@ -6527,7 +7097,10 @@ export class SearchView extends ItemView {
     let timer: number | undefined;
     input.addEventListener("input", () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => this.runSearch(input.value, results), 300) as unknown as number;
+      timer = window.setTimeout(
+        () => this.runSearch(input.value, results),
+        300,
+      ) as unknown as number;
     });
   }
 
@@ -6584,13 +7157,22 @@ import type AetherPlugin from "../main.js";
 export const INBOX_VIEW_TYPE = "aether-inbox-view";
 
 export class InboxView extends ItemView {
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: AetherPlugin) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    private readonly plugin: AetherPlugin,
+  ) {
     super(leaf);
   }
 
-  getViewType(): string { return INBOX_VIEW_TYPE; }
-  getDisplayText(): string { return "Aether Inbox"; }
-  getIcon(): string { return "inbox"; }
+  getViewType(): string {
+    return INBOX_VIEW_TYPE;
+  }
+  getDisplayText(): string {
+    return "Aether Inbox";
+  }
+  getIcon(): string {
+    return "inbox";
+  }
 
   async onOpen(): Promise<void> {
     this.render();
@@ -6620,7 +7202,10 @@ export class InboxView extends ItemView {
       const preview = card.createEl("div", { cls: "aether-card-preview" });
       preview.setText(item.content.slice(0, 240));
       if (item.duplicateOf) {
-        card.createEl("div", { cls: "aether-dup-warning", text: "Possible duplicate of an existing note." });
+        card.createEl("div", {
+          cls: "aether-dup-warning",
+          text: "Possible duplicate of an existing note.",
+        });
       }
       const actions = card.createDiv({ cls: "aether-card-actions" });
       const approveBtn = actions.createEl("button", { text: "Approve" });
@@ -6654,38 +7239,47 @@ import type { ImportSource } from "@aether/core";
 
 export class ImportModal extends Modal {
   private text = "";
-  constructor(app: App, private readonly plugin: AetherPlugin) { super(app); }
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+  ) {
+    super(app);
+  }
 
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.createEl("h2", { text: "Import to Aether Inbox" });
-    new Setting(this.contentEl)
-      .setName("Paste markdown / text")
-      .addTextArea((ta) => {
-        ta.inputEl.rows = 12;
-        ta.inputEl.cols = 60;
-        ta.onChange((v) => (this.text = v));
-      });
+    new Setting(this.contentEl).setName("Paste markdown / text").addTextArea((ta) => {
+      ta.inputEl.rows = 12;
+      ta.inputEl.cols = 60;
+      ta.onChange((v) => (this.text = v));
+    });
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
       .addButton((b) =>
-        b.setButtonText("Import").setCta().onClick(async () => {
-          if (!this.text.trim()) return;
-          const source: ImportSource = {
-            kind: "paste", label: `paste-${Date.now()}`,
-            payload: { type: "paste-text", text: this.text },
-          };
-          this.close();
-          let count = 0;
-          for await (const e of this.plugin.core.importSource(source)) {
-            if (e.type === "item-added") count += 1;
-          }
-          new Notice(`Imported ${count} item(s) to Inbox`, 4000);
-        }),
+        b
+          .setButtonText("Import")
+          .setCta()
+          .onClick(async () => {
+            if (!this.text.trim()) return;
+            const source: ImportSource = {
+              kind: "paste",
+              label: `paste-${Date.now()}`,
+              payload: { type: "paste-text", text: this.text },
+            };
+            this.close();
+            let count = 0;
+            for await (const e of this.plugin.core.importSource(source)) {
+              if (e.type === "item-added") count += 1;
+            }
+            new Notice(`Imported ${count} item(s) to Inbox`, 4000);
+          }),
       );
   }
 
-  onClose(): void { this.contentEl.empty(); }
+  onClose(): void {
+    this.contentEl.empty();
+  }
 }
 ```
 
@@ -6700,7 +7294,9 @@ export class RewriteResultModal extends Modal {
     private readonly original: string,
     private readonly rewritten: string,
     private readonly onApply: (text: string) => void,
-  ) { super(app); }
+  ) {
+    super(app);
+  }
 
   onOpen(): void {
     this.contentEl.empty();
@@ -6712,14 +7308,19 @@ export class RewriteResultModal extends Modal {
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Discard").onClick(() => this.close()))
       .addButton((b) =>
-        b.setButtonText("Replace selection").setCta().onClick(() => {
-          this.onApply(this.rewritten);
-          this.close();
-        }),
+        b
+          .setButtonText("Replace selection")
+          .setCta()
+          .onClick(() => {
+            this.onApply(this.rewritten);
+            this.close();
+          }),
       );
   }
 
-  onClose(): void { this.contentEl.empty(); }
+  onClose(): void {
+    this.contentEl.empty();
+  }
 }
 ```
 
@@ -6768,11 +7369,7 @@ const AI_ACTIONS: AiAction[] = [
   },
 ];
 
-async function runAi(
-  plugin: AetherPlugin,
-  editor: Editor,
-  action: AiAction,
-): Promise<void> {
+async function runAi(plugin: AetherPlugin, editor: Editor, action: AiAction): Promise<void> {
   const sel = editor.getSelection();
   if (!sel) {
     new Notice("Select some text first", 3000);
@@ -6829,7 +7426,8 @@ export function registerCommands(plugin: AetherPlugin): void {
       if (!editor.getSelection()) return;
       for (const action of AI_ACTIONS) {
         menu.addItem((i) =>
-          i.setTitle(action.menuTitle)
+          i
+            .setTitle(action.menuTitle)
             .setIcon(action.icon)
             .onClick(() => {
               void runAi(plugin, editor, action);
@@ -6844,7 +7442,11 @@ export function registerCommands(plugin: AetherPlugin): void {
 - [ ] **Step 7: Write `packages/plugin/styles.css`**
 
 ```css
-.aether-search-view, .aether-inbox-view { padding: 0.75rem; overflow-y: auto; }
+.aether-search-view,
+.aether-inbox-view {
+  padding: 0.75rem;
+  overflow-y: auto;
+}
 
 .aether-search-input {
   width: 100%;
@@ -6853,9 +7455,14 @@ export function registerCommands(plugin: AetherPlugin): void {
   border-radius: 6px;
 }
 
-.aether-search-results { display: flex; flex-direction: column; gap: 0.5rem; }
+.aether-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
-.aether-search-card, .aether-inbox-card {
+.aether-search-card,
+.aether-inbox-card {
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   padding: 0.6rem 0.75rem;
@@ -6863,12 +7470,20 @@ export function registerCommands(plugin: AetherPlugin): void {
   cursor: pointer;
 }
 
-.aether-search-card:hover, .aether-inbox-card:hover {
+.aether-search-card:hover,
+.aether-inbox-card:hover {
   border-color: var(--interactive-accent);
 }
 
-.aether-card-title { font-weight: 600; margin-bottom: 0.2rem; }
-.aether-card-summary { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.3rem; }
+.aether-card-title {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+.aether-card-summary {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
 .aether-card-excerpt {
   font-size: 0.85rem;
   color: var(--text-normal);
@@ -6877,9 +7492,21 @@ export function registerCommands(plugin: AetherPlugin): void {
   padding: 0.25rem 0.5rem;
   margin-bottom: 0.25rem;
 }
-.aether-hit { background: var(--text-highlight-bg); border-radius: 2px; }
-.aether-card-meta { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.3rem; }
-.aether-card-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.25rem 0; }
+.aether-hit {
+  background: var(--text-highlight-bg);
+  border-radius: 2px;
+}
+.aether-card-meta {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin-top: 0.3rem;
+}
+.aether-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+}
 .aether-tag {
   font-size: 0.75rem;
   background: var(--background-modifier-hover);
@@ -6891,8 +7518,16 @@ export function registerCommands(plugin: AetherPlugin): void {
   font-size: 0.8rem;
   margin-top: 0.25rem;
 }
-.aether-card-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-.aether-search-status { color: var(--text-muted); font-style: italic; padding: 0.5rem; }
+.aether-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.aether-search-status {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.5rem;
+}
 .aether-card-preview {
   font-size: 0.8rem;
   background: var(--background-primary);
@@ -6928,6 +7563,7 @@ git commit -m "feat(plugin): Obsidian 入口、设置、视图与命令"
 Already partially covered (rebuild button in settings, command palette entry). Adds a diagnostics export.
 
 **Files:**
+
 - Create: `packages/plugin/src/modals/diagnostics-modal.ts`
 - Modify: `packages/plugin/src/commands.ts` — add `aether-diagnostics` command.
 
@@ -6938,14 +7574,21 @@ import { App, Modal, Setting } from "obsidian";
 import type AetherPlugin from "../main.js";
 
 export class DiagnosticsModal extends Modal {
-  constructor(app: App, private readonly plugin: AetherPlugin) { super(app); }
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+  ) {
+    super(app);
+  }
 
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.createEl("h2", { text: "Diagnostics" });
     const settings = this.plugin.core.settings.current;
     const scrubbed = JSON.parse(JSON.stringify(settings)) as typeof settings;
-    scrubbed.apiKeys = Object.fromEntries(Object.keys(scrubbed.apiKeys).map((k) => [k, "<redacted>"]));
+    scrubbed.apiKeys = Object.fromEntries(
+      Object.keys(scrubbed.apiKeys).map((k) => [k, "<redacted>"]),
+    );
     const report = {
       pluginVersion: this.plugin.manifest.version,
       obsidianApi: this.plugin.manifest.minAppVersion,
@@ -6959,13 +7602,18 @@ export class DiagnosticsModal extends Modal {
     const pre = this.contentEl.createEl("pre");
     pre.setText(text);
     new Setting(this.contentEl).addButton((b) =>
-      b.setButtonText("Copy to clipboard").setCta().onClick(async () => {
-        await navigator.clipboard.writeText(text);
-      }),
+      b
+        .setButtonText("Copy to clipboard")
+        .setCta()
+        .onClick(async () => {
+          await navigator.clipboard.writeText(text);
+        }),
     );
   }
 
-  onClose(): void { this.contentEl.empty(); }
+  onClose(): void {
+    this.contentEl.empty();
+  }
 }
 ```
 
@@ -7008,6 +7656,7 @@ git commit -m "feat(plugin): Diagnostics 导出"
 **Goal:** Every doc a new contributor needs on day 1. Long-term hand-off material.
 
 **Files:**
+
 - Create: `README.md`
 - Create: `CHANGELOG.md`
 - Create: `packages/core/README.md`
@@ -7030,18 +7679,19 @@ git commit -m "feat(plugin): Diagnostics 导出"
 **Status:** v0.1 — Obsidian Plugin (this repository). Independent desktop app is a future direction (see `docs/architecture/overview.md`).
 
 ## Repository layout
+```
 
-```
 packages/
-  core/      @aether/core — host-agnostic TypeScript business core
-  plugin/    aether-note-llm — Obsidian plugin (thin shell over core)
+core/ @aether/core — host-agnostic TypeScript business core
+plugin/ aether-note-llm — Obsidian plugin (thin shell over core)
 docs/
-  superpowers/specs/   product design specs
-  superpowers/plans/   implementation plans
-  architecture/        long-form architecture references
-  contributing/        contribution & release workflow
-  testing/             test strategy
-```
+superpowers/specs/ product design specs
+superpowers/plans/ implementation plans
+architecture/ long-form architecture references
+contributing/ contribution & release workflow
+testing/ test strategy
+
+````
 
 ## Quick start (development)
 
@@ -7052,14 +7702,15 @@ pnpm install
 pnpm test          # runs core + plugin tests
 pnpm typecheck     # checks every package
 pnpm build         # builds @aether/core (dist/) and aether-note-llm (main.js)
-```
+````
 
 To run the plugin in a real Obsidian vault during development, see [docs/contributing/development-setup.md](docs/contributing/development-setup.md).
 
 ## License
 
 MIT. See LICENSE.
-```
+
+````
 
 - [ ] **Step 2: Write `CHANGELOG.md`**
 
@@ -7083,11 +7734,11 @@ All notable changes to Aether Note LLM are documented here. The format follows
   - Paragraph-level rewrite / summarize / extract.
   - Persistent settings, token-usage tracking, index rebuild.
 - Diagnostics export, status bar inbox counter, command palette commands.
-```
+````
 
 - [ ] **Step 3: Write `packages/core/README.md`**
 
-```markdown
+````markdown
 # @aether/core
 
 Host-agnostic business core for Aether Note LLM. Used by the Obsidian plugin in
@@ -7101,6 +7752,7 @@ Import everything from the package root:
 ```typescript
 import { AetherCore, InMemoryHostAdapter } from "@aether/core";
 ```
+````
 
 Key exports:
 
@@ -7131,7 +7783,8 @@ and `MockProvider`.
 
 See `docs/architecture/core-package.md` for module boundaries and `docs/testing/strategy.md`
 for the test approach.
-```
+
+````
 
 - [ ] **Step 4: Write `packages/plugin/README.md`**
 
@@ -7147,7 +7800,7 @@ helpers — all backed by `@aether/core`.
 ```bash
 pnpm --filter aether-note-llm build      # produces main.js
 pnpm --filter aether-note-llm dev        # watch mode for hot reload
-```
+````
 
 The build outputs `main.js`. To install for development, symlink or copy
 `main.js`, `manifest.json`, `styles.css` into your vault at
@@ -7176,7 +7829,8 @@ styles.css               Plugin-scoped CSS
 3. `onunload()` — call `core.saveIndex()` (also called transparently on approve / discard).
 
 No plugin code holds business state; everything is read from `core` at render time.
-```
+
+````
 
 - [ ] **Step 5: Write `docs/architecture/overview.md`**
 
@@ -7195,22 +7849,24 @@ once; come back to it whenever you wonder "where does X belong?".
 
 ## Three-layer architecture
 
-```
+````
+
 ┌──────────────────────────────────────────────────────────┐
-│  Obsidian (host)                                          │
-│  Vault API · Editor (CodeMirror 6) · Workspace · Modals  │
+│ Obsidian (host) │
+│ Vault API · Editor (CodeMirror 6) · Workspace · Modals │
 └────────────────────────┬─────────────────────────────────┘
-                         │ Plugin API
+│ Plugin API
 ┌────────────────────────▼─────────────────────────────────┐
-│  aether-note-llm  (this repo's packages/plugin)          │
-│  ObsidianHostAdapter · Views · Commands · Settings UI    │
+│ aether-note-llm (this repo's packages/plugin) │
+│ ObsidianHostAdapter · Views · Commands · Settings UI │
 └────────────────────────┬─────────────────────────────────┘
-                         │ ES-module import
+│ ES-module import
 ┌────────────────────────▼─────────────────────────────────┐
-│  @aether/core  (this repo's packages/core)               │
-│  AetherCore · ImportPipeline · SearchEngine ·            │
-│  ProviderRegistry · IndexStore · InboxStore · Settings   │
+│ @aether/core (this repo's packages/core) │
+│ AetherCore · ImportPipeline · SearchEngine · │
+│ ProviderRegistry · IndexStore · InboxStore · Settings │
 └──────────────────────────────────────────────────────────┘
+
 ```
 
 **Plugin → core dependency is one-way.** Core never imports `obsidian`.
@@ -7220,30 +7876,34 @@ once; come back to it whenever you wonder "where does X belong?".
 ### Search
 
 ```
+
 User types → SearchView debounces 300 ms
-            → AetherCore.search(req)
-              → ProviderRegistry.resolve("embedding")
-              → Provider.embed(query)
-              → OramaIndexStore.searchHybrid(text + vector)
-            → SearchView renders cards (highlight hits)
+→ AetherCore.search(req)
+→ ProviderRegistry.resolve("embedding")
+→ Provider.embed(query)
+→ OramaIndexStore.searchHybrid(text + vector)
+→ SearchView renders cards (highlight hits)
+
 ```
 
 ### Import
 
 ```
+
 User pastes text in ImportModal
-  → AetherCore.importSource(source)
-    → SourceConnector.parse → AsyncIterable<RawCandidate>
-    → For each: proposeMetadata (AI feature=inbox_metadata)
-                detectDuplicate (vector cosine ≥ 0.92)
-                InboxStore.addItem (status=pending)
-    → InboxStore.save() (persisted to plugin data)
-  → InboxView re-renders on next layout-change
-  → User clicks Approve
-  → AetherCore.approveInboxItem(itemId)
-    → Write markdown file via host.writeFile
-    → reindexNote (chunk + embed + insert)
-    → InboxStore.updateStatus → maybeArchive
+→ AetherCore.importSource(source)
+→ SourceConnector.parse → AsyncIterable<RawCandidate>
+→ For each: proposeMetadata (AI feature=inbox_metadata)
+detectDuplicate (vector cosine ≥ 0.92)
+InboxStore.addItem (status=pending)
+→ InboxStore.save() (persisted to plugin data)
+→ InboxView re-renders on next layout-change
+→ User clicks Approve
+→ AetherCore.approveInboxItem(itemId)
+→ Write markdown file via host.writeFile
+→ reindexNote (chunk + embed + insert)
+→ InboxStore.updateStatus → maybeArchive
+
 ```
 
 ## Why Obsidian Plugin first?
@@ -7280,69 +7940,70 @@ A standalone Tauri app is a future direction. Because business logic lives in
 ```markdown
 # @aether/core internals
 
-This doc is the *engineer's* tour. For an outsider view see `overview.md`.
+This doc is the _engineer's_ tour. For an outsider view see `overview.md`.
 
 ## Module boundaries
-
 ```
+
 src/
-├── types.ts                  ★ public types — only additive changes
-├── errors.ts                 ★ AetherError + codes
+├── types.ts ★ public types — only additive changes
+├── errors.ts ★ AetherError + codes
 │
 ├── host/
-│   ├── adapter.ts            IHostAdapter (the seam)
-│   └── in-memory.ts          test impl + fixture
+│ ├── adapter.ts IHostAdapter (the seam)
+│ └── in-memory.ts test impl + fixture
 │
-├── ids.ts                    ULID + slugify
-├── hash.ts                   SHA-256 (WebCrypto)
-├── url-normalize.ts          dedup-safe URL canonicaliser
+├── ids.ts ULID + slugify
+├── hash.ts SHA-256 (WebCrypto)
+├── url-normalize.ts dedup-safe URL canonicaliser
 │
 ├── markdown/
-│   ├── frontmatter.ts        gray-matter wrapper + tolerant fallback
-│   └── chunker.ts            heading-aware splitter (max ~1600 chars)
+│ ├── frontmatter.ts gray-matter wrapper + tolerant fallback
+│ └── chunker.ts heading-aware splitter (max ~1600 chars)
 │
 ├── provider/
-│   ├── types.ts              Provider, ProviderFactory
-│   ├── registry.ts           lazy instantiation, key/binding indirection
-│   ├── retry.ts              backoff, retriable classification
-│   ├── openai-compatible.ts  the only concrete provider in v0.1
-│   └── mock-provider.ts      test fixture
+│ ├── types.ts Provider, ProviderFactory
+│ ├── registry.ts lazy instantiation, key/binding indirection
+│ ├── retry.ts backoff, retriable classification
+│ ├── openai-compatible.ts the only concrete provider in v0.1
+│ └── mock-provider.ts test fixture
 │
 ├── index-store/
-│   ├── orama-store.ts        hybrid search + chunk lifecycle
-│   └── serialize.ts          PersistedIndex ⇄ store
+│ ├── orama-store.ts hybrid search + chunk lifecycle
+│ └── serialize.ts PersistedIndex ⇄ store
 │
 ├── search/
-│   └── search-engine.ts      embed + hybrid + group + rank → SearchHit[]
+│ └── search-engine.ts embed + hybrid + group + rank → SearchHit[]
 │
 ├── connectors/
-│   ├── connector.ts          SourceConnector interface
-│   ├── markdown-connector.ts
-│   ├── plain-text-connector.ts
-│   ├── notion-zip-connector.ts
-│   ├── bookmarks-json-connector.ts
-│   └── url-list-connector.ts
+│ ├── connector.ts SourceConnector interface
+│ ├── markdown-connector.ts
+│ ├── plain-text-connector.ts
+│ ├── notion-zip-connector.ts
+│ ├── bookmarks-json-connector.ts
+│ └── url-list-connector.ts
 │
 ├── import/
-│   ├── inbox-store.ts        pending/approved/discarded/merged state
-│   ├── duplicate-detector.ts vector-cosine duplicate probe
-│   └── pipeline.ts           Connector → AI metadata → Inbox
+│ ├── inbox-store.ts pending/approved/discarded/merged state
+│ ├── duplicate-detector.ts vector-cosine duplicate probe
+│ └── pipeline.ts Connector → AI metadata → Inbox
 │
 ├── ai/
-│   ├── metadata.ts           inbox_metadata feature (JSON-parsing tolerant)
-│   ├── rewrite.ts            rewrite feature + shared runFeature
-│   ├── summarize.ts          summarize feature
-│   └── extract.ts            extract feature (bullet parsing)
+│ ├── metadata.ts inbox_metadata feature (JSON-parsing tolerant)
+│ ├── rewrite.ts rewrite feature + shared runFeature
+│ ├── summarize.ts summarize feature
+│ └── extract.ts extract feature (bullet parsing)
 │
 ├── budget/
-│   └── token-usage.ts        append-only + monthly aggregate
+│ └── token-usage.ts append-only + monthly aggregate
 │
 ├── persistence/
-│   ├── migrate.ts            forward-only settings migration
-│   └── settings-store.ts     IHostAdapter-backed K-V
+│ ├── migrate.ts forward-only settings migration
+│ └── settings-store.ts IHostAdapter-backed K-V
 │
-├── app.ts                    AetherCore — wiring + use-case methods
-└── index.ts                  barrel export (public API)
+├── app.ts AetherCore — wiring + use-case methods
+└── index.ts barrel export (public API)
+
 ```
 
 ## Module rules
@@ -7370,24 +8031,25 @@ src/
 # Obsidian plugin internals
 
 ## Plugin lifecycle
+```
 
-```
 onload()
- ├── new ObsidianHostAdapter(app, this)
- ├── new AetherCore(adapter)
- ├── await core.init()
- │     ├── store.init()
- │     ├── settings.load()
- │     ├── applySettings(settings)
- │     ├── inbox.load()
- │     └── loadIndex()
- ├── registerView(SEARCH_VIEW_TYPE)
- ├── registerView(INBOX_VIEW_TYPE)
- ├── addSettingTab(AetherSettingsTab)
- ├── addRibbonIcon(...)
- ├── addStatusBarItem(...)
- └── registerCommands(this)
-```
+├── new ObsidianHostAdapter(app, this)
+├── new AetherCore(adapter)
+├── await core.init()
+│ ├── store.init()
+│ ├── settings.load()
+│ ├── applySettings(settings)
+│ ├── inbox.load()
+│ └── loadIndex()
+├── registerView(SEARCH_VIEW_TYPE)
+├── registerView(INBOX_VIEW_TYPE)
+├── addSettingTab(AetherSettingsTab)
+├── addRibbonIcon(...)
+├── addStatusBarItem(...)
+└── registerCommands(this)
+
+````
 
 `onunload()` calls `core.saveIndex()` and lets Obsidian dispose registered views.
 
@@ -7409,17 +8071,18 @@ private render() {
   root.empty();
   // ... build DOM ...
 }
-```
+````
 
 For events that should re-render (Inbox status changes, layout shifts) we
 register on `workspace` events.
 
 ## Settings tab patching
 
-`AetherSettingsTab` always works on a *deep clone* of the current settings,
+`AetherSettingsTab` always works on a _deep clone_ of the current settings,
 mutates it, then saves the whole snapshot. This keeps the diff explicit and
 makes saving/loading commutative.
-```
+
+````
 
 - [ ] **Step 8: Write `docs/architecture/data-formats.md`**
 
@@ -7443,7 +8106,7 @@ aether_url: https://...      # kind=bookmark only.
 aether_created: 1715846400000
 aether_updated: 1715846400000
 ---
-```
+````
 
 Tolerance: if the frontmatter block is unparseable, the parser strips it,
 returns the rest as body, and flags `malformed: true` so the caller can fall
@@ -7453,12 +8116,12 @@ back to filename-stem title.
 
 A single JSON object with these keys:
 
-| Key | Type | Description |
-|---|---|---|
-| `settings.json` | string (JSON-encoded `PersistedSettings`) | Provider configs, bindings, UI preferences, API keys |
-| `inbox.json` | string (JSON-encoded `PersistedInbox`) | Inbox items + batches |
-| `index.json` | string (JSON-encoded `PersistedIndex`) | Notes + chunks + embedding metadata |
-| `settings.json.bak.<ts>` | string | Backup written when settings are corrupt |
+| Key                      | Type                                      | Description                                          |
+| ------------------------ | ----------------------------------------- | ---------------------------------------------------- |
+| `settings.json`          | string (JSON-encoded `PersistedSettings`) | Provider configs, bindings, UI preferences, API keys |
+| `inbox.json`             | string (JSON-encoded `PersistedInbox`)    | Inbox items + batches                                |
+| `index.json`             | string (JSON-encoded `PersistedIndex`)    | Notes + chunks + embedding metadata                  |
+| `settings.json.bak.<ts>` | string                                    | Backup written when settings are corrupt             |
 
 Both `inbox.json` and `index.json` are versioned (`schemaVersion: 1`). The plugin
 migrates forward on load; a future version will preserve old payloads under
@@ -7480,7 +8143,8 @@ backup keys before mutating.
 
 Vault-native notes (anywhere outside `Aether Inbox/`) are also indexed when
 `ui.scanScope = "vault"`.
-```
+
+````
 
 - [ ] **Step 9: Write `docs/contributing/development-setup.md`**
 
@@ -7502,7 +8166,7 @@ pnpm install
 pnpm typecheck
 pnpm test
 pnpm build
-```
+````
 
 `pnpm build` produces:
 
@@ -7546,7 +8210,8 @@ pnpm --filter @aether/core test:coverage
 ```
 
 Coverage report at `packages/core/coverage/index.html`.
-```
+
+````
 
 - [ ] **Step 10: Write `docs/contributing/coding-standards.md`**
 
@@ -7599,11 +8264,11 @@ These rules keep the codebase navigable years from now.
 - Don't suppress errors with empty `catch {}` unless the surrounding code documents why.
 - Don't break the `IHostAdapter` interface in a minor version.
 - Don't change frontmatter schema without bumping `schemaVersion` and writing a migration.
-```
+````
 
 - [ ] **Step 11: Write `docs/contributing/release-checklist.md`**
 
-```markdown
+````markdown
 # Release checklist
 
 For every release (including `v0.1.0`):
@@ -7650,17 +8315,19 @@ Done once, before the very first `0.1.0` GitHub release is published publicly:
      "repo": "<github-user>/aether-note-llm"
    }
    ```
+````
 
 4. Open a PR. Be prepared to address reviewer feedback within a week.
 5. Once merged, your plugin appears in the official directory; future releases just need a new GitHub release with `main.js`, `manifest.json`, `styles.css` as assets — no further PR needed.
-```
+
+````
 
 - [ ] **Step 12: Commit**
 
 ```bash
 git add README.md CHANGELOG.md packages/core/README.md packages/plugin/README.md docs/architecture docs/contributing
 git commit -m "docs: 项目 README、架构总览与贡献指南"
-```
+````
 
 ---
 
@@ -7669,6 +8336,7 @@ git commit -m "docs: 项目 README、架构总览与贡献指南"
 **Goal:** Single source of truth for "what we test, where, how".
 
 **Files:**
+
 - Create: `docs/testing/strategy.md`
 
 - [ ] **Step 1: Write `docs/testing/strategy.md`**
@@ -7679,16 +8347,17 @@ git commit -m "docs: 项目 README、架构总览与贡献指南"
 We test at three levels. Each level answers a different question.
 
 ## Levels
+```
 
-```
 ┌──────────────────────────────────────┐
-│ Manual smoke checklist (in Obsidian)  │  ← Did the user-visible feature ship?
+│ Manual smoke checklist (in Obsidian) │ ← Did the user-visible feature ship?
 ├──────────────────────────────────────┤
-│ Integration tests (vitest, in core)   │  ← Did the flows wire up correctly?
+│ Integration tests (vitest, in core) │ ← Did the flows wire up correctly?
 ├──────────────────────────────────────┤
-│ Unit tests (vitest, in core)          │  ← Does this function do what it says?
+│ Unit tests (vitest, in core) │ ← Does this function do what it says?
 └──────────────────────────────────────┘
-```
+
+````
 
 We do NOT use a browser-driver E2E suite for v0.1. Obsidian E2E tooling is
 immature; the cost outweighs the value at this stage.
@@ -7707,7 +8376,7 @@ Run:
 ```bash
 pnpm --filter @aether/core test
 pnpm --filter @aether/core test:coverage
-```
+````
 
 ## Integration tests
 
@@ -7764,14 +8433,15 @@ Run before every release. Use a clean test vault.
 - New cross-module flow ⇒ new integration test.
 - New user-visible feature ⇒ add to the manual smoke checklist.
 - Failing bug report ⇒ regression test BEFORE the fix.
-```
+
+````
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add docs/testing/strategy.md
 git commit -m "docs: 测试策略"
-```
+````
 
 ---
 
@@ -7780,6 +8450,7 @@ git commit -m "docs: 测试策略"
 **Goal:** GitHub Actions that runs typecheck + tests + build on every push & PR.
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 - [ ] **Step 1: Write `.github/workflows/ci.yml`**
@@ -7854,6 +8525,7 @@ git tag -a v0.1.0 -m "v0.1.0 — Obsidian plugin first release"
 - [ ] **Step 3: Manual hand-off**
 
 Communicate to the team / next maintainer:
+
 1. Build artefacts are at `packages/plugin/main.js` (+ `manifest.json`, `styles.css`).
 2. CHANGELOG `[0.1.0]` block matches the tag.
 3. Smoke checklist in `docs/testing/strategy.md` was completed against a real vault.
@@ -7867,25 +8539,25 @@ Run yourself through this list before considering the plan done.
 
 ### Spec coverage map
 
-| Spec section | Tasks covering it |
-|---|---|
-| §0 design boundaries | Plan intro (Goal + Architecture) |
-| §1 architecture (plugin + core) | 23, 24, 21 |
-| §2 data model | 3, 10, 15 |
-| §3 storage layout | 3, 20, 24 (host-adapter) |
-| §4 import pipeline | 12, 13, 14, 15, 16, 17 |
-| §5 retrieval | 10, 11, 21 |
-| §6 provider subsystem | 8, 9, 19, 20, 25 |
-| §7 AI helpers | 18, 26 (right-click menu) |
-| §8 UI / IA | 24, 25, 26 |
-| §9 errors & recoverability | 3 (AetherError), 10 (corrupt index), 20 (corrupt settings), 22 (rebuild) |
-| §10 testing | 22, 29 |
-| §11 extensibility | 4 (host adapter), 8 (factories) — codified |
+| Spec section                    | Tasks covering it                                                        |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| §0 design boundaries            | Plan intro (Goal + Architecture)                                         |
+| §1 architecture (plugin + core) | 23, 24, 21                                                               |
+| §2 data model                   | 3, 10, 15                                                                |
+| §3 storage layout               | 3, 20, 24 (host-adapter)                                                 |
+| §4 import pipeline              | 12, 13, 14, 15, 16, 17                                                   |
+| §5 retrieval                    | 10, 11, 21                                                               |
+| §6 provider subsystem           | 8, 9, 19, 20, 25                                                         |
+| §7 AI helpers                   | 18, 26 (right-click menu)                                                |
+| §8 UI / IA                      | 24, 25, 26                                                               |
+| §9 errors & recoverability      | 3 (AetherError), 10 (corrupt index), 20 (corrupt settings), 22 (rebuild) |
+| §10 testing                     | 22, 29                                                                   |
+| §11 extensibility               | 4 (host adapter), 8 (factories) — codified                               |
 
 ### Placeholder scan
 
 `grep -nE "TBD|TODO|FIXME|placeholder" docs/superpowers/plans/2026-05-16-aether-note-llm-v0.1-plan.md`
-→ Allowed only inside engineer notes about *intentional* deferrals (e.g., diagnostics modal note). None left as missing content.
+→ Allowed only inside engineer notes about _intentional_ deferrals (e.g., diagnostics modal note). None left as missing content.
 
 ### Type consistency
 
@@ -7909,4 +8581,3 @@ A single implementation plan covering the whole v0.1 plugin is the right granula
 **Which approach?**
 
 — end of plan —
-
