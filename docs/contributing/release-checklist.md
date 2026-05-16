@@ -10,11 +10,14 @@ For every release (including `v0.1.0`):
    - `packages/plugin/package.json`
    - `packages/plugin/manifest.json`
    - Append `"X.Y.Z": "<minObsidianVersion>"` to `packages/plugin/versions.json`.
-3. **Verify.**
-   - `pnpm clean && pnpm install`
+3. **Verify (order matters — core builds before plugin checks).**
+   - `pnpm clean && pnpm install --frozen-lockfile`
+   - `pnpm --filter @aether/core build` — must run BEFORE typecheck/test since the plugin imports `@aether/core` from its `dist/`.
    - `pnpm typecheck`
    - `pnpm test`
-   - `pnpm build`
+   - `pnpm --filter @aether/core test:coverage` — confirm thresholds hold.
+   - `pnpm --filter aether-note-llm build` — produces `packages/plugin/main.js`.
+   - `pnpm format:check`
 4. **Manual smoke test** in a real vault (see `docs/testing/strategy.md` §Manual smoke).
 5. **Commit.**
    - `chore(release): vX.Y.Z` covering version bumps + CHANGELOG.
