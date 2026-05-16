@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+test-vault/
+.idea/
+.vscode/*
+!.vscode/settings.json
+packages/*/dist/
+packages/*/build/
+.workflow/.scratchpad/

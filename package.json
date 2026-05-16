@@ -1,0 +1,27 @@
+{
+  "name": "aether-note-llm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aether Note LLM — Obsidian plugin for AI-powered personal knowledge base",
+  "license": "MIT",
+  "packageManager": "pnpm@11.0.4",
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* run build",
+    "test": "pnpm -r --filter=./packages/* run test",
+    "test:coverage": "pnpm -r --filter=./packages/* run test:coverage",
+    "typecheck": "pnpm -r --filter=./packages/* run typecheck",
+    "lint": "pnpm -r --filter=./packages/* run lint",
+    "format": "prettier --write \"**/*.{ts,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md,yml,yaml}\"",
+    "clean": "pnpm -r --filter=./packages/* run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=11"
+  }
+}
