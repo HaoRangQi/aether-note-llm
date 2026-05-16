@@ -1,0 +1,26 @@
+{
+  "name": "aether-note-llm",
+  "version": "0.1.0",
+  "description": "Obsidian plugin — Aether Note LLM",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf main.js *.d.ts dist coverage"
+  },
+  "dependencies": {
+    "@aether/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "^1.4.16",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

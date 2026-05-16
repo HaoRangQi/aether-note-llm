@@ -1,0 +1,10 @@
+{
+  "id": "aether-note-llm",
+  "name": "Aether Note LLM",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Personal knowledge base assistant with hybrid AI search, smart import inbox, and paragraph-level AI helpers.",
+  "author": "Aether Authors",
+  "authorUrl": "https://github.com/aether/note-llm",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,104 @@
+.aether-search-view,
+.aether-inbox-view {
+  padding: 0.75rem;
+  overflow-y: auto;
+}
+
+.aether-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 6px;
+}
+
+.aether-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.aether-search-card,
+.aether-inbox-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.aether-search-card:hover,
+.aether-inbox-card:hover {
+  border-color: var(--interactive-accent);
+}
+
+.aether-card-title {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.aether-card-summary {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.aether-card-excerpt {
+  font-size: 0.85rem;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.aether-hit {
+  background: var(--text-highlight-bg);
+  border-radius: 2px;
+}
+
+.aether-card-meta {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin-top: 0.3rem;
+}
+
+.aether-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+}
+
+.aether-tag {
+  font-size: 0.75rem;
+  background: var(--background-modifier-hover);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+
+.aether-dup-warning {
+  color: var(--text-warning);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.aether-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.aether-search-status {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.5rem;
+}
+
+.aether-card-preview {
+  font-size: 0.8rem;
+  background: var(--background-primary);
+  padding: 0.4rem;
+  border-radius: 4px;
+  max-height: 6rem;
+  overflow: hidden;
+}
