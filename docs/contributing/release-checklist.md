@@ -16,6 +16,7 @@ For every release (including `v0.1.0`):
    - `pnpm typecheck`
    - `pnpm test`
    - `pnpm --filter @aether/core test:coverage` — confirm thresholds hold.
+   - `pnpm --filter @aether/core smoke` — end-to-end smoke script (import → approve → search → AI helpers → restart → bookmark).
    - `pnpm --filter aether-note-llm build` — produces `packages/plugin/main.js`.
    - `pnpm format:check`
 4. **Manual smoke test** in a real vault (see `docs/testing/strategy.md` §Manual smoke).
