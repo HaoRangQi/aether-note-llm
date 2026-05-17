@@ -8,6 +8,24 @@
 **Status:** v0.1 — Obsidian Plugin (this repository). Independent desktop
 app is a future direction; see `docs/architecture/overview.md`.
 
+## 🚀 启动 / 接入
+
+新人 / 用户从这里开始：[**docs/contributing/getting-started.md**](docs/contributing/getting-started.md)
+
+它在 60 秒内带你跑完：
+
+1. 健康检查（不需要 Obsidian、不需要 API key 也能看完整业务流跑一遍）
+2. 装进真实 Obsidian + 配 Provider + 走黄金路径
+3. 进入开发循环 / 排查常见错误
+
+最快的一行命令验证项目能跑：
+
+```bash
+pnpm install && pnpm --filter @aether/core build && pnpm --filter @aether/core smoke
+```
+
+期望最后输出：`=== 冒烟测试全部通过 ✓ ===`
+
 ## Repository layout
 
 ```
@@ -38,6 +56,7 @@ To run the plugin in a real Obsidian vault during development, see
 
 ## Documentation
 
+- **🚀 启动 / 接入指南（先看这个）：** [docs/contributing/getting-started.md](docs/contributing/getting-started.md)
 - **Architecture overview:** [docs/architecture/overview.md](docs/architecture/overview.md)
 - **Core package internals:** [docs/architecture/core-package.md](docs/architecture/core-package.md)
 - **Plugin internals:** [docs/architecture/plugin-package.md](docs/architecture/plugin-package.md)
