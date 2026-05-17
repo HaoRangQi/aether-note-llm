@@ -8,6 +8,8 @@
 **Status:** v0.1 — Obsidian Plugin (this repository). Independent desktop
 app is a future direction; see `docs/architecture/overview.md`.
 
+📦 **阶段性归档**：[docs/snapshots/2026-05-17-v0.1-complete.md](docs/snapshots/2026-05-17-v0.1-complete.md) — v0.1 代码完成节点的完整快照，记录决策、限制、下一步钩子。隔了一段时间回来 / 接手维护从这里看。
+
 ## 🚀 启动 / 接入
 
 新人 / 用户从这里开始：[**docs/contributing/getting-started.md**](docs/contributing/getting-started.md)
@@ -56,6 +58,7 @@ To run the plugin in a real Obsidian vault during development, see
 
 ## Documentation
 
+- **📦 阶段性归档（v0.1 完成快照）：** [docs/snapshots/2026-05-17-v0.1-complete.md](docs/snapshots/2026-05-17-v0.1-complete.md)
 - **🚀 启动 / 接入指南（先看这个）：** [docs/contributing/getting-started.md](docs/contributing/getting-started.md)
 - **Architecture overview:** [docs/architecture/overview.md](docs/architecture/overview.md)
 - **Core package internals:** [docs/architecture/core-package.md](docs/architecture/core-package.md)
