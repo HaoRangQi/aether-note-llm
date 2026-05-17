@@ -98,15 +98,22 @@ export class ObsidianHostAdapter implements IHostAdapter {
   }
 
   async openFolder(vaultPath: string): Promise<void> {
-    // Get the vault's base path
-    const vaultRoot = this.app.vault.adapter.basePath || "";
-    if (!vaultRoot) throw new Error("Cannot determine vault root path");
-    
-    const folderPath = `${vaultRoot}/${vaultPath}`.replace(/\/+/g, "/");
-    
-    // Use Obsidian's open command to reveal in system file explorer
-    const { shell } = require("electron");
-    shell.showItemInFolder(folderPath);
+    try {
+      const vaultRoot = this.app.vault.adapter.basePath || "";
+      if (!vaultRoot) throw new Error("Cannot determine vault root path");
+      
+      const folderPath = `${vaultRoot}/${vaultPath}`.replace(/\/+/g, "/");
+      console.log("[Aether] Opening folder:", folderPath);
+      
+      const { shell } = require("electron");
+      const result = await shell.openPath(folderPath);
+      if (result) {
+        throw new Error(`Failed to open folder: ${result}`);
+      }
+    } catch (e) {
+      console.error("[Aether] openFolder error:", e);
+      throw e;
+    }
   }
 
   now(): number {
