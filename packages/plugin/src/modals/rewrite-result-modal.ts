@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { t } from "../i18n/index.js";
 
 export class RewriteResultModal extends Modal {
   constructor(
@@ -12,16 +13,16 @@ export class RewriteResultModal extends Modal {
 
   onOpen(): void {
     this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: "AI result" });
-    this.contentEl.createEl("h4", { text: "Original" });
+    this.contentEl.createEl("h2", { text: t("modal.aiResult.title") });
+    this.contentEl.createEl("h4", { text: t("modal.aiResult.original") });
     this.contentEl.createEl("pre", { text: this.original });
-    this.contentEl.createEl("h4", { text: "Rewritten" });
+    this.contentEl.createEl("h4", { text: t("modal.aiResult.rewritten") });
     this.contentEl.createEl("pre", { text: this.rewritten });
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("Discard").onClick(() => this.close()))
+      .addButton((b) => b.setButtonText(t("common.discard")).onClick(() => this.close()))
       .addButton((b) =>
         b
-          .setButtonText("Replace selection")
+          .setButtonText(t("modal.aiResult.replace"))
           .setCta()
           .onClick(() => {
             this.onApply(this.rewritten);

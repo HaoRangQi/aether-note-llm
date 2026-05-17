@@ -1,5 +1,6 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Notice, Setting } from "obsidian";
 import type AetherPlugin from "../main.js";
+import { t } from "../i18n/index.js";
 
 export class DiagnosticsModal extends Modal {
   constructor(
@@ -11,7 +12,7 @@ export class DiagnosticsModal extends Modal {
 
   onOpen(): void {
     this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: "Diagnostics" });
+    this.contentEl.createEl("h2", { text: t("modal.diagnostics.title") });
     const settings = this.plugin.core.settings.current;
     const scrubbed = JSON.parse(JSON.stringify(settings)) as typeof settings;
     scrubbed.apiKeys = Object.fromEntries(
@@ -31,10 +32,11 @@ export class DiagnosticsModal extends Modal {
     pre.setText(text);
     new Setting(this.contentEl).addButton((b) =>
       b
-        .setButtonText("Copy to clipboard")
+        .setButtonText(t("modal.diagnostics.copy"))
         .setCta()
         .onClick(async () => {
           await navigator.clipboard.writeText(text);
+          new Notice(t("modal.diagnostics.copied"), 2000);
         }),
     );
   }

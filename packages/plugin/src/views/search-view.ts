@@ -1,6 +1,7 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 import type AetherPlugin from "../main.js";
 import { escapeHtml, highlight } from "../ui/render.js";
+import { t } from "../i18n/index.js";
 
 export const SEARCH_VIEW_TYPE = "aether-search-view";
 
@@ -16,7 +17,7 @@ export class SearchView extends ItemView {
     return SEARCH_VIEW_TYPE;
   }
   getDisplayText(): string {
-    return "Aether Search";
+    return t("view.search.name");
   }
   getIcon(): string {
     return "search";
@@ -29,7 +30,7 @@ export class SearchView extends ItemView {
 
     const input = root.createEl("input", {
       type: "text",
-      placeholder: "Search your knowledge base…",
+      placeholder: t("view.search.placeholder"),
     });
     input.addClass("aether-search-input");
 
@@ -48,12 +49,12 @@ export class SearchView extends ItemView {
   private async runSearch(query: string, results: HTMLElement): Promise<void> {
     results.empty();
     if (!query.trim()) return;
-    results.createEl("div", { text: "Searching…", cls: "aether-search-status" });
+    results.createEl("div", { text: t("view.search.searching"), cls: "aether-search-status" });
     try {
       const hits = await this.plugin.core.search({ query, limit: 20 });
       results.empty();
       if (hits.length === 0) {
-        results.createEl("p", { text: "No matches." });
+        results.createEl("p", { text: t("view.search.noMatches") });
         return;
       }
       for (const h of hits) {
@@ -79,7 +80,7 @@ export class SearchView extends ItemView {
       }
     } catch (e) {
       results.empty();
-      results.createEl("p", { text: `Search failed: ${(e as Error).message}` });
+      results.createEl("p", { text: t("view.search.failed", { error: (e as Error).message }) });
     }
   }
 

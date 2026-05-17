@@ -1,13 +1,17 @@
-import type { PersistedSettings } from "../types.js";
+import type { PersistedSettings, ProviderConfig } from "../types.js";
+import { findPresetByBaseUrl } from "../provider/presets.js";
 
 export const SETTINGS_LATEST_VERSION = 1 as const;
 
 export function migrateSettings(raw: unknown): PersistedSettings {
   const obj = (raw ?? {}) as Partial<PersistedSettings> & { schemaVersion?: number };
   if (!obj.schemaVersion || obj.schemaVersion === 1) {
+    const providers = (Array.isArray(obj.providers) ? obj.providers : []).map((p) =>
+      backfillProviderKind(p),
+    );
     return {
       schemaVersion: 1,
-      providers: Array.isArray(obj.providers) ? obj.providers : [],
+      providers,
       bindings: Array.isArray(obj.bindings) ? obj.bindings : [],
       apiKeys:
         typeof obj.apiKeys === "object" && obj.apiKeys !== null
@@ -18,6 +22,7 @@ export function migrateSettings(raw: unknown): PersistedSettings {
         aetherInboxFolder:
           typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
         scanScope: obj.ui?.scanScope === "aether-inbox-only" ? "aether-inbox-only" : "vault",
+        language: obj.ui?.language === "en" ? "en" : "zh-CN",
       },
       budgets: {
         monthlyTokenWarn:
@@ -29,4 +34,11 @@ export function migrateSettings(raw: unknown): PersistedSettings {
     };
   }
   throw new Error(`Unknown settings schemaVersion: ${obj.schemaVersion}`);
+}
+
+/** 老配置没有 kind 字段；从 baseUrl 反查预设，找不到就标 "custom"。 */
+function backfillProviderKind(p: ProviderConfig): ProviderConfig {
+  if (p.kind) return p;
+  const preset = findPresetByBaseUrl(p.baseUrl);
+  return { ...p, kind: preset?.id ?? "custom" };
 }

@@ -5,11 +5,12 @@ import { RewriteResultModal } from "./modals/rewrite-result-modal.js";
 import { DiagnosticsModal } from "./modals/diagnostics-modal.js";
 import { SEARCH_VIEW_TYPE } from "./views/search-view.js";
 import { INBOX_VIEW_TYPE } from "./views/inbox-view.js";
+import { t } from "./i18n/index.js";
 
 interface AiAction {
   id: string;
-  paletteName: string;
-  menuTitle: string;
+  paletteKey: string;
+  menuKey: string;
   icon: string;
   run: (plugin: AetherPlugin, selection: string) => Promise<string>;
 }
@@ -17,22 +18,22 @@ interface AiAction {
 const AI_ACTIONS: AiAction[] = [
   {
     id: "ai-rewrite",
-    paletteName: "AI: Rewrite selection",
-    menuTitle: "Aether: AI rewrite",
+    paletteKey: "cmd.aiRewrite",
+    menuKey: "menu.aiRewrite",
     icon: "wand",
     run: (plugin, s) => plugin.core.rewrite(s),
   },
   {
     id: "ai-summarize",
-    paletteName: "AI: Summarize selection",
-    menuTitle: "Aether: AI summarize",
+    paletteKey: "cmd.aiSummarize",
+    menuKey: "menu.aiSummarize",
     icon: "file-text",
     run: (plugin, s) => plugin.core.summarize(s),
   },
   {
     id: "ai-extract",
-    paletteName: "AI: Extract key points",
-    menuTitle: "Aether: Extract key points",
+    paletteKey: "cmd.aiExtract",
+    menuKey: "menu.aiExtract",
     icon: "list",
     run: async (plugin, s) => {
       const points = await plugin.core.extract(s);
@@ -44,55 +45,58 @@ const AI_ACTIONS: AiAction[] = [
 async function runAi(plugin: AetherPlugin, editor: Editor, action: AiAction): Promise<void> {
   const sel = editor.getSelection();
   if (!sel) {
-    new Notice("Select some text first", 3000);
+    new Notice(t("ai.selectFirst"), 3000);
     return;
   }
   try {
     const out = await action.run(plugin, sel);
-    new RewriteResultModal(plugin.app, sel, out, (t) => editor.replaceSelection(t)).open();
+    new RewriteResultModal(plugin.app, sel, out, (text) => editor.replaceSelection(text)).open();
   } catch (e) {
-    new Notice(`AI failed: ${(e as Error).message}`, 5000);
+    new Notice(t("ai.failed", { error: (e as Error).message }), 5000);
   }
 }
 
 export function registerCommands(plugin: AetherPlugin): void {
   plugin.addCommand({
     id: "open-search",
-    name: "Open Search",
+    name: t("cmd.openSearch"),
     callback: () => plugin.activateView(SEARCH_VIEW_TYPE),
   });
 
   plugin.addCommand({
     id: "open-inbox",
-    name: "Open Inbox",
+    name: t("cmd.openInbox"),
     callback: () => plugin.activateView(INBOX_VIEW_TYPE),
   });
 
   plugin.addCommand({
     id: "import",
-    name: "Import...",
+    name: t("cmd.import"),
     callback: () => new ImportModal(plugin.app, plugin).open(),
   });
 
   plugin.addCommand({
     id: "rebuild-index",
-    name: "Rebuild index",
+    name: t("cmd.rebuild"),
     callback: async () => {
       const r = await plugin.core.rebuildAll();
-      new Notice(`Rebuilt: ${r.indexed}/${r.scanned} files`, 6000);
+      new Notice(
+        t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
+        6000,
+      );
     },
   });
 
   plugin.addCommand({
     id: "diagnostics",
-    name: "Diagnostics export",
+    name: t("cmd.diagnostics"),
     callback: () => new DiagnosticsModal(plugin.app, plugin).open(),
   });
 
   for (const action of AI_ACTIONS) {
     plugin.addCommand({
       id: action.id,
-      name: action.paletteName,
+      name: t(action.paletteKey),
       editorCallback: (editor: Editor) => {
         void runAi(plugin, editor, action);
       },
@@ -105,7 +109,7 @@ export function registerCommands(plugin: AetherPlugin): void {
       for (const action of AI_ACTIONS) {
         menu.addItem((i) =>
           i
-            .setTitle(action.menuTitle)
+            .setTitle(t(action.menuKey))
             .setIcon(action.icon)
             .onClick(() => {
               void runAi(plugin, editor, action);

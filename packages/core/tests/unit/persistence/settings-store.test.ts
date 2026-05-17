@@ -10,18 +10,88 @@ describe("migrateSettings", () => {
     expect(s.providers).toEqual([]);
     expect(s.ui.alpha).toBe(0.4);
     expect(s.ui.scanScope).toBe("vault");
+    expect(s.ui.language).toBe("zh-CN");
     expect(s.flags.aiTrace).toBe(false);
   });
 
   it("preserves provided values", () => {
     const s = migrateSettings({
       schemaVersion: 1,
-      ui: { alpha: 0.7, aetherInboxFolder: "X", scanScope: "aether-inbox-only" },
+      ui: {
+        alpha: 0.7,
+        aetherInboxFolder: "X",
+        scanScope: "aether-inbox-only",
+        language: "en",
+      },
       flags: { aiTrace: true },
     });
     expect(s.ui.alpha).toBe(0.7);
     expect(s.ui.aetherInboxFolder).toBe("X");
+    expect(s.ui.language).toBe("en");
     expect(s.flags.aiTrace).toBe(true);
+  });
+
+  it("invalid language falls back to zh-CN", () => {
+    const s = migrateSettings({
+      schemaVersion: 1,
+      ui: { language: "fr" },
+    });
+    expect(s.ui.language).toBe("zh-CN");
+  });
+
+  it("backfills provider kind from known baseUrl", () => {
+    const s = migrateSettings({
+      schemaVersion: 1,
+      providers: [
+        {
+          id: "1",
+          name: "DS",
+          baseUrl: "https://api.deepseek.com/v1",
+          apiKeyRef: "key:1",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+        },
+      ],
+    });
+    expect(s.providers[0]?.kind).toBe("deepseek");
+  });
+
+  it("backfills kind = 'custom' for unknown baseUrl", () => {
+    const s = migrateSettings({
+      schemaVersion: 1,
+      providers: [
+        {
+          id: "1",
+          name: "X",
+          baseUrl: "https://api.unknown.example/v1",
+          apiKeyRef: "key:1",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+        },
+      ],
+    });
+    expect(s.providers[0]?.kind).toBe("custom");
+  });
+
+  it("keeps existing kind untouched", () => {
+    const s = migrateSettings({
+      schemaVersion: 1,
+      providers: [
+        {
+          id: "1",
+          name: "X",
+          baseUrl: "https://api.openai.com/v1",
+          apiKeyRef: "key:1",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+          kind: "custom",
+        },
+      ],
+    });
+    expect(s.providers[0]?.kind).toBe("custom");
   });
 
   it("throws on unknown schemaVersion", () => {

@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { t } from "../i18n/index.js";
 
 export class ApiKeyModal extends Modal {
   private value = "";
@@ -12,19 +13,19 @@ export class ApiKeyModal extends Modal {
 
   onOpen(): void {
     this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: "Set API key" });
+    this.contentEl.createEl("h2", { text: t("modal.apiKey.title") });
     new Setting(this.contentEl)
-      .setName("API key")
-      .setDesc("Stored locally in plugin data. Treat your vault as containing this secret.")
-      .addText((t) => {
-        t.inputEl.type = "password";
-        t.setValue(this.value).onChange((v) => (this.value = v));
+      .setName(t("modal.apiKey.field"))
+      .setDesc(t("modal.apiKey.desc"))
+      .addText((tb) => {
+        tb.inputEl.type = "password";
+        tb.setValue(this.value).onChange((v) => (this.value = v));
       });
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()))
       .addButton((b) =>
         b
-          .setButtonText("Save")
+          .setButtonText(t("common.save"))
           .setCta()
           .onClick(() => {
             this.onSubmit(this.value.trim());

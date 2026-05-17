@@ -82,6 +82,11 @@ export interface ProviderConfig {
   defaultHeaders: Record<string, string>;
   enabled: boolean;
   createdAt: number;
+  /**
+   * 预设标识（"deepseek" / "openai" / "siliconflow" / "ollama" / "custom"）。
+   * 老配置可能没有这个字段；migration 会根据 baseUrl 反查或填 "custom"。
+   */
+  kind?: string;
 }
 
 export interface FeatureBinding {
@@ -233,6 +238,8 @@ export interface PersistedSettings {
     alpha: number;
     aetherInboxFolder: string;
     scanScope: "vault" | "aether-inbox-only";
+    /** UI 语言，影响插件内所有文案。默认 "zh-CN"。 */
+    language: "zh-CN" | "en";
   };
   budgets: {
     monthlyTokenWarn: number | null;

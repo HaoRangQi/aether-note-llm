@@ -18,6 +18,12 @@ export type { Provider, ProviderFactory } from "./provider/types.js";
 export { openAICompatibleFactory, OpenAICompatibleProvider } from "./provider/openai-compatible.js";
 export { MockProvider, type MockProviderOptions } from "./provider/mock-provider.js";
 export {
+  PROVIDER_PRESETS,
+  findPresetById,
+  findPresetByBaseUrl,
+  type ProviderPreset,
+} from "./provider/presets.js";
+export {
   withRetry,
   isRetriableHttpStatus,
   defaultShouldRetry,

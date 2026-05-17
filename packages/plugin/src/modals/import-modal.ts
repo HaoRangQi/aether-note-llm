@@ -1,6 +1,7 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import type AetherPlugin from "../main.js";
 import type { ImportSource } from "@aether/core";
+import { t } from "../i18n/index.js";
 
 export class ImportModal extends Modal {
   private text = "";
@@ -13,21 +14,21 @@ export class ImportModal extends Modal {
 
   onOpen(): void {
     this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: "Import to Aether Inbox" });
-    new Setting(this.contentEl).setName("Paste markdown / text").addTextArea((ta) => {
+    this.contentEl.createEl("h2", { text: t("modal.import.title") });
+    new Setting(this.contentEl).setName(t("modal.import.field")).addTextArea((ta) => {
       ta.inputEl.rows = 12;
       ta.inputEl.cols = 60;
       ta.onChange((v) => (this.text = v));
     });
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()))
       .addButton((b) =>
         b
-          .setButtonText("Import")
+          .setButtonText(t("modal.import.button"))
           .setCta()
           .onClick(async () => {
             if (!this.text.trim()) {
-              new Notice("Please enter some text to import", 3000);
+              new Notice(t("modal.import.empty"), 3000);
               return;
             }
             const source: ImportSource = {
@@ -50,16 +51,16 @@ export class ImportModal extends Modal {
                 }
               }
               if (hasError) {
-                new Notice(`Import failed: ${errorMsg}`, 6000);
+                new Notice(t("modal.import.failed", { error: errorMsg }), 6000);
               } else if (count === 0) {
-                new Notice("No items imported. Check console for details.", 5000);
+                new Notice(t("modal.import.zero"), 5000);
               } else {
-                new Notice(`Imported ${count} item(s) to Inbox`, 4000);
+                new Notice(t("modal.import.done", { count }), 4000);
               }
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);
               console.error("[Aether Import] Exception:", e);
-              new Notice(`Import error: ${msg}`, 6000);
+              new Notice(t("modal.import.error", { error: msg }), 6000);
             }
           }),
       );
