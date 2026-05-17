@@ -93,6 +93,27 @@ Aether 装到 Obsidian 后，你可以：
 <tr>
 <td valign="top" width="33%" align="center">
 
+### 🏠 装到 Obsidian（一键）
+
+<sub>2 分钟，**推荐普通用户**</sub>
+
+macOS / Linux：
+
+```bash
+./install.sh
+```
+
+Windows（PowerShell）：
+
+```powershell
+.\install.ps1
+```
+
+脚本会自动：检查环境 → 装依赖 → build → 找到你的 vault → 链好插件 → 告诉你**接下来在 Obsidian 里点哪几下**。
+
+</td>
+<td valign="top" width="33%" align="center">
+
 ### 🧪 验证项目能跑
 
 <sub>1 分钟，**无需 Obsidian、无需 API key**</sub>
@@ -105,20 +126,6 @@ pnpm --filter @aether/core smoke
 
 期望看到：
 `=== 冒烟测试全部通过 ✓ ===`
-
-</td>
-<td valign="top" width="33%" align="center">
-
-### 🏠 装到自己 Obsidian
-
-<sub>10 分钟，**需要 vault + API key**</sub>
-
-照着 [启动与接入指南](docs/contributing/getting-started.md) 走：
-
-1. `pnpm build`
-2. 软链 main.js 到 vault
-3. Obsidian 启用插件
-4. Settings → 配 Provider + 5 个 Feature Binding
 
 </td>
 <td valign="top" width="33%" align="center">
@@ -140,6 +147,30 @@ esbuild watch，保存即重建。
 </td>
 </tr>
 </table>
+
+<details>
+<summary>🛠 不想用一键脚本？手动 4 步装</summary>
+
+```bash
+# 1) 装依赖 + build
+pnpm install
+pnpm --filter @aether/core build
+pnpm --filter aether-note-llm build
+
+# 2) 软链 3 个产物到你的 vault
+VAULT="$HOME/Documents/你的vault名字"
+mkdir -p "$VAULT/.obsidian/plugins/aether-note-llm"
+ln -sf "$(pwd)/packages/plugin/main.js"       "$VAULT/.obsidian/plugins/aether-note-llm/main.js"
+ln -sf "$(pwd)/packages/plugin/manifest.json" "$VAULT/.obsidian/plugins/aether-note-llm/manifest.json"
+ln -sf "$(pwd)/packages/plugin/styles.css"    "$VAULT/.obsidian/plugins/aether-note-llm/styles.css"
+
+# 3) 打开 Obsidian → Settings → Community plugins → 启用
+# 4) Settings → Aether Note LLM → 配 Provider
+```
+
+详细的环境前置 / 故障排查见 [启动与接入指南](docs/contributing/getting-started.md)。
+
+</details>
 
 ---
 

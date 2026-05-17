@@ -1,6 +1,10 @@
 # 日常使用指南
 
-> **目标读者**：已经把插件装到 Obsidian 里并配好 Provider 的用户（如果还没，先看 [`getting-started.md`](contributing/getting-started.md) §1-3）。
+> **目标读者**：已经把插件装到 Obsidian 里并配好 Provider 的用户。
+>
+> 还没装？最快路径：在仓库根目录运行 **`./install.sh`**（macOS/Linux）或 **`.\install.ps1`**（Windows）。脚本会自动检查环境、build、找到你的 vault、链好插件，最后告诉你"在 Obsidian 里点这 3 下"。
+>
+> 想了解每一步在干什么 → [详细启动指南](contributing/getting-started.md)。
 >
 > 这份文档不讲怎么装，只讲**装好之后日常怎么用**：7 个真实场景 + 8 个常见坑。
 

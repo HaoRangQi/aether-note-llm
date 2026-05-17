@@ -93,6 +93,27 @@ See [📦 Phase snapshot (2026-05-17)](docs/snapshots/2026-05-17-v0.1-complete.m
 <tr>
 <td valign="top" width="33%" align="center">
 
+### 🏠 Install into Obsidian (one-click)
+
+<sub>2 minutes, **recommended for users**</sub>
+
+macOS / Linux:
+
+```bash
+./install.sh
+```
+
+Windows (PowerShell):
+
+```powershell
+.\install.ps1
+```
+
+The script auto-detects environment, installs deps, builds, finds your vault, links the plugin, and tells you **exactly what to click in Obsidian next**.
+
+</td>
+<td valign="top" width="33%" align="center">
+
 ### 🧪 Verify it works
 
 <sub>1 minute, **no Obsidian, no API key needed**</sub>
@@ -106,20 +127,6 @@ pnpm --filter @aether/core smoke
 Expected last line:
 `=== 冒烟测试全部通过 ✓ ===`
 (smoke tests all passed)
-
-</td>
-<td valign="top" width="33%" align="center">
-
-### 🏠 Install in your Obsidian
-
-<sub>10 minutes, **needs vault + API key**</sub>
-
-Follow the [Getting Started guide](docs/contributing/getting-started.md):
-
-1. `pnpm build`
-2. Symlink `main.js` into your vault
-3. Enable the plugin in Obsidian
-4. Configure Provider + 5 Feature Bindings
 
 </td>
 <td valign="top" width="33%" align="center">
@@ -141,6 +148,30 @@ esbuild watch, rebuild on save.
 </td>
 </tr>
 </table>
+
+<details>
+<summary>🛠 Don't want the one-click script? Manual 4-step install</summary>
+
+```bash
+# 1) Install deps + build
+pnpm install
+pnpm --filter @aether/core build
+pnpm --filter aether-note-llm build
+
+# 2) Symlink 3 artifacts into your vault
+VAULT="$HOME/Documents/your-vault-name"
+mkdir -p "$VAULT/.obsidian/plugins/aether-note-llm"
+ln -sf "$(pwd)/packages/plugin/main.js"       "$VAULT/.obsidian/plugins/aether-note-llm/main.js"
+ln -sf "$(pwd)/packages/plugin/manifest.json" "$VAULT/.obsidian/plugins/aether-note-llm/manifest.json"
+ln -sf "$(pwd)/packages/plugin/styles.css"    "$VAULT/.obsidian/plugins/aether-note-llm/styles.css"
+
+# 3) Open Obsidian → Settings → Community plugins → enable
+# 4) Settings → Aether Note LLM → configure Provider
+```
+
+For prerequisites and troubleshooting see [Getting Started](docs/contributing/getting-started.md).
+
+</details>
 
 ---
 
