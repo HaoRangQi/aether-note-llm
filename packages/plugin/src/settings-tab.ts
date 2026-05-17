@@ -398,6 +398,26 @@ export class AetherSettingsTab extends PluginSettingTab {
             s.ui.aetherInboxFolder = v;
           }),
         ),
+      )
+      .addExtraButton((b) =>
+        b
+          .setIcon("folder-open")
+          .setTooltip(t("settings.advanced.inboxFolder.open"))
+          .onClick(async () => {
+            const folder = this.plugin.core.settings.current.ui.aetherInboxFolder;
+            if (!folder.trim()) {
+              new Notice(t("settings.advanced.inboxFolder.empty"), 3000);
+              return;
+            }
+            try {
+              await this.plugin.core.host.openFolder(folder);
+            } catch (e) {
+              new Notice(
+                t("settings.advanced.inboxFolder.openFailed", { error: (e as Error).message }),
+                5000,
+              );
+            }
+          }),
       );
 
     new Setting(root).setName(t("settings.advanced.scope")).addDropdown((d) =>

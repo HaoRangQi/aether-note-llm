@@ -78,6 +78,9 @@ export const en: Dict = {
   // ---- Settings: advanced ----
   "settings.advanced.inboxFolder": "Inbox folder",
   "settings.advanced.inboxFolder.desc": "Imported notes land here for review before being approved into the vault.",
+  "settings.advanced.inboxFolder.open": "Open folder",
+  "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
+  "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
   "settings.advanced.scope": "Scan scope",
   "settings.advanced.scope.vault": "Entire vault",
   "settings.advanced.scope.inbox": "Aether Inbox only",

@@ -78,6 +78,9 @@ export const zhCN: Dict = {
   // ---- 设置页：高级 ----
   "settings.advanced.inboxFolder": "Inbox 文件夹",
   "settings.advanced.inboxFolder.desc": "导入的笔记会先放到这里等你审核，再批准存入 vault。",
+  "settings.advanced.inboxFolder.open": "打开文件夹",
+  "settings.advanced.inboxFolder.empty": "Inbox 文件夹路径为空",
+  "settings.advanced.inboxFolder.openFailed": "打开文件夹失败：{error}",
   "settings.advanced.scope": "扫描范围",
   "settings.advanced.scope.vault": "整个 vault",
   "settings.advanced.scope.inbox": "仅 Aether Inbox 文件夹",
