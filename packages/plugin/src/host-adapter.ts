@@ -51,10 +51,21 @@ export class ObsidianHostAdapter implements IHostAdapter {
     const p = normalizePath(path);
     const exists = this.app.vault.getAbstractFileByPath(p);
     if (exists) return;
-    try {
-      await this.app.vault.createFolder(p);
-    } catch {
-      // Folder may already exist due to race; ignore.
+    
+    // Recursively create parent directories
+    const parts = p.split("/");
+    for (let i = 1; i <= parts.length; i++) {
+      const dir = parts.slice(0, i).join("/");
+      if (dir === "") continue;
+      const exists = this.app.vault.getAbstractFileByPath(dir);
+      if (!exists) {
+        try {
+          await this.app.vault.createFolder(dir);
+        } catch (e) {
+          // Folder may already exist due to race; ignore.
+          console.warn(`[Aether] Failed to create folder ${dir}:`, e);
+        }
+      }
     }
   }
 
