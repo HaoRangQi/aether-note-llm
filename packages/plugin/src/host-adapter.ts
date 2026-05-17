@@ -98,19 +98,15 @@ export class ObsidianHostAdapter implements IHostAdapter {
   }
 
   async openFolder(vaultPath: string): Promise<void> {
-    const folder = this.app.vault.getAbstractFileByPath(vaultPath);
-    if (!folder) throw new Error(`Folder not found: ${vaultPath}`);
-    // Obsidian doesn't have a built-in "reveal in finder" API, so we use the file explorer
-    // by opening the folder's first file or using the file explorer reveal command
-    if ("children" in folder) {
-      // It's a folder; reveal it in the file explorer
-      this.app.commands.executeCommandById("file-explorer:reveal-active-file");
-      // Navigate to the folder by opening its path in the file explorer
-      const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(vaultPath));
-      if (files.length > 0) {
-        await this.app.workspace.openLinkText(files[0].path, "", false);
-      }
-    }
+    // Get the vault's base path
+    const vaultRoot = this.app.vault.adapter.basePath || "";
+    if (!vaultRoot) throw new Error("Cannot determine vault root path");
+    
+    const folderPath = `${vaultRoot}/${vaultPath}`.replace(/\/+/g, "/");
+    
+    // Use Obsidian's open command to reveal in system file explorer
+    const { shell } = require("electron");
+    shell.showItemInFolder(folderPath);
   }
 
   now(): number {
