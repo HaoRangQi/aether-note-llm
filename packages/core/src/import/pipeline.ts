@@ -44,25 +44,47 @@ export class ImportPipeline {
 
     let count = 0;
     const cap = this.deps.maxItemsPerBatch ?? 200;
-    for await (const candidate of connector.parse(source)) {
-      if (count >= cap) break;
-      const item = await this.toInboxItem(candidate, batchId);
-      this.deps.inbox.addItem(item);
-      count += 1;
-      yield { type: "item-added", item };
-    }
+    try {
+      for await (const candidate of connector.parse(source)) {
+        if (count >= cap) break;
+        try {
+          const item = await this.toInboxItem(candidate, batchId);
+          this.deps.inbox.addItem(item);
+          count += 1;
+          yield { type: "item-added", item };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          yield { type: "error", message: `Failed to process item: ${msg}` };
+          // Continue processing other items
+        }
+      }
 
-    await this.deps.inbox.save();
-    yield { type: "batch-finished", batchId, total: count };
+      await this.deps.inbox.save();
+      yield { type: "batch-finished", batchId, total: count };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      yield { type: "error", message: `Import pipeline error: ${msg}` };
+    }
   }
 
   private async toInboxItem(candidate: RawCandidate, batchId: string): Promise<InboxItem> {
     const fallbackTitle = candidate.sourceRef.split("/").pop()?.replace(/\.md$/i, "") ?? "Untitled";
-    const proposal = await proposeMetadata({
-      registry: this.deps.registry,
-      candidate,
-      fallbackTitle,
-    });
+    let proposal;
+    try {
+      proposal = await proposeMetadata({
+        registry: this.deps.registry,
+        candidate,
+        fallbackTitle,
+      });
+    } catch (e) {
+      // proposeMetadata should handle errors internally, but catch just in case
+      console.warn("[Aether] proposeMetadata failed, using fallback:", e);
+      proposal = {
+        title: fallbackTitle,
+        tags: candidate.tags,
+        summary: "",
+      };
+    }
     let duplicateOf: string | null = null;
     try {
       const { provider, model } = this.deps.registry.resolve("embedding");
@@ -82,7 +104,7 @@ export class ImportPipeline {
         e.code !== "BINDING_NOT_FOUND" &&
         e.code !== "API_KEY_MISSING"
       ) {
-        throw e;
+        console.warn("[Aether] Duplicate detection failed:", e);
       }
       // No embedding available — skip dup detection.
     }

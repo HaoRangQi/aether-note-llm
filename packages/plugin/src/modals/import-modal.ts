@@ -26,7 +26,10 @@ export class ImportModal extends Modal {
           .setButtonText("Import")
           .setCta()
           .onClick(async () => {
-            if (!this.text.trim()) return;
+            if (!this.text.trim()) {
+              new Notice("Please enter some text to import", 3000);
+              return;
+            }
             const source: ImportSource = {
               kind: "paste",
               label: `paste-${Date.now()}`,
@@ -34,10 +37,30 @@ export class ImportModal extends Modal {
             };
             this.close();
             let count = 0;
-            for await (const e of this.plugin.core.importSource(source)) {
-              if (e.type === "item-added") count += 1;
+            let hasError = false;
+            let errorMsg = "";
+            try {
+              for await (const e of this.plugin.core.importSource(source)) {
+                if (e.type === "item-added") {
+                  count += 1;
+                } else if (e.type === "error") {
+                  hasError = true;
+                  errorMsg = e.message;
+                  console.error("[Aether Import] Error:", e.message);
+                }
+              }
+              if (hasError) {
+                new Notice(`Import failed: ${errorMsg}`, 6000);
+              } else if (count === 0) {
+                new Notice("No items imported. Check console for details.", 5000);
+              } else {
+                new Notice(`Imported ${count} item(s) to Inbox`, 4000);
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              console.error("[Aether Import] Exception:", e);
+              new Notice(`Import error: ${msg}`, 6000);
             }
-            new Notice(`Imported ${count} item(s) to Inbox`, 4000);
           }),
       );
   }
