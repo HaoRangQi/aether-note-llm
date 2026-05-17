@@ -37,13 +37,13 @@ export class ImportModal extends Modal {
               payload: { type: "paste-text", text: this.text },
             };
             this.close();
-            let count = 0;
+            const itemIds: string[] = [];
             let hasError = false;
             let errorMsg = "";
             try {
               for await (const e of this.plugin.core.importSource(source)) {
                 if (e.type === "item-added") {
-                  count += 1;
+                  itemIds.push(e.item.id);
                 } else if (e.type === "error") {
                   hasError = true;
                   errorMsg = e.message;
@@ -52,10 +52,32 @@ export class ImportModal extends Modal {
               }
               if (hasError) {
                 new Notice(t("modal.import.failed", { error: errorMsg }), 6000);
-              } else if (count === 0) {
+                return;
+              }
+              if (itemIds.length === 0) {
                 new Notice(t("modal.import.zero"), 5000);
+                return;
+              }
+              // Auto-approve: write files to vault immediately
+              const paths: string[] = [];
+              for (const id of itemIds) {
+                try {
+                  const note = await this.plugin.core.approveInboxItem(id);
+                  paths.push(note.vaultPath);
+                } catch (e) {
+                  console.error("[Aether Import] Auto-approve failed:", e);
+                  hasError = true;
+                  errorMsg = e instanceof Error ? e.message : String(e);
+                }
+              }
+              if (paths.length > 0) {
+                const folder = paths[0].split("/").slice(0, -1).join("/");
+                new Notice(
+                  t("modal.import.done", { count: paths.length }) + `\n📁 ${folder}`,
+                  6000,
+                );
               } else {
-                new Notice(t("modal.import.done", { count }), 4000);
+                new Notice(t("modal.import.failed", { error: errorMsg }), 6000);
               }
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);

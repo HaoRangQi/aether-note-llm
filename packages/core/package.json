@@ -1,6 +1,6 @@
 {
   "name": "@aether/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Aether Note LLM — host-agnostic core: import pipeline, search engine, AI provider abstraction",
   "license": "MIT",
   "type": "module",
