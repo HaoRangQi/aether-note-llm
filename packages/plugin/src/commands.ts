@@ -93,6 +93,27 @@ export function registerCommands(plugin: AetherPlugin): void {
     callback: () => new DiagnosticsModal(plugin.app, plugin).open(),
   });
 
+  plugin.addCommand({
+    id: "show-inbox-location",
+    name: t("cmd.showInboxLocation"),
+    callback: async () => {
+      const folder = plugin.core.settings.current.ui.aetherInboxFolder;
+      const pending = plugin.core.inbox.listItems({ status: "pending" });
+      const approved = plugin.core.inbox.listItems({ status: "approved" });
+      
+      let msg = `📁 Inbox 文件夹: ${folder}\n\n`;
+      msg += `⏳ 待审核: ${pending.length} 项\n`;
+      msg += `✅ 已批准: ${approved.length} 项\n\n`;
+      msg += `💡 导入流程:\n`;
+      msg += `1. 导入后项目进入 Inbox (待审核)\n`;
+      msg += `2. 在 Inbox 视图中批准项目\n`;
+      msg += `3. 批准后项目保存到: ${folder}/notes/{year}/{month}/\n`;
+      msg += `4. 点击设置中的文件夹按钮打开 Inbox 文件夹`;
+      
+      new Notice(msg, 8000);
+    },
+  });
+
   for (const action of AI_ACTIONS) {
     plugin.addCommand({
       id: action.id,

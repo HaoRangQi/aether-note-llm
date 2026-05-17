@@ -123,6 +123,7 @@ export const en: Dict = {
   "cmd.import": "Import…",
   "cmd.rebuild": "Rebuild index",
   "cmd.diagnostics": "Diagnostics export",
+  "cmd.showInboxLocation": "Show import location info",
   "cmd.aiRewrite": "AI: Rewrite selection",
   "cmd.aiSummarize": "AI: Summarize selection",
   "cmd.aiExtract": "AI: Extract key points",

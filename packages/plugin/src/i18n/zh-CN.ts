@@ -123,6 +123,7 @@ export const zhCN: Dict = {
   "cmd.import": "导入…",
   "cmd.rebuild": "重建索引",
   "cmd.diagnostics": "导出诊断信息",
+  "cmd.showInboxLocation": "显示导入项目位置",
   "cmd.aiRewrite": "AI：改写选中文本",
   "cmd.aiSummarize": "AI：总结选中文本",
   "cmd.aiExtract": "AI：提取要点",
