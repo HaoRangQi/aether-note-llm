@@ -69,6 +69,20 @@ export class AiActivityIndicator {
     }, 500) as unknown as number;
   }
 
+  /** 实时更新副标题（用于导入进度等场景）。 */
+  updateMeta(text: string): void {
+    if (this.removed) return;
+    // metaEl 是 namewrap 里的第二个子元素
+    const metaEl = this.el.querySelector(".aether-ai-activity-meta");
+    if (metaEl) {
+      // 保留计时 span，只更新前缀文字
+      const timeSpan = metaEl.querySelector("span:last-child");
+      metaEl.empty();
+      metaEl.createSpan({ text: text + " · " });
+      if (timeSpan) metaEl.appendChild(timeSpan);
+    }
+  }
+
   hide(state: "done" | "error" = "done"): void {
     if (this.removed) return;
     this.removed = true;

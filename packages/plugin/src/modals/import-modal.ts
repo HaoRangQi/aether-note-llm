@@ -1,6 +1,7 @@
 import { App, Modal, Notice, setIcon } from "obsidian";
 import type AetherPlugin from "../main.js";
 import type { ImportSource } from "@aether/core";
+import { AiActivityIndicator } from "../ui/ai-activity.js";
 import { t } from "../i18n/index.js";
 
 type Mode = "paste" | "file";
@@ -188,6 +189,12 @@ export class ImportModal extends Modal {
   }
 
   private async runImport(source: ImportSource): Promise<void> {
+    const indicator = new AiActivityIndicator({
+      roleName: t("modal.import.progress.title"),
+      roleIcon: "download",
+      meta: source.label,
+    });
+
     const itemIds: string[] = [];
     let hasError = false;
     let errorMsg = "";
@@ -195,6 +202,10 @@ export class ImportModal extends Modal {
       for await (const e of this.plugin.core.importSource(source)) {
         if (e.type === "item-added") {
           itemIds.push(e.item.id);
+          // 实时更新计数（借用 meta 行）
+          indicator.updateMeta(
+            t("modal.import.progress.parsed", { count: itemIds.length }),
+          );
         } else if (e.type === "error") {
           hasError = true;
           errorMsg = e.message;
@@ -202,13 +213,17 @@ export class ImportModal extends Modal {
         }
       }
       if (hasError && itemIds.length === 0) {
+        indicator.hide("error");
         new Notice(t("modal.import.failed", { error: errorMsg }), 6000);
         return;
       }
       if (itemIds.length === 0) {
+        indicator.hide("error");
         new Notice(t("modal.import.zero"), 5000);
         return;
       }
+      // 写入 vault
+      indicator.updateMeta(t("modal.import.progress.saving", { count: itemIds.length }));
       const paths: string[] = [];
       for (const id of itemIds) {
         try {
@@ -218,6 +233,7 @@ export class ImportModal extends Modal {
           console.error("[Aether Import] Auto-approve failed:", e);
         }
       }
+      indicator.hide("done");
       if (paths.length > 0) {
         const folder = paths[0].split("/").slice(0, -1).join("/");
         new Notice(t("modal.import.done", { count: paths.length }) + `\n📁 ${folder}`, 6000);
@@ -225,6 +241,7 @@ export class ImportModal extends Modal {
         new Notice(t("modal.import.failed", { error: errorMsg || "approve failed" }), 6000);
       }
     } catch (e) {
+      indicator.hide("error");
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[Aether Import] Exception:", e);
       new Notice(t("modal.import.error", { error: msg }), 6000);

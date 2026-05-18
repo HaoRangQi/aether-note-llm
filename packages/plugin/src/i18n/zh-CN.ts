@@ -141,6 +141,9 @@ export const zhCN: Dict = {
   "modal.import.zero": "未导入任何条目，详情请看控制台",
   "modal.import.done": "已导入 {count} 条",
   "modal.import.error": "导入出错：{error}",
+  "modal.import.progress.title": "导入中",
+  "modal.import.progress.parsed": "已解析 {count} 条",
+  "modal.import.progress.saving": "正在写入 {count} 条到 vault…",
   "modal.import.file.desc":
     "支持 iTab 备份（.itabdata）和 Chrome/Edge 书签（Bookmarks.json）。",
   "modal.import.file.noFile": "请先选择文件",

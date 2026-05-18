@@ -136,6 +136,9 @@ export const en: Dict = {
   "modal.import.zero": "No items imported. Check console for details.",
   "modal.import.done": "Imported {count} item(s)",
   "modal.import.error": "Import error: {error}",
+  "modal.import.progress.title": "Importing",
+  "modal.import.progress.parsed": "Parsed {count} items",
+  "modal.import.progress.saving": "Writing {count} items to vault…",
   "modal.import.file.desc":
     "Supports iTab backup (.itabdata) and Chrome/Edge bookmarks (Bookmarks.json).",
   "modal.import.file.noFile": "Please select a file first",
