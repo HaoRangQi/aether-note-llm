@@ -446,30 +446,29 @@
   animation-play-state: paused;
 }
 
-/* AI 结果 Modal（毛玻璃版） */
-/* backdrop-filter 放在 container 上，模糊整个弹出区域；
-   modal 本身只需半透明背景叠在模糊层上面 */
+/* AI 结果 Modal / 导入 Modal（毛玻璃版）
+ * 关键：container 必须完全透明，backdrop-filter 才能穿透到编辑器内容；
+ * 然后 modal 自己加 backdrop-filter + 半透明背景，窗口本身就是毛玻璃。
+ * 用 box-shadow 代替 container 背景来制造遮罩感。 */
 .modal-container:has(.aether-result-modal),
 .modal-container:has(.aether-import-modal) {
-  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  background-color: rgba(0, 0, 0, 0.15) !important;
+  background: transparent !important;
 }
 .aether-result-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 65%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 60%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  background-image: var(--aether-noise) !important;
-  background-blend-mode: overlay !important;
-  background-size: 200px 200px !important;
+  /* 用超大 spread 的 box-shadow 模拟遮罩，替代 container 背景 */
   box-shadow:
     0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
     0 1px 0 rgba(255, 255, 255, 0.14) inset,
-    0 24px 64px -12px rgba(0, 0, 0, 0.55),
-    0 8px 24px -8px rgba(0, 0, 0, 0.3),
-    0 0 60px -24px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+    0 32px 80px -8px rgba(0, 0, 0, 0.7),
+    0 8px 32px -4px rgba(0, 0, 0, 0.5),
+    0 0 0 9999px rgba(0, 0, 0, 0.35) !important;
   animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 @keyframes aether-modal-in {
@@ -594,20 +593,19 @@
 
 /* 导入 Modal（毛玻璃版） */
 .aether-import-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 65%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 60%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  background-image: var(--aether-noise) !important;
-  background-blend-mode: overlay !important;
-  background-size: 200px 200px !important;
   box-shadow:
     0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
     0 1px 0 rgba(255, 255, 255, 0.14) inset,
-    0 24px 64px -12px rgba(0, 0, 0, 0.55),
-    0 8px 24px -8px rgba(0, 0, 0, 0.3),
-    0 0 60px -24px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+    0 32px 80px -8px rgba(0, 0, 0, 0.7),
+    0 8px 32px -4px rgba(0, 0, 0, 0.5),
+    0 0 0 9999px rgba(0, 0, 0, 0.35) !important;
   animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 
