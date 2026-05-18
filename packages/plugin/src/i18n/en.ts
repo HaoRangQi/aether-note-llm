@@ -1,7 +1,7 @@
 import type { Dict } from "./index.js";
 
 export const en: Dict = {
-  // ---- Common ----
+  // ---- common ----
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.confirm": "Confirm",
@@ -14,96 +14,115 @@ export const en: Dict = {
   "common.copy": "Copy",
   "common.close": "Close",
 
-  // ---- Settings: sections ----
+  // ---- settings: section titles ----
   "settings.title": "Aether Note LLM",
-  "settings.section.general": "General",
-  "settings.section.providers": "AI providers",
-  "settings.section.bindings": "Feature bindings",
-  "settings.section.advanced": "Advanced",
+  "settings.section.quickStart": "🚀 Quick Start",
+  "settings.section.providers": "🔌 AI Providers",
+  "settings.section.roles": "🎭 AI Roles",
+  "settings.section.advanced": "⚙️ Advanced",
 
-  // ---- Settings: general ----
-  "settings.language": "Language / 界面语言",
+  // ---- Quick Start ----
+  "settings.quickStart.intro": "First time? Pick a provider, paste a key, you're ready in 30 seconds.",
+  "settings.quickStart.statusTitle": "Current status",
+  "settings.quickStart.statusEmpty": "No AI provider configured yet. Add a preset below.",
+  "settings.quickStart.statusOk": "{count} provider(s) configured. Manage them in 'AI Providers'.",
+  "settings.quickStart.addPreset": "+ {name}",
+  "settings.quickStart.providerAdded":
+    "Added {name}. Open 'AI Providers' to set the API key and test connection.",
+  "settings.quickStart.applyRecommended": "Apply recommended bindings",
+  "settings.quickStart.applyRecommended.desc":
+    "Bind all AI roles (summarize/rewrite/extract/inbox-metadata/embedding) to your providers automatically.",
+
+  // ---- language ----
+  "settings.language": "Interface language / 界面语言",
   "settings.language.desc": "Takes effect immediately.",
   "settings.language.zh": "简体中文",
   "settings.language.en": "English",
 
-  // ---- Settings: providers ----
-  "settings.providers.empty": "No AI providers configured. Click \"Add provider\" below to start.",
+  // ---- providers ----
+  "settings.providers.empty": "No AI service yet. Click 'Add provider' below to start.",
   "settings.providers.add": "Add provider",
   "settings.providers.preset": "Provider",
   "settings.providers.preset.placeholder": "Pick a preset",
   "settings.providers.baseUrl": "Base URL",
   "settings.providers.baseUrl.preset": "Auto-filled: {url}",
-  "settings.providers.baseUrl.custom": "Custom endpoint — fill manually",
+  "settings.providers.baseUrl.custom": "Custom service requires manual entry",
   "settings.providers.apiKey": "API Key",
   "settings.providers.apiKey.unset": "(not set)",
-  "settings.providers.apiKey.set": "Set ●●●●",
+  "settings.providers.apiKey.set": "set ●●●●",
   "settings.providers.editKey": "Edit key",
-  "settings.providers.signup": "Get key",
+  "settings.providers.signup": "Get a key",
   "settings.providers.test": "Test connection",
   "settings.providers.testing": "Testing…",
-  "settings.providers.test.ok": "Connected — {count} models found",
+  "settings.providers.test.ok": "OK — {count} models found",
   "settings.providers.test.fail": "Failed: {error}",
   "settings.providers.test.unknown": "unknown error",
-  "settings.providers.refreshModels": "Refresh models",
+  "settings.providers.refreshModels": "Refresh model list",
   "settings.providers.modelsCached": "{count} models cached",
-  "settings.providers.modelsNotCached": "Models not yet fetched — click Test to load",
+  "settings.providers.modelsNotCached": "Not queried yet — click 'Test connection' to fetch.",
 
-  // ---- Settings: feature bindings ----
-  "settings.bindings.empty": "Add and configure a provider before binding features.",
-  "settings.bindings.intro": "Pick a provider and model for each feature. Models come from live queries.",
-  "settings.bindings.applyRecommended": "Apply recommended",
+  // ---- legacy bindings strings still used by applyRecommended ----
+  "settings.bindings.empty": "Add and configure a provider first.",
+  "settings.bindings.applyRecommended": "Apply recommended bindings",
   "settings.bindings.applied": "Recommended bindings applied",
-  "settings.bindings.feature": "Feature",
-  "settings.bindings.provider": "Provider",
-  "settings.bindings.model": "Model",
   "settings.bindings.model.pickProvider": "Pick a provider first",
   "settings.bindings.model.noModels": "No models — test connection first",
   "settings.bindings.model.placeholder": "Pick a model",
 
-  // ---- Feature names ----
-  "feature.chat": "Chat",
-  "feature.chat.desc": "General chat. Not exposed in UI yet.",
-  "feature.embedding": "Embedding (semantic search)",
-  "feature.embedding.desc": "Encodes note chunks into vectors for semantic search. BAAI/bge-m3 recommended.",
-  "feature.summarize": "AI summarize",
-  "feature.summarize.desc": "Select text → command palette → \"AI summarize\".",
-  "feature.rewrite": "AI rewrite",
-  "feature.rewrite.desc": "Select text → command palette → \"AI rewrite\".",
-  "feature.extract": "Extract key points",
-  "feature.extract.desc": "Turn a paragraph into a bullet list of key points.",
-  "feature.inbox_metadata": "Inbox metadata",
-  "feature.inbox_metadata.desc": "On import, AI proposes title, tags, and summary.",
+  // ---- roles ----
+  "settings.roles.intro":
+    "Each role defines an AI operation. Edit prompts, bind models, or add custom roles.",
+  "settings.roles.add": "+ New custom role",
+  "settings.roles.row.unbound": "no provider bound",
+  "settings.roles.row.bound": "{provider} · {model}",
+  "settings.roles.newName": "New role",
 
-  // ---- Settings: advanced ----
-  "settings.advanced.inboxFolder": "Inbox folder",
-  "settings.advanced.inboxFolder.desc": "Imported notes land here for review before being approved into the vault.",
-  "settings.advanced.inboxFolder.open": "Open folder",
-  "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
-  "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
-  "settings.advanced.scope": "Scan scope",
-  "settings.advanced.scope.vault": "Entire vault",
-  "settings.advanced.scope.inbox": "Aether Inbox only",
-  "settings.advanced.alpha": "Search weight α",
-  "settings.advanced.alpha.desc": "0 = pure vector (semantic), 1 = pure text (keywords). 0.4 is a sensible balance.",
-  "settings.advanced.rebuild": "Rebuild index",
-  "settings.advanced.rebuild.desc": "Re-scans the configured scope, rebuilds chunks + vectors. Required after changing the embedding model.",
-  "settings.advanced.rebuild.button": "Rebuild now",
-  "settings.advanced.rebuild.done": "Rebuilt: {indexed}/{scanned} files",
+  // ---- role editor ----
+  "role.editor.title.builtin": "Edit role: {name}",
+  "role.editor.title.custom": "Custom role",
+  "role.field.name": "Name",
+  "role.field.icon": "Icon",
+  "role.field.icon.desc": "lucide icon name (e.g. wand / file-text / list / sparkles)",
+  "role.field.description": "Description",
+  "role.field.outputKind": "Output kind",
+  "role.field.outputKind.desc":
+    "Decides how the result is parsed and displayed. Built-in roles are read-only.",
+  "role.outputKind.text": "Plain text",
+  "role.outputKind.list": "Bullet list",
+  "role.outputKind.metadata": "Metadata JSON",
+  "role.outputKind.embedding": "Embedding (no prompt)",
+  "role.field.provider": "Provider",
+  "role.field.model": "Model",
+  "role.field.prompt": "Prompt template",
+  "role.field.prompt.vars": "Click to insert variable:",
+  "role.field.prompt.insertVar": "Click to insert at cursor",
+  "role.field.advanced": "Advanced parameters",
+  "role.field.enabled": "Enabled",
+  "role.field.showInEditor": "Show in editor menu",
+  "role.field.showInEditor.desc": "If off, only callable from the command palette.",
+  "role.action.reset": "Reset default prompt",
+  "role.action.reset.done": "Reset to defaults (not saved)",
+  "role.test.button": "▶ Test with current selection",
+  "role.test.needBinding": "Bind a provider and model first",
+  "role.test.needSelection": "Select some text in the editor first",
+  "role.test.running": "Running…",
+  "role.test.failed": "Failed: {error}",
+  "role.test.sampleFallback":
+    "This is a sample passage to test the AI role. It has a few sentences for the model to work with.",
 
   // ---- API key modal ----
-  "modal.apiKey.title": "Set API key",
-  "modal.apiKey.field": "API key",
-  "modal.apiKey.desc": "Stored locally in plugin data. Treat your vault as containing this secret.",
+  "modal.apiKey.title": "Set API Key",
+  "modal.apiKey.field": "API Key",
+  "modal.apiKey.desc": "Stored in plugin data locally. Treat your vault as containing the key.",
 
-  // ---- Import modal ----
-  "modal.import.title": "Import to Aether Inbox",
+  // ---- import modal ----
+  "modal.import.title": "Import to Aether",
   "modal.import.field": "Paste markdown / text",
   "modal.import.button": "Import",
   "modal.import.empty": "Please enter some text to import",
   "modal.import.failed": "Import failed: {error}",
   "modal.import.zero": "No items imported. Check console for details.",
-  "modal.import.done": "Imported {count} item(s) to Inbox. Review and approve in Inbox view.",
+  "modal.import.done": "Imported {count} item(s)",
   "modal.import.error": "Import error: {error}",
 
   // ---- AI result modal ----
@@ -112,51 +131,53 @@ export const en: Dict = {
   "modal.aiResult.rewritten": "AI output",
   "modal.aiResult.replace": "Replace selection",
 
-  // ---- Diagnostics modal ----
+  // ---- diagnostics ----
   "modal.diagnostics.title": "Diagnostics",
   "modal.diagnostics.copy": "Copy to clipboard",
   "modal.diagnostics.copied": "Copied to clipboard",
 
-  // ---- Commands ----
-  "cmd.openSearch": "Open Search",
-  "cmd.openInbox": "Open Inbox",
+  // ---- commands ----
+  "cmd.openHub": "Open Aether Hub",
   "cmd.import": "Import…",
   "cmd.rebuild": "Rebuild index",
   "cmd.diagnostics": "Diagnostics export",
-  "cmd.showInboxLocation": "Show import location info",
-  "cmd.aiRewrite": "AI: Rewrite selection",
-  "cmd.aiSummarize": "AI: Summarize selection",
-  "cmd.aiExtract": "AI: Extract key points",
+  "cmd.aiRolePrefix": "Aether AI · ",
 
-  // ---- Editor menu ----
-  "menu.aiRewrite": "Aether: AI rewrite",
-  "menu.aiSummarize": "Aether: AI summarize",
-  "menu.aiExtract": "Aether: Extract key points",
+  // ---- editor menu ----
+  "menu.aiRolePrefix": "Aether AI · ",
 
   // ---- AI runtime ----
   "ai.selectFirst": "Select some text first",
-  "ai.failed": "AI failed: {error}",
+  "ai.failed": "AI call failed: {error}",
 
-  // ---- Search view ----
-  "view.search.name": "Aether Search",
-  "view.search.placeholder": "Search your knowledge base…",
-  "view.search.searching": "Searching…",
-  "view.search.noMatches": "No matches.",
-  "view.search.failed": "Search failed: {error}",
+  // ---- Hub ----
+  "view.hub.name": "Aether Hub",
+  "view.hub.searchPlaceholder": "Search notes, bookmarks…",
+  "view.hub.filter.all": "All",
+  "view.hub.filter.note": "Notes",
+  "view.hub.filter.bookmark": "Bookmarks",
+  "view.hub.import": "📥 Import",
+  "view.hub.openFolder": "📁 Open Inbox folder",
+  "view.hub.recent.title": "Recent",
+  "view.hub.recent.empty": "Inbox folder is empty. Click 'Import' above to add something.",
+  "view.hub.searching": "Searching…",
+  "view.hub.noMatches": "No matches.",
+  "view.hub.searchFailed": "Search failed: {error}",
+  "view.hub.statusReady": "Ready",
+  "view.hub.statusNoProvider": "No AI provider",
+  "view.hub.statusIndexed": "{count} indexed",
+  "view.hub.onboard.title": "Configure AI service first",
+  "view.hub.onboard.desc": "Click below to open Settings and set it up in one screen.",
+  "view.hub.onboard.button": "Configure →",
+  "view.hub.time.justNow": "just now",
+  "view.hub.time.minutes": "{n} min ago",
+  "view.hub.time.hours": "{n} hr ago",
+  "view.hub.time.days": "{n} d ago",
+  "view.hub.time.months": "{n} mo ago",
 
-  // ---- Inbox view ----
-  "view.inbox.name": "Aether Inbox",
-  "view.inbox.empty": "Inbox is empty.",
-  "view.inbox.intro": "Approved items will be saved to your Inbox folder.",
-  "view.inbox.dupWarning": "Possible duplicate of an existing note.",
-  "view.inbox.approve": "Approve",
-  "view.inbox.discard": "Discard",
-  "view.inbox.approved": "Approved",
-  "view.inbox.approveFailed": "Approve failed: {error}",
+  // ---- status bar ----
+  "status.bar": "Aether · {indexed} indexed · {providers} provider(s)",
 
-  // ---- Status bar ----
-  "status.inbox": "Aether: Inbox {count}",
-
-  // ---- Ribbon ----
-  "ribbon.search": "Aether search",
+  // ---- ribbon ----
+  "ribbon.hub": "Aether Hub",
 };

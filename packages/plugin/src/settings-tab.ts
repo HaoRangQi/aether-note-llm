@@ -4,31 +4,28 @@ import {
   PROVIDER_PRESETS,
   findPresetById,
   newUlid,
-  type Feature,
-  type FeatureBinding,
+  type AiRole,
   type ProviderConfig,
 } from "@aether/core";
 import { ApiKeyModal } from "./modals/api-key-modal.js";
+import { RoleEditorModal } from "./modals/role-editor.js";
 import { setLocale, t } from "./i18n/index.js";
 
-const FEATURES: Feature[] = [
-  "embedding",
-  "inbox_metadata",
-  "summarize",
-  "rewrite",
-  "extract",
-  "chat",
-];
+type Section = "quickstart" | "providers" | "roles" | "advanced";
 
 /**
- * 模型列表的内存缓存：key = providerId，value = 测试连接成功后拿到的模型 id 列表。
- * 不持久化 —— 每次插件加载后重新查询，避免模型新增/下线时缓存陈旧。
+ * 4 段式 Settings：
+ *   - Quick Start: 一屏配完（首次安装到达）
+ *   - Providers: AI 服务商管理
+ *   - AI Roles: 角色管理 + 提示词编辑
+ *   - Advanced: 文件夹、扫描范围、混合搜索 alpha、重建索引
+ *
+ * 性能：每个 section 自渲染，只重绘当前 section（patch 后），减少抖动。
  */
-type ModelCache = Map<string, string[]>;
-
 export class AetherSettingsTab extends PluginSettingTab {
-  private modelCache: ModelCache = new Map();
+  private modelCache = new Map<string, string[]>();
   private testingProviders = new Set<string>();
+  private currentSection: Section = "quickstart";
 
   constructor(
     app: App,
@@ -42,13 +39,53 @@ export class AetherSettingsTab extends PluginSettingTab {
     root.empty();
     root.createEl("h2", { text: t("settings.title") });
 
-    this.renderGeneral(root);
-    this.renderProviders(root);
-    this.renderBindings(root);
-    this.renderAdvanced(root);
+    // 顶部 section 选择器
+    this.renderTabs(root);
+
+    const body = root.createDiv();
+    this.renderSection(body);
   }
 
-  private async patch(update: (s: ReturnType<typeof this.snapshot>) => void): Promise<void> {
+  // ---- Section 切换 -----------------------------------------------------
+  private renderTabs(root: HTMLElement): void {
+    const bar = root.createDiv({ cls: "aether-hub-filterbar" });
+    bar.style.marginBottom = "0.75rem";
+    const mk = (id: Section, label: string): HTMLButtonElement => {
+      const b = bar.createEl("button", { text: label });
+      if (this.currentSection === id) b.addClass("active");
+      b.onclick = () => {
+        this.currentSection = id;
+        this.display();
+      };
+      return b;
+    };
+    mk("quickstart", t("settings.section.quickStart"));
+    mk("providers", t("settings.section.providers"));
+    mk("roles", t("settings.section.roles"));
+    mk("advanced", t("settings.section.advanced"));
+  }
+
+  private renderSection(body: HTMLElement): void {
+    body.empty();
+    switch (this.currentSection) {
+      case "quickstart":
+        this.renderQuickStart(body);
+        break;
+      case "providers":
+        this.renderProviders(body);
+        break;
+      case "roles":
+        this.renderRoles(body);
+        break;
+      case "advanced":
+        this.renderAdvanced(body);
+        break;
+    }
+  }
+
+  private async patch(
+    update: (s: ReturnType<typeof this.snapshot>) => void,
+  ): Promise<void> {
     const next = this.snapshot();
     update(next);
     await this.plugin.core.settings.save(next);
@@ -61,9 +98,14 @@ export class AetherSettingsTab extends PluginSettingTab {
     return structuredClone(this.plugin.core.settings.current);
   }
 
-  // ---- 通用区（含语言切换）----------------------------------------------
-  private renderGeneral(root: HTMLElement): void {
-    root.createEl("h3", { text: t("settings.section.general") });
+  // ---- Quick Start ------------------------------------------------------
+  private renderQuickStart(root: HTMLElement): void {
+    root.createEl("p", {
+      text: t("settings.quickStart.intro"),
+      cls: "setting-item-description",
+    });
+
+    // 语言（简单优先，不放在 advanced 里）
     new Setting(root)
       .setName(t("settings.language"))
       .setDesc(t("settings.language.desc"))
@@ -77,20 +119,81 @@ export class AetherSettingsTab extends PluginSettingTab {
           }),
         );
       });
-  }
 
-  // ---- 服务商区 ---------------------------------------------------------
-  private renderProviders(root: HTMLElement): void {
-    root.createEl("h3", { text: t("settings.section.providers") });
     const providers = this.plugin.core.settings.current.providers;
 
-    if (providers.length === 0) {
-      root.createEl("p", { text: t("settings.providers.empty"), cls: "setting-item-description" });
+    // 状态摘要
+    const statusBox = root.createDiv({ cls: "aether-onboard-card" });
+    statusBox.createDiv({
+      cls: "aether-onboard-title",
+      text: t("settings.quickStart.statusTitle"),
+    });
+    const ok = providers.length > 0;
+    const desc = statusBox.createDiv({ cls: "aether-onboard-desc" });
+    desc.setText(
+      ok
+        ? t("settings.quickStart.statusOk", { count: providers.length })
+        : t("settings.quickStart.statusEmpty"),
+    );
+
+    // 添加预设的快捷入口
+    const quickRow = root.createDiv();
+    quickRow.style.display = "flex";
+    quickRow.style.gap = "0.5rem";
+    quickRow.style.marginBottom = "1rem";
+    for (const ps of PROVIDER_PRESETS) {
+      if (ps.id === "custom") continue;
+      const btn = quickRow.createEl("button", {
+        text: t("settings.quickStart.addPreset", { name: ps.displayName }),
+      });
+      btn.onclick = () => this.addProviderFromPreset(ps.id);
     }
 
-    for (const p of providers) {
-      this.renderProviderCard(root, p);
+    if (providers.length > 0) {
+      // 应用推荐配置（一键把所有 Roles 绑到第一个能用的 provider）
+      new Setting(root)
+        .setName(t("settings.quickStart.applyRecommended"))
+        .setDesc(t("settings.quickStart.applyRecommended.desc"))
+        .addButton((b) => {
+          b.setButtonText(t("settings.bindings.applyRecommended"))
+            .setCta()
+            .onClick(() => this.applyRecommended());
+        });
     }
+  }
+
+  private async addProviderFromPreset(presetId: string): Promise<void> {
+    const ps = findPresetById(presetId);
+    if (!ps) return;
+    const id = newUlid();
+    const config: ProviderConfig = {
+      id,
+      name: ps.displayName,
+      baseUrl: ps.baseUrl,
+      apiKeyRef: `key:${id}`,
+      defaultHeaders: {},
+      enabled: true,
+      createdAt: Date.now(),
+      kind: ps.id,
+    };
+    await this.patch((s) => {
+      s.providers.push(config);
+    });
+    this.currentSection = "providers";
+    this.display();
+    new Notice(t("settings.quickStart.providerAdded", { name: ps.displayName }), 4000);
+  }
+
+  // ---- Providers --------------------------------------------------------
+  private renderProviders(root: HTMLElement): void {
+    const providers = this.plugin.core.settings.current.providers;
+    if (providers.length === 0) {
+      root.createEl("p", {
+        text: t("settings.providers.empty"),
+        cls: "setting-item-description",
+      });
+    }
+    for (const p of providers) this.renderProviderCard(root, p);
 
     new Setting(root).addButton((b) =>
       b
@@ -98,18 +201,17 @@ export class AetherSettingsTab extends PluginSettingTab {
         .setCta()
         .onClick(() => {
           const id = newUlid();
-          const config: ProviderConfig = {
-            id,
-            name: "",
-            baseUrl: "",
-            apiKeyRef: `key:${id}`,
-            defaultHeaders: {},
-            enabled: true,
-            createdAt: Date.now(),
-            kind: "",
-          };
           this.patch((s) => {
-            s.providers.push(config);
+            s.providers.push({
+              id,
+              name: "",
+              baseUrl: "",
+              apiKeyRef: `key:${id}`,
+              defaultHeaders: {},
+              enabled: true,
+              createdAt: Date.now(),
+              kind: "",
+            });
           });
         }),
     );
@@ -118,10 +220,8 @@ export class AetherSettingsTab extends PluginSettingTab {
   private renderProviderCard(root: HTMLElement, p: ProviderConfig): void {
     const card = root.createDiv({ cls: "aether-provider-card" });
     const preset = p.kind ? findPresetById(p.kind) : undefined;
-    const apiKeySet =
-      (this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "").length > 0;
+    const apiKeySet = (this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "").length > 0;
 
-    // —— 行 1：预设选择（决定 baseUrl 和显示名）——
     new Setting(card)
       .setName(t("settings.providers.preset"))
       .addDropdown((d) => {
@@ -136,9 +236,7 @@ export class AetherSettingsTab extends PluginSettingTab {
             const ps = findPresetById(value);
             if (ps) {
               found.name = ps.displayName;
-              if (ps.id !== "custom") {
-                found.baseUrl = ps.baseUrl;
-              }
+              if (ps.id !== "custom") found.baseUrl = ps.baseUrl;
             }
           }),
         );
@@ -150,19 +248,24 @@ export class AetherSettingsTab extends PluginSettingTab {
           .onClick(() =>
             this.patch((s) => {
               s.providers = s.providers.filter((x) => x.id !== p.id);
-              s.bindings = s.bindings.filter((b2) => b2.providerId !== p.id);
+              // 把任何引用此 provider 的 role 解绑
+              for (const r of s.roles) {
+                if (r.providerId === p.id) {
+                  r.providerId = "";
+                  r.modelName = "";
+                }
+              }
               delete s.apiKeys[p.apiKeyRef];
             }),
           ),
       );
 
-    // —— 行 2：Base URL（custom 才能编辑）——
     const baseUrlSetting = new Setting(card).setName(t("settings.providers.baseUrl"));
     if (preset && preset.id !== "custom") {
       baseUrlSetting.setDesc(t("settings.providers.baseUrl.preset", { url: p.baseUrl }));
     } else {
-      baseUrlSetting.setDesc(t("settings.providers.baseUrl.custom")).addText((txt) =>
-        txt
+      baseUrlSetting.setDesc(t("settings.providers.baseUrl.custom")).addText((tx) =>
+        tx
           .setPlaceholder("https://api.example.com/v1")
           .setValue(p.baseUrl)
           .onChange((v) =>
@@ -174,7 +277,6 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
     }
 
-    // —— 行 3：API Key + 申请链接 ——
     const keySetting = new Setting(card).setName(t("settings.providers.apiKey"));
     keySetting.setDesc(
       apiKeySet ? t("settings.providers.apiKey.set") : t("settings.providers.apiKey.unset"),
@@ -199,7 +301,6 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
     }
 
-    // —— 行 4：测试连接 + 模型缓存状态 ——
     const cached = this.modelCache.get(p.id);
     const isTesting = this.testingProviders.has(p.id);
     const testSetting = new Setting(card).setName(t("settings.providers.test"));
@@ -212,7 +313,9 @@ export class AetherSettingsTab extends PluginSettingTab {
     }
     testSetting.addButton((b) =>
       b
-        .setButtonText(cached ? t("settings.providers.refreshModels") : t("settings.providers.test"))
+        .setButtonText(
+          cached ? t("settings.providers.refreshModels") : t("settings.providers.test"),
+        )
         .onClick(() => this.runTest(p.id)),
     );
   }
@@ -225,7 +328,6 @@ export class AetherSettingsTab extends PluginSettingTab {
       const r = await this.plugin.core.testProvider(providerId);
       if (r.ok) {
         const models = r.models ?? [];
-        // 拿不到模型列表时（某些服务商不返回 embedding 模型），用预设的 fallback
         const config = this.plugin.core.settings.current.providers.find((x) => x.id === providerId);
         const preset = config?.kind ? findPresetById(config.kind) : undefined;
         const merged = mergeModels(models, preset?.fallbackModels);
@@ -240,160 +342,109 @@ export class AetherSettingsTab extends PluginSettingTab {
         );
       }
     } catch (e) {
-      new Notice(
-        t("settings.providers.test.fail", { error: (e as Error).message }),
-        6000,
-      );
+      new Notice(t("settings.providers.test.fail", { error: (e as Error).message }), 6000);
     } finally {
       this.testingProviders.delete(providerId);
       this.display();
     }
   }
 
-  // ---- 功能绑定区 -------------------------------------------------------
-  private renderBindings(root: HTMLElement): void {
-    root.createEl("h3", { text: t("settings.section.bindings") });
-    const providers = this.plugin.core.settings.current.providers;
-    const bindings = this.plugin.core.settings.current.bindings;
+  // ---- AI Roles --------------------------------------------------------
+  private renderRoles(root: HTMLElement): void {
+    root.createEl("p", { text: t("settings.roles.intro"), cls: "setting-item-description" });
 
-    if (providers.length === 0) {
-      root.createEl("p", {
-        text: t("settings.bindings.empty"),
-        cls: "setting-item-description",
-      });
-      return;
-    }
-
-    root.createEl("p", {
-      text: t("settings.bindings.intro"),
-      cls: "setting-item-description",
-    });
+    const roles = this.plugin.core.settings.current.roles;
+    for (const r of roles) this.renderRoleRow(root, r);
 
     new Setting(root).addButton((b) =>
       b
-        .setButtonText(t("settings.bindings.applyRecommended"))
-        .onClick(() => this.applyRecommended()),
+        .setButtonText(t("settings.roles.add"))
+        .setCta()
+        .onClick(() => this.createCustomRole()),
+    );
+  }
+
+  private renderRoleRow(root: HTMLElement, r: AiRole): void {
+    const row = root.createDiv({ cls: "aether-role-row" });
+    if (!r.enabled) row.addClass("aether-role-disabled");
+    const name = row.createDiv({ cls: "aether-role-name" });
+    name.setText(r.name);
+    const binding = row.createDiv({ cls: "aether-role-binding" });
+    binding.setText(
+      r.providerId
+        ? t("settings.roles.row.bound", { provider: r.providerId, model: r.modelName || "—" })
+        : t("settings.roles.row.unbound"),
     );
 
-    for (const f of FEATURES) {
-      this.renderBindingRow(root, f, bindings);
-    }
-  }
+    row.onclick = () => {
+      new RoleEditorModal(
+        this.app,
+        this.plugin,
+        r,
+        this.modelCache,
+        async (next) => {
+          await this.patch((s) => {
+            const idx = s.roles.findIndex((x) => x.id === next.id);
+            if (idx >= 0) s.roles[idx] = next;
+          });
+        },
+      ).open();
+    };
 
-  private renderBindingRow(
-    root: HTMLElement,
-    feature: Feature,
-    bindings: FeatureBinding[],
-  ): void {
-    const providers = this.plugin.core.settings.current.providers;
-    const existing = bindings.find((b) => b.feature === feature);
-    const cachedModels = existing ? this.modelCache.get(existing.providerId) : undefined;
-
-    const setting = new Setting(root)
-      .setName(t(`feature.${feature}`))
-      .setDesc(t(`feature.${feature}.desc`));
-
-    // Provider 下拉
-    setting.addDropdown((d) => {
-      d.addOption("", t("common.none"));
-      for (const p of providers) d.addOption(p.id, p.name || p.kind || p.id);
-      d.setValue(existing?.providerId ?? "");
-      d.onChange((value) =>
+    if (!r.builtIn) {
+      const del = row.createEl("button", { text: t("common.remove") });
+      del.onclick = (e) => {
+        e.stopPropagation();
         this.patch((s) => {
-          s.bindings = s.bindings.filter((b) => b.feature !== feature);
-          if (value) {
-            const binding: FeatureBinding = {
-              feature,
-              providerId: value,
-              modelName: existing?.modelName ?? "",
-              params: existing?.params ?? {},
-            };
-            s.bindings.push(binding);
-          }
-        }),
-      );
-    });
-
-    // Model 下拉（无 provider 或无缓存时给文字提示）
-    setting.addDropdown((d) => {
-      if (!existing?.providerId) {
-        d.addOption("", t("settings.bindings.model.pickProvider"));
-        d.setDisabled(true);
-        return;
-      }
-      if (!cachedModels || cachedModels.length === 0) {
-        d.addOption("", t("settings.bindings.model.noModels"));
-        d.setDisabled(true);
-        return;
-      }
-      d.addOption("", t("settings.bindings.model.placeholder"));
-      for (const m of cachedModels) d.addOption(m, m);
-      d.setValue(existing.modelName);
-      d.onChange((value) =>
-        this.patch((s) => {
-          const b = s.bindings.find((x) => x.feature === feature);
-          if (b) b.modelName = value;
-        }),
-      );
-    });
-  }
-
-  private async applyRecommended(): Promise<void> {
-    const providers = this.plugin.core.settings.current.providers;
-    if (providers.length === 0) return;
-
-    // 找推荐用于 embedding / chat 的服务商
-    const embedProvider = providers.find((p) => {
-      const ps = p.kind ? findPresetById(p.kind) : undefined;
-      return ps?.recommendedFor.embedding;
-    });
-    const chatProvider = providers.find((p) => {
-      const ps = p.kind ? findPresetById(p.kind) : undefined;
-      return ps?.recommendedFor.chat;
-    });
-
-    if (!embedProvider && !chatProvider) {
-      new Notice(t("settings.bindings.empty"), 4000);
-      return;
-    }
-
-    await this.patch((s) => {
-      const upsert = (feature: Feature, providerId: string, model: string) => {
-        const existing = s.bindings.find((b) => b.feature === feature);
-        if (existing) {
-          existing.providerId = providerId;
-          if (!existing.modelName) existing.modelName = model;
-        } else {
-          s.bindings.push({ feature, providerId, modelName: model, params: {} });
-        }
+          s.roles = s.roles.filter((x) => x.id !== r.id);
+        });
       };
-      if (embedProvider) {
-        const ps = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
-        const model = this.modelCache.get(embedProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
-        upsert("embedding", embedProvider.id, model);
-      }
-      if (chatProvider) {
-        const ps = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
-        const model = this.modelCache.get(chatProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
-        upsert("chat", chatProvider.id, model);
-        upsert("inbox_metadata", chatProvider.id, model);
-        upsert("summarize", chatProvider.id, model);
-        upsert("rewrite", chatProvider.id, model);
-        upsert("extract", chatProvider.id, model);
-      }
-    });
-    new Notice(t("settings.bindings.applied"), 3000);
+    }
   }
 
-  // ---- 高级 -------------------------------------------------------------
-  private renderAdvanced(root: HTMLElement): void {
-    root.createEl("h3", { text: t("settings.section.advanced") });
+  private async createCustomRole(): Promise<void> {
+    const id = newUlid();
+    const draft: AiRole = {
+      id,
+      builtIn: false,
+      name: t("settings.roles.newName"),
+      icon: "sparkles",
+      description: "",
+      providerId: "",
+      modelName: "",
+      promptTemplate: "{{selection}}",
+      variables: ["selection"],
+      outputKind: "text",
+      params: { temperature: 0.4 },
+      enabled: true,
+      showInEditor: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await this.patch((s) => {
+      s.roles.push(draft);
+    });
+    new RoleEditorModal(
+      this.app,
+      this.plugin,
+      draft,
+      this.modelCache,
+      async (next) => {
+        await this.patch((s) => {
+          const idx = s.roles.findIndex((x) => x.id === next.id);
+          if (idx >= 0) s.roles[idx] = next;
+        });
+      },
+    ).open();
+  }
 
+  // ---- Advanced ---------------------------------------------------------
+  private renderAdvanced(root: HTMLElement): void {
     new Setting(root)
       .setName(t("settings.advanced.inboxFolder"))
       .setDesc(t("settings.advanced.inboxFolder.desc"))
-      .addText((txt) =>
-        txt.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
+      .addText((tx) =>
+        tx.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
           this.patch((s) => {
             s.ui.aetherInboxFolder = v;
           }),
@@ -460,9 +511,50 @@ export class AetherSettingsTab extends PluginSettingTab {
         }),
       );
   }
+
+  // ---- 推荐配置 ---------------------------------------------------------
+  private async applyRecommended(): Promise<void> {
+    const providers = this.plugin.core.settings.current.providers;
+    if (providers.length === 0) return;
+
+    const embedProvider = providers.find((p) => {
+      const ps = p.kind ? findPresetById(p.kind) : undefined;
+      return ps?.recommendedFor.embedding;
+    });
+    const chatProvider = providers.find((p) => {
+      const ps = p.kind ? findPresetById(p.kind) : undefined;
+      return ps?.recommendedFor.chat;
+    });
+
+    if (!embedProvider && !chatProvider) {
+      new Notice(t("settings.bindings.empty"), 4000);
+      return;
+    }
+
+    await this.patch((s) => {
+      const setRole = (id: string, providerId: string, model: string): void => {
+        const r = s.roles.find((x) => x.id === id);
+        if (!r) return;
+        r.providerId = providerId;
+        if (!r.modelName) r.modelName = model;
+      };
+      if (embedProvider) {
+        const ps = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
+        const model = this.modelCache.get(embedProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
+        setRole("embedding", embedProvider.id, model);
+      }
+      if (chatProvider) {
+        const ps = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
+        const model = this.modelCache.get(chatProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
+        for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
+          setRole(id, chatProvider.id, model);
+        }
+      }
+    });
+    new Notice(t("settings.bindings.applied"), 3000);
+  }
 }
 
-/** 合并 listModels 的结果与预设 fallbackModels，去重，预设兜底排后面。 */
 function mergeModels(live: string[], fallback: string[] | undefined): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

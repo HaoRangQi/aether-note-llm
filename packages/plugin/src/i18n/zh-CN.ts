@@ -16,12 +16,23 @@ export const zhCN: Dict = {
 
   // ---- 设置页：标题与分组 ----
   "settings.title": "Aether Note LLM",
-  "settings.section.general": "通用",
-  "settings.section.providers": "AI 服务商",
-  "settings.section.bindings": "功能绑定",
-  "settings.section.advanced": "高级",
+  "settings.section.quickStart": "🚀 快速开始",
+  "settings.section.providers": "🔌 AI 服务商",
+  "settings.section.roles": "🎭 AI 角色",
+  "settings.section.advanced": "⚙️ 高级",
 
-  // ---- 设置页：通用区 ----
+  // ---- Quick Start ----
+  "settings.quickStart.intro": "首次使用？选一个服务商、贴一个 Key，三十秒上手。",
+  "settings.quickStart.statusTitle": "当前状态",
+  "settings.quickStart.statusEmpty": "尚未配置任何 AI 服务商。点下方按钮快速添加一个预设。",
+  "settings.quickStart.statusOk": "已配置 {count} 个服务商。可在「AI 服务商」页查看与编辑。",
+  "settings.quickStart.addPreset": "+ {name}",
+  "settings.quickStart.providerAdded": "已添加 {name}，请到「AI 服务商」填 API Key 并测试连接。",
+  "settings.quickStart.applyRecommended": "一键推荐绑定",
+  "settings.quickStart.applyRecommended.desc":
+    "把所有 AI 角色（总结/改写/提取/导入元数据/向量）按推荐绑到现有服务商。",
+
+  // ---- 通用语言切换 ----
   "settings.language": "界面语言 / Language",
   "settings.language.desc": "切换后立即生效。",
   "settings.language.zh": "简体中文",
@@ -49,47 +60,52 @@ export const zhCN: Dict = {
   "settings.providers.modelsCached": "已缓存 {count} 个模型",
   "settings.providers.modelsNotCached": "尚未查询模型 — 点「测试连接」获取列表",
 
-  // ---- 设置页：功能绑定区 ----
+  // ---- 兼容旧的 bindings 文案（applyRecommended 仍在用）----
   "settings.bindings.empty": "先添加并配置一个服务商，才能绑定功能。",
-  "settings.bindings.intro": "为每项功能选一个服务商和模型。模型列表来自服务商的实时查询。",
   "settings.bindings.applyRecommended": "应用推荐配置",
   "settings.bindings.applied": "已套用推荐绑定",
-  "settings.bindings.feature": "功能",
-  "settings.bindings.provider": "服务商",
-  "settings.bindings.model": "模型",
   "settings.bindings.model.pickProvider": "请先选服务商",
   "settings.bindings.model.noModels": "无模型 — 请先测试连接",
   "settings.bindings.model.placeholder": "选一个模型",
 
-  // ---- Feature 名 ----
-  "feature.chat": "对话（Chat）",
-  "feature.chat.desc": "通用对话，目前未在 UI 暴露。",
-  "feature.embedding": "向量检索（Embedding）",
-  "feature.embedding.desc": "把笔记切片后转成向量，用于「按语义」搜索。建议选 BAAI/bge-m3 一类。",
-  "feature.summarize": "AI 总结",
-  "feature.summarize.desc": "在编辑器选中段落 → 命令面板 → 「AI 总结」。",
-  "feature.rewrite": "AI 改写",
-  "feature.rewrite.desc": "在编辑器选中段落 → 命令面板 → 「AI 改写」。",
-  "feature.extract": "提取要点",
-  "feature.extract.desc": "把段落抽成要点列表。",
-  "feature.inbox_metadata": "导入元数据建议",
-  "feature.inbox_metadata.desc": "导入笔记时自动起标题、打标签、写摘要。",
+  // ---- AI 角色 ----
+  "settings.roles.intro": "每个角色定义一项 AI 操作。可改提示词、绑模型、新建自定义角色。",
+  "settings.roles.add": "+ 新建自定义角色",
+  "settings.roles.row.unbound": "未绑定服务商",
+  "settings.roles.row.bound": "{provider} · {model}",
+  "settings.roles.newName": "新角色",
 
-  // ---- 设置页：高级 ----
-  "settings.advanced.inboxFolder": "Inbox 文件夹",
-  "settings.advanced.inboxFolder.desc": "导入的笔记会先放到这里等你审核，再批准存入 vault。",
-  "settings.advanced.inboxFolder.open": "打开文件夹",
-  "settings.advanced.inboxFolder.empty": "Inbox 文件夹路径为空",
-  "settings.advanced.inboxFolder.openFailed": "打开文件夹失败：{error}",
-  "settings.advanced.scope": "扫描范围",
-  "settings.advanced.scope.vault": "整个 vault",
-  "settings.advanced.scope.inbox": "仅 Aether Inbox 文件夹",
-  "settings.advanced.alpha": "搜索权重 α",
-  "settings.advanced.alpha.desc": "0 = 纯向量检索（按语义），1 = 纯文本检索（按关键词）。0.4 是常用的平衡值。",
-  "settings.advanced.rebuild": "重建索引",
-  "settings.advanced.rebuild.desc": "重新扫描配置范围，重新切片 + 生成向量。改了 embedding 模型后必须跑一次。",
-  "settings.advanced.rebuild.button": "立即重建",
-  "settings.advanced.rebuild.done": "已重建：{indexed}/{scanned} 个文件",
+  // ---- 角色编辑器 ----
+  "role.editor.title.builtin": "编辑角色：{name}",
+  "role.editor.title.custom": "自定义角色",
+  "role.field.name": "名称",
+  "role.field.icon": "图标",
+  "role.field.icon.desc": "lucide 图标名（如 wand / file-text / list / sparkles）",
+  "role.field.description": "说明",
+  "role.field.outputKind": "输出类型",
+  "role.field.outputKind.desc": "决定结果如何被解析与展示。内置角色不可改。",
+  "role.outputKind.text": "纯文本",
+  "role.outputKind.list": "Bullet 列表",
+  "role.outputKind.metadata": "元数据 JSON",
+  "role.outputKind.embedding": "向量（无提示词）",
+  "role.field.provider": "AI 服务商",
+  "role.field.model": "模型",
+  "role.field.prompt": "提示词模板",
+  "role.field.prompt.vars": "可点击插入变量：",
+  "role.field.prompt.insertVar": "点击插入到光标位置",
+  "role.field.advanced": "高级参数",
+  "role.field.enabled": "启用",
+  "role.field.showInEditor": "在编辑器右键菜单中显示",
+  "role.field.showInEditor.desc": "关掉则只能从命令面板调用。",
+  "role.action.reset": "重置默认提示词",
+  "role.action.reset.done": "已重置为默认值（未保存）",
+  "role.test.button": "▶ 用当前选区试运行",
+  "role.test.needBinding": "请先绑定服务商和模型",
+  "role.test.needSelection": "请先在编辑器中选中一段文本",
+  "role.test.running": "运行中…",
+  "role.test.failed": "失败：{error}",
+  "role.test.sampleFallback":
+    "这是一段用于测试 AI 角色的示例文本。它有几句话，看模型怎么处理。", // 没有选区时的兜底
 
   // ---- API Key 弹窗 ----
   "modal.apiKey.title": "设置 API Key",
@@ -97,13 +113,13 @@ export const zhCN: Dict = {
   "modal.apiKey.desc": "保存在本地插件数据中。请把你的 vault 视为含有此密钥。",
 
   // ---- 导入弹窗 ----
-  "modal.import.title": "导入到 Aether Inbox",
+  "modal.import.title": "导入到 Aether",
   "modal.import.field": "粘贴 Markdown / 纯文本",
   "modal.import.button": "导入",
   "modal.import.empty": "请先输入要导入的内容",
   "modal.import.failed": "导入失败：{error}",
   "modal.import.zero": "未导入任何条目，详情请看控制台",
-  "modal.import.done": "已导入 {count} 条到 Inbox，请在 Inbox 视图中批准",
+  "modal.import.done": "已导入 {count} 条",
   "modal.import.error": "导入出错：{error}",
 
   // ---- AI 结果弹窗 ----
@@ -118,45 +134,47 @@ export const zhCN: Dict = {
   "modal.diagnostics.copied": "已复制到剪贴板",
 
   // ---- 命令 ----
-  "cmd.openSearch": "打开搜索",
-  "cmd.openInbox": "打开 Inbox",
+  "cmd.openHub": "打开 Aether Hub",
   "cmd.import": "导入…",
   "cmd.rebuild": "重建索引",
   "cmd.diagnostics": "导出诊断信息",
-  "cmd.showInboxLocation": "显示导入项目位置",
-  "cmd.aiRewrite": "AI：改写选中文本",
-  "cmd.aiSummarize": "AI：总结选中文本",
-  "cmd.aiExtract": "AI：提取要点",
+  "cmd.aiRolePrefix": "Aether AI · ",
 
   // ---- 编辑器右键菜单 ----
-  "menu.aiRewrite": "Aether：AI 改写",
-  "menu.aiSummarize": "Aether：AI 总结",
-  "menu.aiExtract": "Aether：提取要点",
+  "menu.aiRolePrefix": "Aether AI · ",
 
-  // ---- AI 命令运行时 ----
+  // ---- AI 运行时 ----
   "ai.selectFirst": "请先选中一段文本",
   "ai.failed": "AI 调用失败：{error}",
 
-  // ---- 视图：搜索 ----
-  "view.search.name": "Aether 搜索",
-  "view.search.placeholder": "搜索你的知识库…",
-  "view.search.searching": "搜索中…",
-  "view.search.noMatches": "没有匹配结果",
-  "view.search.failed": "搜索失败：{error}",
-
-  // ---- 视图：Inbox ----
-  "view.inbox.name": "Aether Inbox",
-  "view.inbox.empty": "Inbox 是空的",
-  "view.inbox.intro": "批准的项目将保存到 Inbox 文件夹中",
-  "view.inbox.dupWarning": "可能与已有笔记重复",
-  "view.inbox.approve": "批准",
-  "view.inbox.discard": "丢弃",
-  "view.inbox.approved": "已批准",
-  "view.inbox.approveFailed": "批准失败：{error}",
+  // ---- Hub 视图 ----
+  "view.hub.name": "Aether Hub",
+  "view.hub.searchPlaceholder": "搜索笔记、书签…",
+  "view.hub.filter.all": "全部",
+  "view.hub.filter.note": "笔记",
+  "view.hub.filter.bookmark": "书签",
+  "view.hub.import": "📥 导入",
+  "view.hub.openFolder": "📁 打开 Inbox 文件夹",
+  "view.hub.recent.title": "最近",
+  "view.hub.recent.empty": "Inbox 文件夹还没有内容。点上方「导入」开始。",
+  "view.hub.searching": "搜索中…",
+  "view.hub.noMatches": "没有匹配结果",
+  "view.hub.searchFailed": "搜索失败：{error}",
+  "view.hub.statusReady": "Ready",
+  "view.hub.statusNoProvider": "未配置 AI 服务",
+  "view.hub.statusIndexed": "已索引 {count}",
+  "view.hub.onboard.title": "先配置 AI 服务",
+  "view.hub.onboard.desc": "点下面按钮去 Settings 一屏完成配置。",
+  "view.hub.onboard.button": "去配置 →",
+  "view.hub.time.justNow": "刚刚",
+  "view.hub.time.minutes": "{n} 分钟前",
+  "view.hub.time.hours": "{n} 小时前",
+  "view.hub.time.days": "{n} 天前",
+  "view.hub.time.months": "{n} 个月前",
 
   // ---- 状态栏 ----
-  "status.inbox": "Aether：Inbox {count}",
+  "status.bar": "Aether · 索引 {indexed} · 服务商 {providers}",
 
   // ---- Ribbon ----
-  "ribbon.search": "Aether 搜索",
+  "ribbon.hub": "Aether Hub",
 };
