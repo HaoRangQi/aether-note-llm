@@ -161,6 +161,9 @@ export const en: Dict = {
   // ---- AI runtime ----
   "ai.selectFirst": "Select some text first",
   "ai.running": "AI running: {name}…",
+  "ai.activity.running": "{name} in progress",
+  "ai.activity.cancel": "Cancel",
+  "ai.cancelled": "AI call cancelled",
   "ai.failed": "AI call failed: {error}",
 
   // ---- Hub ----

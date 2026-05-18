@@ -4,6 +4,7 @@ import { ImportModal } from "./modals/import-modal.js";
 import { RewriteResultModal } from "./modals/rewrite-result-modal.js";
 import { DiagnosticsModal } from "./modals/diagnostics-modal.js";
 import { HUB_VIEW_TYPE } from "./views/hub-view.js";
+import { AiActivityIndicator } from "./ui/ai-activity.js";
 import { t } from "./i18n/index.js";
 import type { AiRole } from "@aether/core";
 
@@ -20,11 +21,23 @@ async function runRoleOnSelection(
     new Notice(t("ai.selectFirst"), 3000);
     return;
   }
-  // 立即显示 loading 提示，让用户知道 AI 在工作
-  const loading = new Notice(t("ai.running", { name: role.name }), 0);
+  // 拼装服务商/模型副标题
+  const provider = plugin.core.settings.current.providers.find((p) => p.id === role.providerId);
+  const providerLabel = provider?.name || provider?.kind || provider?.id || "—";
+  const meta = `${providerLabel} · ${role.modelName || "—"}`;
+
+  // AbortController 让用户能真正取消
+  const ac = new AbortController();
+  const indicator = new AiActivityIndicator({
+    roleName: role.name,
+    roleIcon: role.icon,
+    meta,
+    onCancel: () => ac.abort(),
+  });
+
   try {
-    const out = await plugin.core.runRole(role.id, { selection: sel });
-    loading.hide();
+    const out = await plugin.core.runRole(role.id, { selection: sel }, ac.signal);
+    indicator.hide("done");
     let text: string;
     if (Array.isArray(out)) {
       text = (out as string[]).map((p) => `- ${p}`).join("\n");
@@ -37,7 +50,11 @@ async function runRoleOnSelection(
       editor.replaceSelection(replacement),
     ).open();
   } catch (e) {
-    loading.hide();
+    indicator.hide("error");
+    if (ac.signal.aborted) {
+      new Notice(t("ai.cancelled"), 3000);
+      return;
+    }
     new Notice(t("ai.failed", { error: (e as Error).message }), 5000);
   }
 }

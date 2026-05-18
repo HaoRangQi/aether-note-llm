@@ -166,6 +166,9 @@ export const zhCN: Dict = {
   // ---- AI 运行时 ----
   "ai.selectFirst": "请先选中一段文本",
   "ai.running": "AI 处理中：{name}…",
+  "ai.activity.running": "{name} 处理中",
+  "ai.activity.cancel": "取消",
+  "ai.cancelled": "已取消 AI 调用",
   "ai.failed": "AI 调用失败：{error}",
 
   // ---- Hub 视图 ----

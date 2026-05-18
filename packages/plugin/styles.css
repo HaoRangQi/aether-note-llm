@@ -237,6 +237,202 @@
 }
 .aether-provider-del-btn:hover { color: var(--text-error); }
 
+/* ============================================================
+ * AI 浮动活动指示器（顶部居中、玻璃拟态、流光、脉冲）
+ * ============================================================ */
+
+@property --aether-glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.aether-ai-activity {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 9999;
+  min-width: 320px;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.95rem 0.85rem;
+
+  background: color-mix(in srgb, var(--background-primary) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-radius: 14px;
+  box-shadow:
+    0 14px 50px -10px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 0 60px -10px var(--interactive-accent);
+
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--background-primary) 78%, transparent),
+                    color-mix(in srgb, var(--background-primary) 78%, transparent)),
+    conic-gradient(from var(--aether-glow-angle),
+      var(--interactive-accent),
+      transparent 30%,
+      transparent 60%,
+      var(--interactive-accent));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+
+  transform: translateX(-50%) translateY(-160%);
+  opacity: 0;
+  animation:
+    aether-activity-in 0.55s cubic-bezier(0.22, 1.4, 0.36, 1) forwards,
+    aether-activity-rotate 4s linear infinite;
+}
+
+@keyframes aether-activity-in {
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes aether-activity-rotate {
+  to { --aether-glow-angle: 360deg; }
+}
+
+.aether-ai-activity.is-done,
+.aether-ai-activity.is-error {
+  animation:
+    aether-activity-out 0.32s cubic-bezier(0.7, 0, 0.84, 0) forwards,
+    aether-activity-rotate 4s linear infinite;
+}
+.aether-ai-activity.is-error {
+  box-shadow:
+    0 14px 50px -10px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 80, 80, 0.3) inset,
+    0 0 60px -10px var(--text-error, #ef4444);
+}
+@keyframes aether-activity-out {
+  to {
+    transform: translateX(-50%) translateY(-160%) scale(0.96);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+.aether-ai-activity-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.aether-ai-activity-icon {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: grid;
+  place-items: center;
+  color: var(--interactive-accent);
+  filter: drop-shadow(0 0 8px var(--interactive-accent));
+  animation: aether-icon-pulse 1.6s ease-in-out infinite;
+}
+.aether-ai-activity-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+@keyframes aether-icon-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50%      { transform: scale(1.18) rotate(-6deg); opacity: 0.78; }
+}
+
+.aether-ai-activity-namewrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.aether-ai-activity-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-normal) 60%, transparent) 0%,
+    var(--interactive-accent) 50%,
+    color-mix(in srgb, var(--text-normal) 60%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: aether-text-shimmer 2.4s linear infinite;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes aether-text-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.aether-ai-activity-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aether-ai-activity-cancel {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+.aether-ai-activity-cancel:hover {
+  background: color-mix(in srgb, var(--text-error, #ef4444) 18%, transparent);
+  color: var(--text-error, #ef4444);
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 30%, transparent);
+}
+
+.aether-ai-activity-bar {
+  position: relative;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  overflow: hidden;
+}
+.aether-ai-activity-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--interactive-accent),
+    color-mix(in srgb, var(--interactive-accent) 60%, white),
+    var(--interactive-accent),
+    transparent
+  );
+  filter: blur(0.5px);
+  box-shadow: 0 0 8px var(--interactive-accent);
+  animation: aether-bar-slide 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes aether-bar-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(310%); }
+}
+.aether-ai-activity.is-done .aether-ai-activity-bar::before {
+  animation-play-state: paused;
+}
+
 /* AI 结果 Modal */
 .aether-result-pre {
   white-space: pre-wrap;

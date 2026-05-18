@@ -234,13 +234,19 @@ export class AetherCore {
    * 通用角色调用入口：用任意 Role（包括用户自定义）跑一次。
    * UI 层（编辑器右键、角色编辑器测试按钮）应优先调这个，而不是上面的内置 wrapper。
    */
-  async runRole(roleId: string, vars: Record<string, string | number>): Promise<unknown> {
-    const r = await runRole({
+  async runRole(
+    roleId: string,
+    vars: Record<string, string | number>,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    const opts: Parameters<typeof runRole>[0] = {
       registry: this.registry,
       roles: this.roles,
       roleId,
       vars,
-    });
+    };
+    if (signal) opts.signal = signal;
+    const r = await runRole(opts);
     return r.output;
   }
 
