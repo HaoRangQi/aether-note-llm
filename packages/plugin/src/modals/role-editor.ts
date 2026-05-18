@@ -152,20 +152,26 @@ export class RoleEditorModal extends Modal {
     // ---- 高级参数（折叠） ----
     const adv = root.createEl("details");
     adv.createEl("summary", { text: t("role.field.advanced") });
-    new Setting(adv).setName("temperature").addText((tx) => {
-      tx.setValue(String(r.params.temperature ?? "")).onChange((v) => {
-        const n = Number(v);
-        if (Number.isFinite(n)) r.params.temperature = n;
-        else delete r.params.temperature;
+    new Setting(adv)
+      .setName(t("role.field.temperature"))
+      .setDesc(t("role.field.temperature.desc"))
+      .addText((tx) => {
+        tx.setValue(String(r.params.temperature ?? "")).onChange((v) => {
+          const n = Number(v);
+          if (Number.isFinite(n)) r.params.temperature = n;
+          else delete r.params.temperature;
+        });
       });
-    });
-    new Setting(adv).setName("maxTokens").addText((tx) => {
-      tx.setValue(String(r.params.maxTokens ?? "")).onChange((v) => {
-        const n = Number(v);
-        if (Number.isFinite(n) && n > 0) r.params.maxTokens = n;
-        else delete r.params.maxTokens;
+    new Setting(adv)
+      .setName(t("role.field.maxTokens"))
+      .setDesc(t("role.field.maxTokens.desc"))
+      .addText((tx) => {
+        tx.setValue(String(r.params.maxTokens ?? "")).onChange((v) => {
+          const n = Number(v);
+          if (Number.isFinite(n) && n > 0) r.params.maxTokens = n;
+          else delete r.params.maxTokens;
+        });
       });
-    });
 
     // ---- 启用 / 编辑器中显示 ----
     new Setting(root).setName(t("role.field.enabled")).addToggle((tg) => {

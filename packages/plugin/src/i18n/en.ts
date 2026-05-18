@@ -42,6 +42,10 @@ export const en: Dict = {
   // ---- providers ----
   "settings.providers.empty": "No AI service yet. Click 'Add provider' below to start.",
   "settings.providers.add": "Add provider",
+  "settings.providers.name": "Display name",
+  "settings.providers.name.desc":
+    "Used to distinguish providers in role bindings. Give each instance a unique alias.",
+  "settings.providers.name.placeholder": "e.g. DeepSeek-Work / Company internal LLM",
   "settings.providers.preset": "Provider",
   "settings.providers.preset.placeholder": "Pick a preset",
   "settings.providers.baseUrl": "Base URL",
@@ -97,6 +101,10 @@ export const en: Dict = {
   "role.field.prompt.vars": "Click to insert variable:",
   "role.field.prompt.insertVar": "Click to insert at cursor",
   "role.field.advanced": "Advanced parameters",
+  "role.field.temperature": "Temperature",
+  "role.field.temperature.desc": "0 = very conservative, 1 = creative. Typical 0.2 ~ 0.6.",
+  "role.field.maxTokens": "Max tokens",
+  "role.field.maxTokens.desc": "Response length cap. Leave empty to use provider default.",
   "role.field.enabled": "Enabled",
   "role.field.showInEditor": "Show in editor menu",
   "role.field.showInEditor.desc": "If off, only callable from the command palette.",

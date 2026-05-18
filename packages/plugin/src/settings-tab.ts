@@ -222,6 +222,22 @@ export class AetherSettingsTab extends PluginSettingTab {
     const preset = p.kind ? findPresetById(p.kind) : undefined;
     const apiKeySet = (this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "").length > 0;
 
+    // —— 行 0：名称（用户自己取的别名，多实例时区分用）——
+    new Setting(card)
+      .setName(t("settings.providers.name"))
+      .setDesc(t("settings.providers.name.desc"))
+      .addText((tx) =>
+        tx
+          .setPlaceholder(preset?.displayName ?? t("settings.providers.name.placeholder"))
+          .setValue(p.name)
+          .onChange((v) =>
+            this.patch((s) => {
+              const found = s.providers.find((x) => x.id === p.id);
+              if (found) found.name = v;
+            }),
+          ),
+      );
+
     new Setting(card)
       .setName(t("settings.providers.preset"))
       .addDropdown((d) => {
@@ -235,7 +251,10 @@ export class AetherSettingsTab extends PluginSettingTab {
             found.kind = value;
             const ps = findPresetById(value);
             if (ps) {
-              found.name = ps.displayName;
+              // 仅当用户没自定义名称时，才用预设名作为默认值
+              if (!found.name || found.name === preset?.displayName) {
+                found.name = ps.displayName;
+              }
               if (ps.id !== "custom") found.baseUrl = ps.baseUrl;
             }
           }),
@@ -370,11 +389,20 @@ export class AetherSettingsTab extends PluginSettingTab {
     const name = row.createDiv({ cls: "aether-role-name" });
     name.setText(r.name);
     const binding = row.createDiv({ cls: "aether-role-binding" });
-    binding.setText(
-      r.providerId
-        ? t("settings.roles.row.bound", { provider: r.providerId, model: r.modelName || "—" })
-        : t("settings.roles.row.unbound"),
-    );
+    if (r.providerId) {
+      const provider = this.plugin.core.settings.current.providers.find(
+        (x) => x.id === r.providerId,
+      );
+      const providerLabel = provider ? provider.name || provider.kind || provider.id : r.providerId;
+      binding.setText(
+        t("settings.roles.row.bound", {
+          provider: providerLabel,
+          model: r.modelName || "—",
+        }),
+      );
+    } else {
+      binding.setText(t("settings.roles.row.unbound"));
+    }
 
     row.onclick = () => {
       new RoleEditorModal(
