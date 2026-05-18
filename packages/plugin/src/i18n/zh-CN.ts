@@ -182,6 +182,24 @@ export const zhCN: Dict = {
   // ---- 状态栏 ----
   "status.bar": "Aether · 索引 {indexed} · 服务商 {providers}",
 
+  // ---- 高级 ----
+  "settings.advanced.inboxFolder": "Inbox 文件夹",
+  "settings.advanced.inboxFolder.desc": "导入的笔记保存到这里。默认值：Aether Inbox。",
+  "settings.advanced.inboxFolder.open": "打开文件夹",
+  "settings.advanced.inboxFolder.empty": "Inbox 文件夹路径为空",
+  "settings.advanced.inboxFolder.openFailed": "打开文件夹失败：{error}",
+  "settings.advanced.scope": "扫描范围",
+  "settings.advanced.scope.vault": "整个 vault",
+  "settings.advanced.scope.inbox": "仅 Aether Inbox 文件夹",
+  "settings.advanced.alpha": "搜索权重 α",
+  "settings.advanced.alpha.desc":
+    "0 = 纯向量检索（按语义），1 = 纯文本检索（按关键词）。0.4 是常用的平衡值。",
+  "settings.advanced.rebuild": "重建索引",
+  "settings.advanced.rebuild.desc":
+    "重新扫描配置范围，重新切片 + 生成向量。改了 embedding 模型后必须跑一次。",
+  "settings.advanced.rebuild.button": "立即重建",
+  "settings.advanced.rebuild.done": "已重建：{indexed}/{scanned} 个文件",
+
   // ---- Ribbon ----
   "ribbon.hub": "Aether Hub",
 };

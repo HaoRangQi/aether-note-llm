@@ -186,6 +186,25 @@ export const en: Dict = {
   // ---- status bar ----
   "status.bar": "Aether · {indexed} indexed · {providers} provider(s)",
 
+  // ---- advanced ----
+  "settings.advanced.inboxFolder": "Inbox folder",
+  "settings.advanced.inboxFolder.desc":
+    "Where imported notes are saved. Default: Aether Inbox.",
+  "settings.advanced.inboxFolder.open": "Open folder",
+  "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
+  "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
+  "settings.advanced.scope": "Scan scope",
+  "settings.advanced.scope.vault": "Entire vault",
+  "settings.advanced.scope.inbox": "Aether Inbox only",
+  "settings.advanced.alpha": "Search weight α",
+  "settings.advanced.alpha.desc":
+    "0 = pure vector (semantic), 1 = pure text (keyword). 0.4 is a common balance.",
+  "settings.advanced.rebuild": "Rebuild index",
+  "settings.advanced.rebuild.desc":
+    "Re-scan and re-embed everything. Required after changing the embedding model.",
+  "settings.advanced.rebuild.button": "Rebuild now",
+  "settings.advanced.rebuild.done": "Rebuilt: {indexed}/{scanned} files",
+
   // ---- ribbon ----
   "ribbon.hub": "Aether Hub",
 };

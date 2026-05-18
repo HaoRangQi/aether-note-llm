@@ -83,6 +83,10 @@ export class AetherSettingsTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * 持久化 + 应用。会触发整个 Settings 重新渲染——任何变更影响其他控件状态时必须用它。
+   * （比如：切预设要让 baseUrl 行换形态、删 Provider 要让卡片消失。）
+   */
   private async patch(
     update: (s: ReturnType<typeof this.snapshot>) => void,
   ): Promise<void> {
@@ -92,6 +96,18 @@ export class AetherSettingsTab extends PluginSettingTab {
     this.plugin.core.applySettings(next);
     setLocale(next.ui.language);
     this.display();
+  }
+
+  /**
+   * 持久化 + 应用，但不重新渲染。文本输入用这个，避免每打一个字 input 失焦。
+   */
+  private async patchSilent(
+    update: (s: ReturnType<typeof this.snapshot>) => void,
+  ): Promise<void> {
+    const next = this.snapshot();
+    update(next);
+    await this.plugin.core.settings.save(next);
+    this.plugin.core.applySettings(next);
   }
 
   private snapshot() {
@@ -231,7 +247,7 @@ export class AetherSettingsTab extends PluginSettingTab {
           .setPlaceholder(preset?.displayName ?? t("settings.providers.name.placeholder"))
           .setValue(p.name)
           .onChange((v) =>
-            this.patch((s) => {
+            this.patchSilent((s) => {
               const found = s.providers.find((x) => x.id === p.id);
               if (found) found.name = v;
             }),
@@ -288,7 +304,7 @@ export class AetherSettingsTab extends PluginSettingTab {
           .setPlaceholder("https://api.example.com/v1")
           .setValue(p.baseUrl)
           .onChange((v) =>
-            this.patch((s) => {
+            this.patchSilent((s) => {
               const found = s.providers.find((x) => x.id === p.id);
               if (found) found.baseUrl = v;
             }),
@@ -473,7 +489,7 @@ export class AetherSettingsTab extends PluginSettingTab {
       .setDesc(t("settings.advanced.inboxFolder.desc"))
       .addText((tx) =>
         tx.setValue(this.plugin.core.settings.current.ui.aetherInboxFolder).onChange((v) =>
-          this.patch((s) => {
+          this.patchSilent((s) => {
             s.ui.aetherInboxFolder = v;
           }),
         ),
@@ -520,7 +536,7 @@ export class AetherSettingsTab extends PluginSettingTab {
           .setDynamicTooltip()
           .setValue(this.plugin.core.settings.current.ui.alpha)
           .onChange((v) =>
-            this.patch((s) => {
+            this.patchSilent((s) => {
               s.ui.alpha = v;
             }),
           ),
@@ -543,21 +559,24 @@ export class AetherSettingsTab extends PluginSettingTab {
   // ---- 推荐配置 ---------------------------------------------------------
   private async applyRecommended(): Promise<void> {
     const providers = this.plugin.core.settings.current.providers;
-    if (providers.length === 0) return;
-
-    const embedProvider = providers.find((p) => {
-      const ps = p.kind ? findPresetById(p.kind) : undefined;
-      return ps?.recommendedFor.embedding;
-    });
-    const chatProvider = providers.find((p) => {
-      const ps = p.kind ? findPresetById(p.kind) : undefined;
-      return ps?.recommendedFor.chat;
-    });
-
-    if (!embedProvider && !chatProvider) {
+    if (providers.length === 0) {
       new Notice(t("settings.bindings.empty"), 4000);
       return;
     }
+
+    // 优先用 preset.recommendedFor 标记的 provider；
+    // 找不到就 fallback 到第一个 provider —— 反正能用比啥也不绑强
+    const fallback = providers[0]!;
+    const embedProvider =
+      providers.find((p) => {
+        const ps = p.kind ? findPresetById(p.kind) : undefined;
+        return ps?.recommendedFor.embedding;
+      }) ?? fallback;
+    const chatProvider =
+      providers.find((p) => {
+        const ps = p.kind ? findPresetById(p.kind) : undefined;
+        return ps?.recommendedFor.chat;
+      }) ?? fallback;
 
     await this.patch((s) => {
       const setRole = (id: string, providerId: string, model: string): void => {
@@ -566,17 +585,16 @@ export class AetherSettingsTab extends PluginSettingTab {
         r.providerId = providerId;
         if (!r.modelName) r.modelName = model;
       };
-      if (embedProvider) {
-        const ps = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
-        const model = this.modelCache.get(embedProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
-        setRole("embedding", embedProvider.id, model);
-      }
-      if (chatProvider) {
-        const ps = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
-        const model = this.modelCache.get(chatProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
-        for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
-          setRole(id, chatProvider.id, model);
-        }
+      const embedPs = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
+      const embedModel =
+        this.modelCache.get(embedProvider.id)?.[0] ?? embedPs?.fallbackModels?.[0] ?? "";
+      setRole("embedding", embedProvider.id, embedModel);
+
+      const chatPs = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
+      const chatModel =
+        this.modelCache.get(chatProvider.id)?.[0] ?? chatPs?.fallbackModels?.[0] ?? "";
+      for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
+        setRole(id, chatProvider.id, chatModel);
       }
     });
     new Notice(t("settings.bindings.applied"), 3000);
