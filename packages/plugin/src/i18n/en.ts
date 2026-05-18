@@ -139,6 +139,8 @@ export const en: Dict = {
   "modal.aiResult.title": "AI result",
   "modal.aiResult.original": "Original",
   "modal.aiResult.rewritten": "AI output",
+  "modal.aiResult.copy": "Copy",
+  "modal.aiResult.copied": "Copied",
   "modal.aiResult.replace": "Replace selection",
 
   // ---- diagnostics ----

@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Notice, Setting } from "obsidian";
 import { t } from "../i18n/index.js";
 
 export class RewriteResultModal extends Modal {
@@ -12,14 +12,30 @@ export class RewriteResultModal extends Modal {
   }
 
   onOpen(): void {
-    this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: t("modal.aiResult.title") });
-    this.contentEl.createEl("h4", { text: t("modal.aiResult.original") });
-    this.contentEl.createEl("pre", { text: this.original });
-    this.contentEl.createEl("h4", { text: t("modal.aiResult.rewritten") });
-    this.contentEl.createEl("pre", { text: this.rewritten });
-    new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText(t("common.discard")).onClick(() => this.close()))
+    const el = this.contentEl;
+    el.empty();
+    el.createEl("h2", { text: t("modal.aiResult.title") });
+
+    el.createEl("h4", { text: t("modal.aiResult.original") });
+    const origPre = el.createEl("pre", { text: this.original, cls: "aether-result-pre" });
+    origPre.style.userSelect = "text";
+    origPre.style.webkitUserSelect = "text";
+
+    el.createEl("h4", { text: t("modal.aiResult.rewritten") });
+    const rewritePre = el.createEl("pre", { text: this.rewritten, cls: "aether-result-pre" });
+    rewritePre.style.userSelect = "text";
+    rewritePre.style.webkitUserSelect = "text";
+
+    new Setting(el)
+      .addButton((b) =>
+        b.setButtonText(t("common.discard")).onClick(() => this.close()),
+      )
+      .addButton((b) =>
+        b.setButtonText(t("modal.aiResult.copy")).onClick(async () => {
+          await navigator.clipboard.writeText(this.rewritten);
+          new Notice(t("modal.aiResult.copied"), 2000);
+        }),
+      )
       .addButton((b) =>
         b
           .setButtonText(t("modal.aiResult.replace"))

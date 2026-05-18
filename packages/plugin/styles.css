@@ -237,6 +237,22 @@
 }
 .aether-provider-del-btn:hover { color: var(--text-error); }
 
+/* AI 结果 Modal */
+.aether-result-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
 /* AI 角色编辑器 Modal */
 .aether-role-editor textarea {
   width: 100%;

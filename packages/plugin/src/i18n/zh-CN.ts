@@ -144,6 +144,8 @@ export const zhCN: Dict = {
   "modal.aiResult.title": "AI 结果",
   "modal.aiResult.original": "原文",
   "modal.aiResult.rewritten": "AI 输出",
+  "modal.aiResult.copy": "复制",
+  "modal.aiResult.copied": "已复制",
   "modal.aiResult.replace": "替换选中文本",
 
   // ---- 诊断弹窗 ----
