@@ -578,6 +578,160 @@
   box-shadow: 0 0 28px -4px var(--interactive-accent);
 }
 
+/* 导入 Modal */
+.aether-import-modal {
+  background: color-mix(in srgb, var(--background-primary) 82%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-radius: 16px !important;
+  border: 1.5px solid transparent !important;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--background-primary) 82%, transparent),
+                    color-mix(in srgb, var(--background-primary) 82%, transparent)),
+    conic-gradient(from var(--aether-glow-angle),
+      var(--interactive-accent),
+      transparent 30%,
+      transparent 60%,
+      var(--interactive-accent)) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  box-shadow:
+    0 20px 60px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 0 80px -20px var(--interactive-accent) !important;
+  animation:
+    aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both,
+    aether-activity-rotate 6s linear infinite;
+}
+
+/* Tab 栏 */
+.aether-import-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  background: color-mix(in srgb, var(--background-secondary) 50%, transparent);
+  border-radius: 10px;
+}
+.aether-import-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.aether-import-tab:hover {
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+  color: var(--text-normal);
+}
+.aether-import-tab.active {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+  color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+}
+.aether-import-tab-icon {
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+}
+.aether-import-tab-icon svg { width: 0.9rem; height: 0.9rem; }
+
+/* 内容区 */
+.aether-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* 文本域 */
+.aether-import-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--background-secondary) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.aether-import-textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--interactive-accent) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
+/* 文件说明 */
+.aether-import-file-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* 拖放区 */
+.aether-import-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  border: 2px dashed color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 40%, transparent);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-height: 140px;
+}
+.aether-import-dropzone:hover,
+.aether-import-dropzone.drag-over {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 20%, transparent) inset;
+}
+.aether-import-dropzone.has-file {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--interactive-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-secondary));
+}
+.aether-import-dropzone-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+.aether-import-dropzone:hover .aether-import-dropzone-icon,
+.aether-import-dropzone.drag-over .aether-import-dropzone-icon {
+  color: var(--interactive-accent);
+  transform: translateY(-3px);
+}
+.aether-import-dropzone.has-file .aether-import-dropzone-icon {
+  color: var(--interactive-accent);
+  filter: drop-shadow(0 0 6px var(--interactive-accent));
+}
+.aether-import-dropzone-icon svg { width: 2rem; height: 2rem; }
+.aether-import-dropzone-label {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.aether-import-dropzone.has-file .aether-import-dropzone-label {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
 /* AI 角色编辑器 Modal */
 .aether-role-editor textarea {
   width: 100%;
