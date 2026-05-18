@@ -127,6 +127,8 @@ export const en: Dict = {
 
   // ---- import modal ----
   "modal.import.title": "Import to Aether",
+  "modal.import.tab.paste": "Paste text",
+  "modal.import.tab.file": "Import file",
   "modal.import.field": "Paste markdown / text",
   "modal.import.button": "Import",
   "modal.import.empty": "Please enter some text to import",
@@ -134,6 +136,11 @@ export const en: Dict = {
   "modal.import.zero": "No items imported. Check console for details.",
   "modal.import.done": "Imported {count} item(s)",
   "modal.import.error": "Import error: {error}",
+  "modal.import.file.desc":
+    "Supports iTab backup (.itabdata) and Chrome/Edge bookmarks (Bookmarks.json).",
+  "modal.import.file.noFile": "Please select a file first",
+  "modal.import.file.ready": "Selected: {name} — click Import to start",
+  "modal.import.file.unknown": "Unrecognised file format. Please select .itabdata or Chrome bookmarks JSON.",
 
   // ---- AI result modal ----
   "modal.aiResult.title": "AI result",

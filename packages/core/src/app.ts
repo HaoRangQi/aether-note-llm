@@ -1,5 +1,6 @@
 import { TokenUsageStore } from "./budget/token-usage.js";
 import { BookmarksJsonConnector } from "./connectors/bookmarks-json-connector.js";
+import { ITabConnector } from "./connectors/itab-connector.js";
 import { MarkdownConnector } from "./connectors/markdown-connector.js";
 import { NotionZipConnector } from "./connectors/notion-zip-connector.js";
 import { PlainTextConnector } from "./connectors/plain-text-connector.js";
@@ -79,6 +80,7 @@ export class AetherCore {
         new NotionZipConnector(),
         new BookmarksJsonConnector(),
         new UrlListConnector(),
+        new ITabConnector(),
       ],
     });
   }

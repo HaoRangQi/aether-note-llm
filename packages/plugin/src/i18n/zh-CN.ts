@@ -132,6 +132,8 @@ export const zhCN: Dict = {
 
   // ---- 导入弹窗 ----
   "modal.import.title": "导入到 Aether",
+  "modal.import.tab.paste": "粘贴文本",
+  "modal.import.tab.file": "导入文件",
   "modal.import.field": "粘贴 Markdown / 纯文本",
   "modal.import.button": "导入",
   "modal.import.empty": "请先输入要导入的内容",
@@ -139,6 +141,11 @@ export const zhCN: Dict = {
   "modal.import.zero": "未导入任何条目，详情请看控制台",
   "modal.import.done": "已导入 {count} 条",
   "modal.import.error": "导入出错：{error}",
+  "modal.import.file.desc":
+    "支持 iTab 备份（.itabdata）和 Chrome/Edge 书签（Bookmarks.json）。",
+  "modal.import.file.noFile": "请先选择文件",
+  "modal.import.file.ready": "已选择：{name}，点「导入」开始",
+  "modal.import.file.unknown": "无法识别文件格式，请选择 .itabdata 或 Chrome 书签 JSON",
 
   // ---- AI 结果弹窗 ----
   "modal.aiResult.title": "AI 结果",

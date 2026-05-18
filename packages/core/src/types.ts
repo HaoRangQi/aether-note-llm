@@ -237,7 +237,8 @@ export type ImportPayload =
   | { type: "paste-text"; text: string }
   | { type: "notion-zip"; entries: Array<{ path: string; content: string }> }
   | { type: "bookmarks-json"; raw: string }
-  | { type: "url-list"; urls: string[] };
+  | { type: "url-list"; urls: string[] }
+  | { type: "itab-data"; raw: string };
 
 export interface AssetRef {
   path: string;

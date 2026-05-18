@@ -53,6 +53,7 @@ export { MarkdownConnector } from "./connectors/markdown-connector.js";
 export { PlainTextConnector } from "./connectors/plain-text-connector.js";
 export { NotionZipConnector } from "./connectors/notion-zip-connector.js";
 export { BookmarksJsonConnector } from "./connectors/bookmarks-json-connector.js";
+export { ITabConnector } from "./connectors/itab-connector.js";
 export { UrlListConnector } from "./connectors/url-list-connector.js";
 export { ImportPipeline, type ImportEvent, type ImportPipelineDeps } from "./import/pipeline.js";
 export { InboxStore } from "./import/inbox-store.js";
