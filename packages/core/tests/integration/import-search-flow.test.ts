@@ -45,10 +45,11 @@ async function bootstrap() {
         createdAt: 0,
       },
     ],
-    bindings: [
-      { feature: "embedding", providerId: "p", modelName: "m", params: {} },
-      { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-    ],
+    roles: core.settings.current.roles.map((r) => ({
+      ...r,
+      providerId: "p",
+      modelName: "m",
+    })),
     apiKeys: { k: "secret" },
   });
   core.applySettings(core.settings.current);

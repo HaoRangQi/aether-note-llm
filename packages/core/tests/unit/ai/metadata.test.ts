@@ -1,36 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
 import { ProviderRegistry } from "../../../src/provider/registry.js";
+import { RoleRegistry } from "../../../src/roles/role-registry.js";
 import { parseProposal, proposeMetadata } from "../../../src/ai/metadata.js";
+import { makeAiRig } from "../../helpers/ai-rig.js";
 import type { RawCandidate } from "../../../src/types.js";
-
-function rig(provider: MockProvider) {
-  const reg = new ProviderRegistry({
-    factories: [{ kind: "openai-compatible", create: () => provider }],
-    fetch: async () => new Response("{}"),
-  });
-  reg.setConfigs([
-    {
-      id: "p",
-      name: "p",
-      baseUrl: "https://x",
-      apiKeyRef: "k",
-      defaultHeaders: {},
-      enabled: true,
-      createdAt: 0,
-    },
-  ]);
-  reg.setApiKeys({ k: "s" });
-  reg.setBindings([
-    {
-      feature: "inbox_metadata",
-      providerId: "p",
-      modelName: "m",
-      params: { temperature: 0.1 },
-    },
-  ]);
-  return reg;
-}
 
 function fakeCandidate(content: string, title: string | null = null): RawCandidate {
   return {
@@ -74,9 +48,10 @@ describe("proposeMetadata", () => {
         { delta: '{"title":"AI Title","tags":["x"],"summary":"Sum"}', finishReason: "stop" },
       ],
     });
-    const reg = rig(provider);
+    const { registry, roles } = makeAiRig(provider);
     const proposal = await proposeMetadata({
-      registry: reg,
+      registry,
+      roles,
       candidate: fakeCandidate("body"),
       fallbackTitle: "fb",
     });
@@ -84,15 +59,17 @@ describe("proposeMetadata", () => {
     expect(proposal.tags).toEqual(["x"]);
   });
 
-  it("falls back when binding missing", async () => {
+  it("falls back when role has no provider binding", async () => {
     const provider = new MockProvider();
-    const reg = new ProviderRegistry({
+    const registry = new ProviderRegistry({
       factories: [{ kind: "openai-compatible", create: () => provider }],
       fetch: async () => new Response("{}"),
     });
-    // No binding set
+    const roles = new RoleRegistry();
+    // 没设 roles → resolve("inbox_metadata") 抛错 → 走 fallback
     const proposal = await proposeMetadata({
-      registry: reg,
+      registry,
+      roles,
       candidate: fakeCandidate("first line\nbody", null),
       fallbackTitle: "fb",
     });
@@ -103,9 +80,10 @@ describe("proposeMetadata", () => {
     const provider = new MockProvider({
       chatChunks: () => [{ delta: "not json", finishReason: "stop" }],
     });
-    const reg = rig(provider);
+    const { registry, roles } = makeAiRig(provider);
     const proposal = await proposeMetadata({
-      registry: reg,
+      registry,
+      roles,
       candidate: fakeCandidate("first line\nbody", null),
       fallbackTitle: "fb",
     });
@@ -116,9 +94,10 @@ describe("proposeMetadata", () => {
     const provider = new MockProvider({
       chatChunks: () => [{ delta: "garbage", finishReason: "stop" }],
     });
-    const reg = rig(provider);
+    const { registry, roles } = makeAiRig(provider);
     const proposal = await proposeMetadata({
-      registry: reg,
+      registry,
+      roles,
       candidate: fakeCandidate("body", "Existing Title"),
       fallbackTitle: "fb",
     });

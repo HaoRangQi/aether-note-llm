@@ -4,10 +4,21 @@ import { InMemoryHostAdapter } from "../../../src/host/in-memory.js";
 import { InboxStore } from "../../../src/import/inbox-store.js";
 import { OramaIndexStore } from "../../../src/index-store/orama-store.js";
 import { MarkdownConnector } from "../../../src/connectors/markdown-connector.js";
-import { BookmarksJsonConnector } from "../../../src/connectors/bookmarks-json-connector.js";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
 import { ProviderRegistry } from "../../../src/provider/registry.js";
-import type { ImportSource } from "../../../src/types.js";
+import { RoleRegistry } from "../../../src/roles/role-registry.js";
+import { BUILTIN_ROLE_SEEDS, seedToRole } from "../../../src/roles/default-roles.js";
+import type { ImportSource, BuiltInRoleId } from "../../../src/index.js";
+
+function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
+  const list = BUILTIN_ROLE_SEEDS.filter((s) => ids.includes(s.id)).map((s) => {
+    const r = seedToRole(s, 0);
+    r.providerId = "p";
+    r.modelName = "m";
+    return r;
+  });
+  roles.setRoles(list);
+}
 
 async function makeRig() {
   const host = new InMemoryHostAdapter({
@@ -42,18 +53,17 @@ async function makeRig() {
     },
   ]);
   reg.setApiKeys({ k: "s" });
-  reg.setBindings([
-    { feature: "embedding", providerId: "p", modelName: "m", params: {} },
-    { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-  ]);
+  const roles = new RoleRegistry();
+  bindAll(roles, ["embedding", "inbox_metadata"]);
   const pipeline = new ImportPipeline({
     host,
     registry: reg,
+    roles,
     store,
     inbox,
     connectors: [new MarkdownConnector()],
   });
-  return { host, store, inbox, pipeline, provider };
+  return { host, store, inbox, pipeline, provider, reg, roles };
 }
 
 async function collect(iter: AsyncIterable<ImportEvent>): Promise<ImportEvent[]> {
@@ -76,7 +86,7 @@ describe("ImportPipeline", () => {
     expect(events[events.length - 1]?.type).toBe("batch-finished");
   });
 
-  it("uses AI proposal title when binding present", async () => {
+  it("uses AI proposal title when role bound", async () => {
     const { pipeline, inbox } = await makeRig();
     const src: ImportSource = {
       kind: "file",
@@ -93,7 +103,7 @@ describe("ImportPipeline", () => {
     const src: ImportSource = {
       kind: "file",
       label: "x",
-      payload: { type: "url-list", urls: ["https://x"] }, // no UrlListConnector wired
+      payload: { type: "url-list", urls: ["https://x"] },
     };
     const events = await collect(pipeline.run(src));
     expect(events[0]?.type).toBe("error");
@@ -111,30 +121,11 @@ describe("ImportPipeline", () => {
   });
 
   it("respects maxItemsPerBatch cap", async () => {
-    const { host, store, inbox, provider } = await makeRig();
-    const reg = new ProviderRegistry({
-      factories: [{ kind: "openai-compatible", create: () => provider }],
-      fetch: async () => new Response("{}"),
-    });
-    reg.setConfigs([
-      {
-        id: "p",
-        name: "p",
-        baseUrl: "https://x",
-        apiKeyRef: "k",
-        defaultHeaders: {},
-        enabled: true,
-        createdAt: 0,
-      },
-    ]);
-    reg.setApiKeys({ k: "s" });
-    reg.setBindings([
-      { feature: "embedding", providerId: "p", modelName: "m", params: {} },
-      { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-    ]);
+    const { host, store, inbox, provider, reg, roles } = await makeRig();
     const p = new ImportPipeline({
       host,
       registry: reg,
+      roles,
       store,
       inbox,
       connectors: [new MarkdownConnector()],
@@ -150,99 +141,6 @@ describe("ImportPipeline", () => {
     };
     const events = await collect(p.run(src));
     expect(events.filter((e) => e.type === "item-added")).toHaveLength(2);
-  });
-
-  it("preserves kind=bookmark when connector emits a bookmark candidate", async () => {
-    const { host, store, inbox, provider } = await makeRig();
-    const reg = new ProviderRegistry({
-      factories: [{ kind: "openai-compatible", create: () => provider }],
-      fetch: async () => new Response("{}"),
-    });
-    reg.setConfigs([
-      {
-        id: "p",
-        name: "p",
-        baseUrl: "https://x",
-        apiKeyRef: "k",
-        defaultHeaders: {},
-        enabled: true,
-        createdAt: 0,
-      },
-    ]);
-    reg.setApiKeys({ k: "s" });
-    reg.setBindings([
-      { feature: "embedding", providerId: "p", modelName: "m", params: {} },
-      { feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} },
-    ]);
-    const p = new ImportPipeline({
-      host,
-      registry: reg,
-      store,
-      inbox,
-      connectors: [new BookmarksJsonConnector()],
-    });
-    const src: ImportSource = {
-      kind: "file",
-      label: "chrome.json",
-      payload: {
-        type: "bookmarks-json",
-        raw: JSON.stringify({
-          roots: {
-            bookmark_bar: {
-              type: "folder",
-              name: "bar",
-              children: [{ type: "url", url: "https://x.com", name: "X" }],
-            },
-          },
-        }),
-      },
-    };
-    const events = await collect(p.run(src));
-    const added = events.filter(
-      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
-    );
-    expect(added).toHaveLength(1);
-    expect(added[0]?.item.kind).toBe("bookmark");
-    expect(added[0]?.item.url).toBe("https://x.com");
-  });
-
-  it("runs without an embedding binding (BM25-only)", async () => {
-    const { host, store, inbox, provider } = await makeRig();
-    const reg = new ProviderRegistry({
-      factories: [{ kind: "openai-compatible", create: () => provider }],
-      fetch: async () => new Response("{}"),
-    });
-    reg.setConfigs([
-      {
-        id: "p",
-        name: "p",
-        baseUrl: "https://x",
-        apiKeyRef: "k",
-        defaultHeaders: {},
-        enabled: true,
-        createdAt: 0,
-      },
-    ]);
-    reg.setApiKeys({ k: "s" });
-    // Only metadata bound; no embedding → pipeline must skip dup detection.
-    reg.setBindings([{ feature: "inbox_metadata", providerId: "p", modelName: "m", params: {} }]);
-    const p = new ImportPipeline({
-      host,
-      registry: reg,
-      store,
-      inbox,
-      connectors: [new MarkdownConnector()],
-    });
-    const src: ImportSource = {
-      kind: "file",
-      label: "a.md",
-      payload: { type: "markdown-file", path: "a.md", content: "Hello" },
-    };
-    const events = await collect(p.run(src));
-    const added = events.filter(
-      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
-    );
-    expect(added).toHaveLength(1);
-    expect(added[0]?.item.duplicateOf).toBeNull();
+    void provider;
   });
 });

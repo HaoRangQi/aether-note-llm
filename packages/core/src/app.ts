@@ -15,12 +15,15 @@ import { newUlid, slugify } from "./ids.js";
 import { sha256Hex } from "./hash.js";
 import { openAICompatibleFactory } from "./provider/openai-compatible.js";
 import { ProviderRegistry } from "./provider/registry.js";
+import { RoleRegistry } from "./roles/role-registry.js";
+import { runRole } from "./roles/run-role.js";
 import { SearchEngine } from "./search/search-engine.js";
 import { SettingsStore } from "./persistence/settings-store.js";
 import { extractKeyPoints } from "./ai/extract.js";
 import { rewriteSelection } from "./ai/rewrite.js";
 import { summarizeSelection } from "./ai/summarize.js";
 import type {
+  AiRole,
   Chunk,
   ImportSource,
   Note,
@@ -35,6 +38,7 @@ const INDEX_KEY = "index.json";
 
 export class AetherCore {
   readonly registry: ProviderRegistry;
+  readonly roles: RoleRegistry;
   readonly store: OramaIndexStore;
   readonly inbox: InboxStore;
   readonly settings: SettingsStore;
@@ -50,11 +54,13 @@ export class AetherCore {
       factories: [openAICompatibleFactory],
       fetch: (i, init) => host.fetch(i, init),
     });
+    this.roles = new RoleRegistry();
     this.store = new OramaIndexStore({ embeddingDim: this.embeddingDim });
     this.inbox = new InboxStore(host);
     this.settings = new SettingsStore(host);
     this.searchEngine = new SearchEngine({
       registry: this.registry,
+      roles: this.roles,
       store: this.store,
       getStaleRatio: () => {
         const total = this.store.allChunks().length;
@@ -64,6 +70,7 @@ export class AetherCore {
     this.pipeline = new ImportPipeline({
       host,
       registry: this.registry,
+      roles: this.roles,
       store: this.store,
       inbox: this.inbox,
       connectors: [
@@ -88,6 +95,7 @@ export class AetherCore {
     this.registry.setConfigs(s.providers);
     this.registry.setBindings(s.bindings);
     this.registry.setApiKeys(s.apiKeys);
+    this.roles.setRoles(s.roles);
   }
 
   /**
@@ -208,13 +216,37 @@ export class AetherCore {
 
   // ---- AI helpers ----
   rewrite(selection: string, style?: "concise" | "polished" | "neutral"): Promise<string> {
-    return rewriteSelection({ registry: this.registry, selection, ...(style ? { style } : {}) });
+    return rewriteSelection({
+      registry: this.registry,
+      roles: this.roles,
+      selection,
+      ...(style ? { style } : {}),
+    });
   }
   summarize(selection: string): Promise<string> {
-    return summarizeSelection({ registry: this.registry, selection });
+    return summarizeSelection({ registry: this.registry, roles: this.roles, selection });
   }
   extract(selection: string): Promise<string[]> {
-    return extractKeyPoints({ registry: this.registry, selection });
+    return extractKeyPoints({ registry: this.registry, roles: this.roles, selection });
+  }
+
+  /**
+   * 通用角色调用入口：用任意 Role（包括用户自定义）跑一次。
+   * UI 层（编辑器右键、角色编辑器测试按钮）应优先调这个，而不是上面的内置 wrapper。
+   */
+  async runRole(roleId: string, vars: Record<string, string | number>): Promise<unknown> {
+    const r = await runRole({
+      registry: this.registry,
+      roles: this.roles,
+      roleId,
+      vars,
+    });
+    return r.output;
+  }
+
+  /** 列出可在编辑器右键菜单中展示的 Roles。 */
+  listEditorRoles(): AiRole[] {
+    return this.roles.listForEditor();
   }
 
   // ---- Indexing ----
@@ -280,7 +312,9 @@ export class AetherCore {
       new Array<number>(this.embeddingDim).fill(0),
     );
     try {
-      const { provider, model } = this.registry.resolve("embedding");
+      const role = this.roles.resolve("embedding");
+      const provider = this.registry.getProvider(role.providerId);
+      const model = role.modelName;
       if (chunks.length > 0) {
         const inputs = chunks.map((c) => c.content);
         const embed = await provider.embed({ inputs, model });

@@ -1,9 +1,11 @@
 import type { ProviderRegistry } from "../provider/registry.js";
+import type { RoleRegistry } from "../roles/role-registry.js";
 import type { HitChunk, Note, SearchHit, SearchRequest } from "../types.js";
 import type { OramaIndexStore } from "../index-store/orama-store.js";
 
 export interface SearchEngineDeps {
   registry: ProviderRegistry;
+  roles: RoleRegistry;
   store: OramaIndexStore;
   /** Returns 0..1 — what fraction of chunks are stale; SearchEngine biases towards BM25 when high. */
   getStaleRatio?: () => number;
@@ -23,8 +25,9 @@ export class SearchEngine {
         : baseAlpha,
     );
 
-    const { provider, model } = this.deps.registry.resolve("embedding");
-    const embed = await provider.embed({ inputs: [req.query], model });
+    const role = this.deps.roles.resolve("embedding");
+    const provider = this.deps.registry.getProvider(role.providerId);
+    const embed = await provider.embed({ inputs: [req.query], model: role.modelName });
     const vector = embed.vectors[0] ?? [];
 
     const searchArgs: Parameters<typeof this.deps.store.searchHybrid>[0] = {

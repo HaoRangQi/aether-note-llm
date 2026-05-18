@@ -34,7 +34,9 @@ describe("rebuild flow", () => {
           createdAt: 0,
         },
       ],
-      bindings: [{ feature: "embedding", providerId: "p", modelName: "m", params: {} }],
+      roles: core.settings.current.roles.map((r) =>
+        r.id === "embedding" ? { ...r, providerId: "p", modelName: "m" } : r,
+      ),
       apiKeys: { k: "secret" },
     });
     core.applySettings(core.settings.current);

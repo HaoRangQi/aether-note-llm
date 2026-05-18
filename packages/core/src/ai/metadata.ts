@@ -1,4 +1,6 @@
 import type { ProviderRegistry } from "../provider/registry.js";
+import type { RoleRegistry } from "../roles/role-registry.js";
+import { runRole } from "../roles/run-role.js";
 import type { RawCandidate } from "../types.js";
 
 export interface MetadataProposal {
@@ -7,72 +9,58 @@ export interface MetadataProposal {
   summary: string;
 }
 
-const SYSTEM_PROMPT = `You are an AI metadata assistant for a personal knowledge base.
-Given a markdown note, propose:
-- title: <=80 chars, descriptive, no quotes
-- tags: <=5 lowercase short tags (single words or hyphenated)
-- summary: <=160 chars, one sentence, no bullet points
-
-Return ONLY a single JSON object with keys "title", "tags", "summary". No commentary.`;
-
 export async function proposeMetadata(args: {
   registry: ProviderRegistry;
+  roles: RoleRegistry;
   candidate: RawCandidate;
   fallbackTitle: string;
   signal?: AbortSignal;
 }): Promise<MetadataProposal> {
-  const { registry, candidate, fallbackTitle } = args;
-  let resolved;
+  const { candidate, fallbackTitle } = args;
+  const opts: Parameters<typeof runRole>[0] = {
+    registry: args.registry,
+    roles: args.roles,
+    roleId: "inbox_metadata",
+    vars: {
+      sourceRef: candidate.sourceRef,
+      kind: candidate.kind,
+      urlLine: candidate.url ? `URL：${candidate.url}` : "",
+      content: candidate.content.slice(0, 4000),
+    },
+  };
+  if (args.signal) opts.signal = args.signal;
   try {
-    resolved = registry.resolve("inbox_metadata");
+    const r = await runRole(opts);
+    return parseProposal(r.output) ?? fallbackProposal(candidate, fallbackTitle);
   } catch {
     return fallbackProposal(candidate, fallbackTitle);
   }
-  const { provider, model, binding } = resolved;
-  const userPrompt = buildUserPrompt(candidate);
-  try {
-    let raw = "";
-    const chatReq: Parameters<typeof provider.chat>[0] = {
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      model,
-      stream: true,
-      temperature: binding.params.temperature ?? 0.2,
-    };
-    if (args.signal) chatReq.signal = args.signal;
-    for await (const c of provider.chat(chatReq)) {
-      raw += c.delta;
+}
+
+export function parseProposal(raw: unknown): MetadataProposal | null {
+  if (raw === null || raw === undefined) return null;
+  let obj: Record<string, unknown> | null = null;
+  if (typeof raw === "string") {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      obj = JSON.parse(m[0]) as Record<string, unknown>;
+    } catch {
+      return null;
     }
-    return parseProposal(raw) ?? fallbackProposal(candidate, fallbackTitle);
-  } catch {
-    return fallbackProposal(candidate, fallbackTitle);
+  } else if (typeof raw === "object") {
+    obj = raw as Record<string, unknown>;
   }
-}
-
-function buildUserPrompt(c: RawCandidate): string {
-  const body = c.content.slice(0, 4000);
-  return `Source path: ${c.sourceRef}\nKind: ${c.kind}\n${c.url ? `URL: ${c.url}\n` : ""}\n--- BEGIN CONTENT ---\n${body}\n--- END CONTENT ---`;
-}
-
-export function parseProposal(raw: string): MetadataProposal | null {
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const j = JSON.parse(match[0]) as Partial<MetadataProposal>;
-    if (typeof j.title !== "string") return null;
-    const tags = Array.isArray(j.tags)
-      ? j.tags.filter((t): t is string => typeof t === "string").slice(0, 5)
-      : [];
-    return {
-      title: j.title.trim().slice(0, 80),
-      tags,
-      summary: typeof j.summary === "string" ? j.summary.trim().slice(0, 160) : "",
-    };
-  } catch {
-    return null;
-  }
+  if (!obj) return null;
+  if (typeof obj.title !== "string") return null;
+  const tags = Array.isArray(obj.tags)
+    ? (obj.tags as unknown[]).filter((t): t is string => typeof t === "string").slice(0, 5)
+    : [];
+  return {
+    title: obj.title.trim().slice(0, 80),
+    tags,
+    summary: typeof obj.summary === "string" ? obj.summary.trim().slice(0, 160) : "",
+  };
 }
 
 function fallbackProposal(c: RawCandidate, fallbackTitle: string): MetadataProposal {

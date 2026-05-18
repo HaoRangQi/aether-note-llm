@@ -1,28 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
-import { ProviderRegistry } from "../../../src/provider/registry.js";
 import { rewriteSelection } from "../../../src/ai/rewrite.js";
-
-function rig(provider: MockProvider) {
-  const reg = new ProviderRegistry({
-    factories: [{ kind: "openai-compatible", create: () => provider }],
-    fetch: async () => new Response("{}"),
-  });
-  reg.setConfigs([
-    {
-      id: "p",
-      name: "p",
-      baseUrl: "https://x",
-      apiKeyRef: "k",
-      defaultHeaders: {},
-      enabled: true,
-      createdAt: 0,
-    },
-  ]);
-  reg.setApiKeys({ k: "s" });
-  reg.setBindings([{ feature: "rewrite", providerId: "p", modelName: "m", params: {} }]);
-  return reg;
-}
+import { makeAiRig } from "../../helpers/ai-rig.js";
 
 describe("rewriteSelection", () => {
   it("concatenates streamed deltas", async () => {
@@ -32,17 +11,18 @@ describe("rewriteSelection", () => {
         { delta: "World", finishReason: "stop" },
       ],
     });
-    const reg = rig(provider);
-    const out = await rewriteSelection({ registry: reg, selection: "hi" });
+    const { registry, roles } = makeAiRig(provider);
+    const out = await rewriteSelection({ registry, roles, selection: "hi" });
     expect(out).toBe("Hello World");
   });
 
-  it("passes style hint via system prompt", async () => {
+  it("renders style variable into the prompt", async () => {
+    // 把 user prompt 原样返回以便 assert 模板渲染
     const provider = new MockProvider({
       chatChunks: (req) => [{ delta: req.messages[0]!.content, finishReason: "stop" }],
     });
-    const reg = rig(provider);
-    const out = await rewriteSelection({ registry: reg, selection: "x", style: "concise" });
-    expect(out).toContain("concise");
+    const { registry, roles } = makeAiRig(provider);
+    const out = await rewriteSelection({ registry, roles, selection: "x", style: "concise" });
+    expect(out).toContain("更精炼");
   });
 });

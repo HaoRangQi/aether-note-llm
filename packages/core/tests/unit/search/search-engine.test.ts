@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { OramaIndexStore } from "../../../src/index-store/orama-store.js";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
 import { ProviderRegistry } from "../../../src/provider/registry.js";
+import { RoleRegistry } from "../../../src/roles/role-registry.js";
+import { BUILTIN_ROLE_SEEDS, seedToRole } from "../../../src/roles/default-roles.js";
 import { SearchEngine } from "../../../src/search/search-engine.js";
 import type { ProviderFactory } from "../../../src/provider/types.js";
 import type { Note } from "../../../src/types.js";
@@ -54,9 +56,14 @@ async function makeRig() {
     },
   ]);
   reg.setApiKeys({ k: "secret" });
-  reg.setBindings([{ feature: "embedding", providerId: "p", modelName: "m", params: {} }]);
-  const engine = new SearchEngine({ registry: reg, store });
-  return { store, mock, engine, reg };
+  const roles = new RoleRegistry();
+  const embedSeed = BUILTIN_ROLE_SEEDS.find((s) => s.id === "embedding")!;
+  const embedRole = seedToRole(embedSeed, 0);
+  embedRole.providerId = "p";
+  embedRole.modelName = "m";
+  roles.setRoles([embedRole]);
+  const engine = new SearchEngine({ registry: reg, roles, store });
+  return { store, mock, engine, reg, roles };
 }
 
 describe("SearchEngine", () => {
@@ -113,7 +120,7 @@ describe("SearchEngine", () => {
   });
 
   it("alpha rises when staleRatio is high", async () => {
-    const { store, mock, reg } = await makeRig();
+    const { store, mock, reg, roles } = await makeRig();
     let observed = 0;
     const orig = store.searchHybrid.bind(store);
     store.searchHybrid = async (args) => {
@@ -135,6 +142,7 @@ describe("SearchEngine", () => {
     ]);
     const engine2 = new SearchEngine({
       registry: reg,
+      roles,
       store,
       getStaleRatio: () => 0.8,
     });

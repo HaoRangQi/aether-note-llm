@@ -1,6 +1,7 @@
 import { AetherError } from "../errors.js";
 import type { IHostAdapter } from "../host/adapter.js";
 import type { ProviderRegistry } from "../provider/registry.js";
+import type { RoleRegistry } from "../roles/role-registry.js";
 import type { OramaIndexStore } from "../index-store/orama-store.js";
 import { proposeMetadata } from "../ai/metadata.js";
 import { detectDuplicate } from "./duplicate-detector.js";
@@ -17,6 +18,7 @@ export type ImportEvent =
 export interface ImportPipelineDeps {
   host: IHostAdapter;
   registry: ProviderRegistry;
+  roles: RoleRegistry;
   store: OramaIndexStore;
   inbox: InboxStore;
   connectors: SourceConnector[];
@@ -73,6 +75,7 @@ export class ImportPipeline {
     try {
       proposal = await proposeMetadata({
         registry: this.deps.registry,
+        roles: this.deps.roles,
         candidate,
         fallbackTitle,
       });
@@ -87,10 +90,11 @@ export class ImportPipeline {
     }
     let duplicateOf: string | null = null;
     try {
-      const { provider, model } = this.deps.registry.resolve("embedding");
+      const role = this.deps.roles.resolve("embedding");
+      const provider = this.deps.registry.getProvider(role.providerId);
       const embedded = await provider.embed({
         inputs: [candidate.content.slice(0, 2000)],
-        model,
+        model: role.modelName,
       });
       const vector = embedded.vectors[0] ?? [];
       duplicateOf = await detectDuplicate({

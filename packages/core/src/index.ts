@@ -30,6 +30,17 @@ export {
   type RetryOptions,
 } from "./provider/retry.js";
 export { ProviderRegistry } from "./provider/registry.js";
+export { RoleRegistry } from "./roles/role-registry.js";
+export {
+  BUILTIN_ROLE_SEEDS,
+  BUILTIN_ROLE_IDS,
+  seedToRole,
+  findSeed,
+  type BuiltInRoleId,
+  type BuiltInRoleSeed,
+} from "./roles/default-roles.js";
+export { renderPrompt, extractVariables } from "./roles/render-prompt.js";
+export { runRole, type RunRoleArgs, type RunRoleResult } from "./roles/run-role.js";
 export {
   OramaIndexStore,
   type VectorSearchHit,

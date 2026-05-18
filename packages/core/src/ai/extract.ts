@@ -1,23 +1,28 @@
-import { runFeature } from "./rewrite.js";
 import type { ProviderRegistry } from "../provider/registry.js";
+import type { RoleRegistry } from "../roles/role-registry.js";
+import { runRole } from "../roles/run-role.js";
 
 export async function extractKeyPoints(args: {
   registry: ProviderRegistry;
+  roles: RoleRegistry;
   selection: string;
   maxPoints?: number;
   signal?: AbortSignal;
 }): Promise<string[]> {
   const max = args.maxPoints ?? 5;
-  const systemPrompt = `You extract the key points from a markdown passage. Return at most ${max} short bullet lines, each starting with "- ". Return ONLY the bullets — no headings, no preamble.`;
-  const opts: Parameters<typeof runFeature>[0] = {
+  const opts: Parameters<typeof runRole>[0] = {
     registry: args.registry,
-    feature: "extract",
-    systemPrompt,
-    userPrompt: args.selection,
+    roles: args.roles,
+    roleId: "extract",
+    vars: { selection: args.selection, maxPoints: max },
   };
   if (args.signal) opts.signal = args.signal;
-  const raw = await runFeature(opts);
-  return raw
+  const r = await runRole(opts);
+  if (Array.isArray(r.output)) {
+    return (r.output as string[]).slice(0, max);
+  }
+  // text 兜底
+  return String(r.output ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.startsWith("- "))

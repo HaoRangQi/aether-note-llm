@@ -96,6 +96,50 @@ export interface FeatureBinding {
   params: { temperature?: number; maxTokens?: number };
 }
 
+// ---- AI Role ------------------------------------------------------------
+
+/**
+ * AI 角色：v0.2 起取代 FeatureBinding。每种 AI 操作（总结/改写/提取/元数据/嵌入）
+ * 是一个可配置的 Role：可改提示词、绑模型、调参数；用户也可加自定义角色。
+ *
+ * 详见 docs/architecture.md。
+ */
+export type RoleOutputKind = "text" | "list" | "metadata" | "embedding";
+
+export interface AiRole {
+  /** 内置 ID 是固定字符串（"summarize" 等），自定义角色是 ulid */
+  id: string;
+  /** 内置角色不能删，可禁用、可重置默认提示词 */
+  builtIn: boolean;
+  /** 显示名（i18n key 或字面字符串） */
+  name: string;
+  /** lucide 图标名 */
+  icon: string;
+  description: string;
+
+  providerId: string;
+  modelName: string;
+
+  /** 含 {{variable}} 占位符的提示词模板 */
+  promptTemplate: string;
+  /** 声明此模板用到的变量名（仅做 UI 提示用，不强校验） */
+  variables: string[];
+
+  /** 决定输出如何被解析与呈现 */
+  outputKind: RoleOutputKind;
+
+  /** 调用参数：temperature / maxTokens / 其他自定义 */
+  params: Record<string, unknown>;
+
+  /** 关掉则调用方 resolve 不到这个 Role */
+  enabled: boolean;
+  /** 是否出现在编辑器右键菜单与命令面板中 */
+  showInEditor: boolean;
+
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ---- Search -------------------------------------------------------------
 
 export interface SearchFilters {
@@ -230,9 +274,16 @@ export interface PersistedInbox {
 }
 
 export interface PersistedSettings {
-  schemaVersion: 1;
+  /** 1 = v0.1.x（FeatureBinding 模型）；2 = v0.2+（AiRole 模型） */
+  schemaVersion: 1 | 2;
   providers: ProviderConfig[];
+  /**
+   * @deprecated v0.2 起被 roles 取代；保留字段用于一次性迁移，迁移完写空数组。
+   * 读路径不再用此字段。
+   */
   bindings: FeatureBinding[];
+  /** v0.2 新增：AI 角色列表（含内置 5 个 + 用户自定义） */
+  roles: AiRole[];
   apiKeys: Record<string, string>;
   ui: {
     alpha: number;

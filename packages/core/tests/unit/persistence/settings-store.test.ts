@@ -4,14 +4,64 @@ import { SettingsStore } from "../../../src/persistence/settings-store.js";
 import { migrateSettings } from "../../../src/persistence/migrate.js";
 
 describe("migrateSettings", () => {
-  it("returns defaults for empty input", () => {
+  it("returns defaults for empty input (lifted to v2)", () => {
     const s = migrateSettings({});
-    expect(s.schemaVersion).toBe(1);
+    expect(s.schemaVersion).toBe(2);
     expect(s.providers).toEqual([]);
+    expect(s.roles.length).toBe(5); // 5 内置角色
+    expect(s.roles.find((r) => r.id === "summarize")?.builtIn).toBe(true);
     expect(s.ui.alpha).toBe(0.4);
     expect(s.ui.scanScope).toBe("vault");
     expect(s.ui.language).toBe("zh-CN");
     expect(s.flags.aiTrace).toBe(false);
+  });
+
+  it("v1 → v2 migrates bindings into role provider/model", () => {
+    const s = migrateSettings({
+      schemaVersion: 1,
+      bindings: [
+        { feature: "summarize", providerId: "p1", modelName: "m1", params: {} },
+        { feature: "embedding", providerId: "p2", modelName: "m2", params: {} },
+      ],
+    });
+    expect(s.schemaVersion).toBe(2);
+    const summarize = s.roles.find((r) => r.id === "summarize");
+    expect(summarize?.providerId).toBe("p1");
+    expect(summarize?.modelName).toBe("m1");
+    const embedding = s.roles.find((r) => r.id === "embedding");
+    expect(embedding?.providerId).toBe("p2");
+    // 迁移后老 bindings 字段被清空
+    expect(s.bindings).toEqual([]);
+  });
+
+  it("v2 input keeps user-edited prompt templates", () => {
+    const s = migrateSettings({
+      schemaVersion: 2,
+      roles: [
+        {
+          id: "summarize",
+          builtIn: true,
+          name: "总结",
+          icon: "file-text",
+          description: "",
+          providerId: "p",
+          modelName: "m",
+          promptTemplate: "USER OVERRIDE {{selection}}",
+          variables: ["selection"],
+          outputKind: "text",
+          params: {},
+          enabled: true,
+          showInEditor: true,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    });
+    expect(s.roles.find((r) => r.id === "summarize")?.promptTemplate).toBe(
+      "USER OVERRIDE {{selection}}",
+    );
+    // 缺失的内置角色会自动补齐
+    expect(s.roles.find((r) => r.id === "embedding")).toBeDefined();
   });
 
   it("preserves provided values", () => {
