@@ -8,7 +8,7 @@ describe("migrateSettings", () => {
     const s = migrateSettings({});
     expect(s.schemaVersion).toBe(2);
     expect(s.providers).toEqual([]);
-    expect(s.roles.length).toBe(5); // 5 内置角色
+    expect(s.roles.length).toBe(6); // 6 个内置角色（含 critique）
     expect(s.roles.find((r) => r.id === "summarize")?.builtIn).toBe(true);
     expect(s.ui.alpha).toBe(0.4);
     expect(s.ui.scanScope).toBe("vault");

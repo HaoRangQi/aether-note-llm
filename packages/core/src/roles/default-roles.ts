@@ -37,10 +37,21 @@ const T_INBOX_METADATA = `你是个人知识库的元数据助手。给定一段
 {{content}}
 --- 内容结束 ---`;
 
+const T_CRITIQUE = `你是一位严谨而建设性的点评家。请对下文进行批评性分析：
+
+1. **亮点**：指出写得好的地方（1-3 条）
+2. **问题**：指出逻辑漏洞、表达不清或事实存疑之处（1-3 条）
+3. **改进建议**：给出具体可操作的修改方向（1-3 条）
+
+语气直接，不要客套。每条用一句话说清楚。
+
+{{selection}}`;
+
 export const BUILTIN_ROLE_IDS = [
   "summarize",
   "rewrite",
   "extract",
+  "critique",
   "inbox_metadata",
   "embedding",
 ] as const;
@@ -91,6 +102,17 @@ export const BUILTIN_ROLE_SEEDS: BuiltInRoleSeed[] = [
     variables: ["selection", "maxPoints"],
     outputKind: "list",
     params: { temperature: 0.2, maxPoints: 5 },
+    showInEditor: true,
+  },
+  {
+    id: "critique",
+    name: "点评",
+    icon: "message-square",
+    description: "对选中内容给出亮点、问题和改进建议",
+    promptTemplate: T_CRITIQUE,
+    variables: ["selection"],
+    outputKind: "text",
+    params: { temperature: 0.5 },
     showInEditor: true,
   },
   {
