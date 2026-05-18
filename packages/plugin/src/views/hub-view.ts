@@ -3,7 +3,7 @@ import type AetherPlugin from "../main.js";
 import { ImportModal } from "../modals/import-modal.js";
 import { escapeHtml, highlight } from "../ui/render.js";
 import { t } from "../i18n/index.js";
-import type { NoteKind, SearchHit, VaultFileMeta } from "@aether/core";
+import { isAetherError, type NoteKind, type SearchHit, type VaultFileMeta } from "@aether/core";
 
 export const HUB_VIEW_TYPE = "aether-hub-view";
 
@@ -211,6 +211,37 @@ export class HubView extends ItemView {
       hits = await this.plugin.core.search(req);
     } catch (e) {
       status.empty();
+      // 维度不匹配是切换 embedding 模型后没重建索引的典型坑，给出可执行提示
+      if (isAetherError(e) && e.code === "EMBED_DIM_MISMATCH") {
+        const box = root.createDiv({ cls: "aether-onboard-card" });
+        box.createDiv({
+          cls: "aether-onboard-title",
+          text: t("view.hub.dimMismatch.title"),
+        });
+        box.createDiv({
+          cls: "aether-onboard-desc",
+          text: t("view.hub.dimMismatch.desc"),
+        });
+        const btn = box.createEl("button", { text: t("view.hub.dimMismatch.button") });
+        btn.addClass("mod-cta");
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.setText(t("view.hub.dimMismatch.running"));
+          try {
+            const r = await this.plugin.core.rebuildAll();
+            new Notice(
+              t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
+              5000,
+            );
+            void this.refreshResults();
+          } catch (err) {
+            new Notice(t("view.hub.searchFailed", { error: (err as Error).message }), 6000);
+          } finally {
+            btn.disabled = false;
+          }
+        };
+        return;
+      }
       root.createEl("p", { text: t("view.hub.searchFailed", { error: (e as Error).message }) });
       return;
     }

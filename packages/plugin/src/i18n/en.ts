@@ -171,6 +171,11 @@ export const en: Dict = {
   "view.hub.searching": "Searching…",
   "view.hub.noMatches": "No matches.",
   "view.hub.searchFailed": "Search failed: {error}",
+  "view.hub.dimMismatch.title": "Switched embedding model?",
+  "view.hub.dimMismatch.desc":
+    "New model's vector dim doesn't match the existing index. Rebuild fixes it (won't touch your vault files).",
+  "view.hub.dimMismatch.button": "Rebuild index now",
+  "view.hub.dimMismatch.running": "Rebuilding…",
   "view.hub.statusReady": "Ready",
   "view.hub.statusNoProvider": "No AI provider",
   "view.hub.statusIndexed": "{count} indexed",

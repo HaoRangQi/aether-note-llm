@@ -176,6 +176,11 @@ export const zhCN: Dict = {
   "view.hub.searching": "搜索中…",
   "view.hub.noMatches": "没有匹配结果",
   "view.hub.searchFailed": "搜索失败：{error}",
+  "view.hub.dimMismatch.title": "切换了 Embedding 模型？",
+  "view.hub.dimMismatch.desc":
+    "新模型的向量维度与现有索引不一致。索引重建后即可恢复搜索（不影响你的 vault 文件）。",
+  "view.hub.dimMismatch.button": "立即重建索引",
+  "view.hub.dimMismatch.running": "重建中…",
   "view.hub.statusReady": "Ready",
   "view.hub.statusNoProvider": "未配置 AI 服务",
   "view.hub.statusIndexed": "已索引 {count}",

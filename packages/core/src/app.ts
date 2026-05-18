@@ -293,6 +293,28 @@ export class AetherCore {
   async rebuildAll(): Promise<{ scanned: number; indexed: number }> {
     const scope = this.settings.current.ui.scanScope;
     const folder = scope === "vault" ? "" : this.settings.current.ui.aetherInboxFolder;
+
+    // —— 重要：先用一次小 probe 确认 embedding 维度，再清空 store。
+    // 否则切换 embedding 模型（如 dim 8 → 2560）后再重建，老 chunks 残留导致
+    // 后续搜索抛 EMBED_DIM_MISMATCH。
+    try {
+      const role = this.roles.resolve("embedding");
+      const provider = this.registry.getProvider(role.providerId);
+      const probe = await provider.embed({ inputs: ["dim probe"], model: role.modelName });
+      if (probe.dim !== this.embeddingDim) {
+        this.embeddingDim = probe.dim;
+        await this.store.setEmbeddingDim(probe.dim); // 这会清空 chunks 重建 schema
+      } else {
+        // 维度未变，但仍然把 chunks 清掉，确保 rebuild 是真的「全量重建」
+        await this.store.setEmbeddingDim(probe.dim);
+      }
+      this.embeddingModel = probe.model;
+    } catch {
+      // 没绑 embedding 也照样允许 rebuild —— 走 BM25-only 模式。
+      // 但若旧索引维度 > 0，把它降回 8 以避免后续混乱。
+      await this.store.setEmbeddingDim(this.embeddingDim);
+    }
+
     const files = await this.host.listMarkdown(folder);
     let indexed = 0;
     for (const f of files) {
