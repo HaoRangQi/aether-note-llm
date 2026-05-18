@@ -328,4 +328,45 @@ packages/plugin/src/views/inbox-view.ts    # auto-approve 后已无意义
 
 ---
 
+## 12. v0.2 之后的关键修复（接手必读）
+
+### Settings 输入控件失焦问题
+
+**现象**：文本框每打一个字就失焦。  
+**根因**：`patch()` 总调 `this.display()` 全量重建 DOM，input 元素被销毁。  
+**解法**：新增 `patchSilent()`——只持久化不重渲染。连续输入控件（Provider 名/Base URL/Inbox 文件夹/α 滑块）用 `patchSilent`；需要联动重渲染的（切预设、切语言、删 Provider）继续用 `patch`。
+
+### Embedding 维度切换
+
+**现象**：换 embedding 模型后搜索报 `EMBED_DIM_MISMATCH`。  
+**根因**：旧索引 chunks 是 dim=8 的向量，新模型返回 dim=2560，`searchHybrid` 校验不通过。  
+**解法（三道安全网）**：
+1. **保存时弹 Modal**：角色编辑器保存 embedding role 且 provider/model 变化时，弹 `RebuildPromptModal` 询问立即重建。
+2. **rebuildAll 自动适配维度**：先 probe 新模型取真实 dim，调 `store.setEmbeddingDim(dim)` 重置 schema 清空旧 chunks，再全量重建。
+3. **Hub 搜索兜底**：捕获 `EMBED_DIM_MISMATCH` 错误码，显示自愈卡片「立即重建索引」。
+
+### Provider 多实例区分
+
+**现象**：多个同类 Provider（如两个 DeepSeek）都叫同一个名字，无法区分。  
+**解法**：Provider 卡片顶部加「显示名」输入框，用 `patchSilent` 保存。角色绑定下拉和角色行都显示 `provider.name`（而非 id）。
+
+### Quick Start 绑定向导
+
+**现象**：「一键推荐绑定」是黑盒，多 Provider 时用户不知道绑了哪个。  
+**解法**：改为显式向导——两个下拉（聊天类/向量类各选一个 Provider），点「应用绑定」后 Notice 显示绑定结果。
+
+### Hub 搜索卡片可复制
+
+**现象**：整张卡片挂 click 跳转，选字复制不了。  
+**解法**：跳转事件只挂在标题行（`.aether-clickable`），卡片其他区域 `cursor:default; user-select:text`。
+
+### i18n 漏迁移
+
+**现象**：高级设置里显示原始 key（如 `settings.advanced.inboxFolder`）。  
+**根因**：v0.2 重写 i18n 文件时漏掉了整段 `settings.advanced.*`。  
+**解法**：补回 zh-CN / en 全部 8 条 advanced 翻译。  
+**预防**：每次重写 i18n 文件后，用 `grep -c "settings.advanced" packages/plugin/src/i18n/*.ts` 验证两个文件条目数一致。
+
+---
+
 > **遇到不确定时**：读 `default-roles.ts` 看默认提示词、读 `run-role.ts` 看调用入口、读 `migrate.ts` 看 schema 演进。
