@@ -31,6 +31,15 @@ export const zhCN: Dict = {
   "settings.quickStart.applyRecommended": "一键推荐绑定",
   "settings.quickStart.applyRecommended.desc":
     "把所有 AI 角色（总结/改写/提取/导入元数据/向量）按推荐绑到现有服务商。",
+  "settings.quickStart.bindTitle": "绑定 AI 角色",
+  "settings.quickStart.bindDesc":
+    "为聊天类（总结/改写/提取/元数据）和向量类（embedding）各选一个服务商，点应用即可。",
+  "settings.quickStart.bindChat": "聊天类角色用",
+  "settings.quickStart.bindChat.desc": "总结、改写、提取要点、导入元数据共用此 Provider。",
+  "settings.quickStart.bindEmbedding": "向量类角色用",
+  "settings.quickStart.bindEmbedding.desc": "用于「按语义」搜索；建议选支持 embedding 的服务商。",
+  "settings.quickStart.applyBind": "应用绑定",
+  "settings.quickStart.applied": "已绑定：聊天 → {chat}，向量 → {embed}",
 
   // ---- 通用语言切换 ----
   "settings.language": "界面语言 / Language",

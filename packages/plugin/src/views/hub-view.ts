@@ -188,13 +188,13 @@ export class HubView extends ItemView {
     for (const f of files) {
       const card = root.createDiv({ cls: "aether-recent-card" });
       const fileName = f.path.split("/").pop()?.replace(/\.md$/i, "") ?? f.path;
-      card.createEl("div", { cls: "aether-card-title", text: fileName });
+      const titleEl = card.createEl("div", { cls: "aether-card-title aether-clickable", text: fileName });
+      titleEl.onClickEvent(() => {
+        this.app.workspace.openLinkText(f.path, "", false);
+      });
       const meta = card.createEl("div", { cls: "aether-card-meta" });
       meta.createSpan({ text: f.path });
       meta.createSpan({ text: relativeTime(f.mtime, this.plugin.core.host.now()) });
-      card.onClickEvent(() => {
-        this.app.workspace.openLinkText(f.path, "", false);
-      });
     }
   }
 
@@ -221,8 +221,15 @@ export class HubView extends ItemView {
     }
     for (const h of hits) {
       const card = root.createDiv({ cls: "aether-search-card" });
-      const titleEl = card.createEl("div", { cls: "aether-card-title" });
+      const titleEl = card.createEl("div", { cls: "aether-card-title aether-clickable" });
       titleEl.innerHTML = highlight(h.title, q);
+      titleEl.onClickEvent(() => {
+        if (h.kind === "bookmark" && h.url) {
+          window.open(h.url, "_blank");
+        } else {
+          this.app.workspace.openLinkText(h.vaultPath, "", false);
+        }
+      });
       if (h.summary) {
         card.createEl("div", { cls: "aether-card-summary", text: h.summary });
       }
@@ -232,13 +239,6 @@ export class HubView extends ItemView {
       }
       const meta = card.createEl("div", { cls: "aether-card-meta" });
       meta.innerHTML = `<span>${escapeHtml(h.kind)}</span><span>${escapeHtml(h.vaultPath)}</span>`;
-      card.onClickEvent(() => {
-        if (h.kind === "bookmark" && h.url) {
-          window.open(h.url, "_blank");
-        } else {
-          this.app.workspace.openLinkText(h.vaultPath, "", false);
-        }
-      });
     }
   }
 }

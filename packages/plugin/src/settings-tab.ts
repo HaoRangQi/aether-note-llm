@@ -26,6 +26,8 @@ export class AetherSettingsTab extends PluginSettingTab {
   private modelCache = new Map<string, string[]>();
   private testingProviders = new Set<string>();
   private currentSection: Section = "quickstart";
+  /** Quick Start 里「绑定向导」当前选择，未保存到 settings 直到点应用。 */
+  private bindWizard = { chatProviderId: "", embeddingProviderId: "" };
 
   constructor(
     app: App,
@@ -166,16 +168,115 @@ export class AetherSettingsTab extends PluginSettingTab {
     }
 
     if (providers.length > 0) {
-      // 应用推荐配置（一键把所有 Roles 绑到第一个能用的 provider）
-      new Setting(root)
-        .setName(t("settings.quickStart.applyRecommended"))
-        .setDesc(t("settings.quickStart.applyRecommended.desc"))
-        .addButton((b) => {
-          b.setButtonText(t("settings.bindings.applyRecommended"))
-            .setCta()
-            .onClick(() => this.applyRecommended());
-        });
+      this.renderBindWizard(root, providers);
     }
+  }
+
+  /**
+   * 绑定向导：让用户明确选定「聊天用哪个 Provider / 向量用哪个 Provider」，
+   * 而不是黑盒的"一键推荐"。多 Provider 时用户能精准选择。
+   */
+  private renderBindWizard(root: HTMLElement, providers: ProviderConfig[]): void {
+    root.createEl("h3", { text: t("settings.quickStart.bindTitle") });
+    root.createEl("p", {
+      text: t("settings.quickStart.bindDesc"),
+      cls: "setting-item-description",
+    });
+
+    // 默认值：chat 取第一个 recommendedFor.chat 的 / embedding 同理 / 都没找到取第一个
+    const fallback = providers[0]!.id;
+    if (!this.bindWizard.chatProviderId) {
+      this.bindWizard.chatProviderId =
+        providers.find((p) => {
+          const ps = p.kind ? findPresetById(p.kind) : undefined;
+          return ps?.recommendedFor.chat;
+        })?.id ?? fallback;
+    }
+    if (!this.bindWizard.embeddingProviderId) {
+      this.bindWizard.embeddingProviderId =
+        providers.find((p) => {
+          const ps = p.kind ? findPresetById(p.kind) : undefined;
+          return ps?.recommendedFor.embedding;
+        })?.id ?? fallback;
+    }
+
+    const mkRow = (
+      label: string,
+      desc: string,
+      key: "chatProviderId" | "embeddingProviderId",
+    ): void => {
+      new Setting(root)
+        .setName(label)
+        .setDesc(desc)
+        .addDropdown((d) => {
+          for (const p of providers) {
+            d.addOption(p.id, p.name || p.kind || p.id);
+          }
+          d.setValue(this.bindWizard[key]);
+          d.onChange((v) => {
+            this.bindWizard[key] = v;
+          });
+        });
+    };
+    mkRow(
+      t("settings.quickStart.bindChat"),
+      t("settings.quickStart.bindChat.desc"),
+      "chatProviderId",
+    );
+    mkRow(
+      t("settings.quickStart.bindEmbedding"),
+      t("settings.quickStart.bindEmbedding.desc"),
+      "embeddingProviderId",
+    );
+
+    new Setting(root).addButton((b) => {
+      b.setButtonText(t("settings.quickStart.applyBind"))
+        .setCta()
+        .onClick(() => this.applyBindWizard());
+    });
+  }
+
+  /** 把 bindWizard 选择真正写入 roles[]。每个内置 role 按类别绑到选定的 provider。 */
+  private async applyBindWizard(): Promise<void> {
+    const chatId = this.bindWizard.chatProviderId;
+    const embedId = this.bindWizard.embeddingProviderId;
+    if (!chatId && !embedId) return;
+    const providers = this.plugin.core.settings.current.providers;
+    const chatProvider = providers.find((p) => p.id === chatId);
+    const embedProvider = providers.find((p) => p.id === embedId);
+    if (!chatProvider && !embedProvider) {
+      new Notice(t("settings.bindings.empty"), 4000);
+      return;
+    }
+
+    await this.patch((s) => {
+      const setRole = (id: string, providerId: string, model: string): void => {
+        const r = s.roles.find((x) => x.id === id);
+        if (!r) return;
+        r.providerId = providerId;
+        if (!r.modelName) r.modelName = model;
+      };
+      if (embedProvider) {
+        const ps = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
+        const model =
+          this.modelCache.get(embedProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
+        setRole("embedding", embedProvider.id, model);
+      }
+      if (chatProvider) {
+        const ps = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
+        const model = this.modelCache.get(chatProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
+        for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
+          setRole(id, chatProvider.id, model);
+        }
+      }
+    });
+    new Notice(
+      t("settings.quickStart.applied", {
+        chat: chatProvider?.name || chatProvider?.id || "—",
+        embed: embedProvider?.name || embedProvider?.id || "—",
+      }),
+      4000,
+    );
   }
 
   private async addProviderFromPreset(presetId: string): Promise<void> {
@@ -557,48 +658,7 @@ export class AetherSettingsTab extends PluginSettingTab {
   }
 
   // ---- 推荐配置 ---------------------------------------------------------
-  private async applyRecommended(): Promise<void> {
-    const providers = this.plugin.core.settings.current.providers;
-    if (providers.length === 0) {
-      new Notice(t("settings.bindings.empty"), 4000);
-      return;
-    }
-
-    // 优先用 preset.recommendedFor 标记的 provider；
-    // 找不到就 fallback 到第一个 provider —— 反正能用比啥也不绑强
-    const fallback = providers[0]!;
-    const embedProvider =
-      providers.find((p) => {
-        const ps = p.kind ? findPresetById(p.kind) : undefined;
-        return ps?.recommendedFor.embedding;
-      }) ?? fallback;
-    const chatProvider =
-      providers.find((p) => {
-        const ps = p.kind ? findPresetById(p.kind) : undefined;
-        return ps?.recommendedFor.chat;
-      }) ?? fallback;
-
-    await this.patch((s) => {
-      const setRole = (id: string, providerId: string, model: string): void => {
-        const r = s.roles.find((x) => x.id === id);
-        if (!r) return;
-        r.providerId = providerId;
-        if (!r.modelName) r.modelName = model;
-      };
-      const embedPs = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
-      const embedModel =
-        this.modelCache.get(embedProvider.id)?.[0] ?? embedPs?.fallbackModels?.[0] ?? "";
-      setRole("embedding", embedProvider.id, embedModel);
-
-      const chatPs = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
-      const chatModel =
-        this.modelCache.get(chatProvider.id)?.[0] ?? chatPs?.fallbackModels?.[0] ?? "";
-      for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
-        setRole(id, chatProvider.id, chatModel);
-      }
-    });
-    new Notice(t("settings.bindings.applied"), 3000);
-  }
+  // (已被 renderBindWizard / applyBindWizard 取代)
 }
 
 function mergeModels(live: string[], fallback: string[] | undefined): string[] {

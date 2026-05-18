@@ -132,7 +132,10 @@
   border-radius: 8px;
   padding: 0.6rem 0.75rem;
   background: var(--background-secondary);
-  cursor: pointer;
+  /* 整张卡片不再可点；改为正常 cursor，文本可选可复制 */
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .aether-search-card:hover,
 .aether-recent-card:hover {
@@ -141,6 +144,14 @@
 .aether-card-title {
   font-weight: 600;
   margin-bottom: 0.2rem;
+}
+/* 仅标题作为跳转触发点 */
+.aether-card-title.aether-clickable {
+  cursor: pointer;
+  color: var(--text-accent);
+}
+.aether-card-title.aether-clickable:hover {
+  text-decoration: underline;
 }
 .aether-card-summary {
   color: var(--text-muted);
