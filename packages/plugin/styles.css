@@ -238,7 +238,18 @@
 .aether-provider-del-btn:hover { color: var(--text-error); }
 
 /* ============================================================
- * AI 浮动活动指示器（顶部居中、玻璃拟态、流光、脉冲）
+ * 毛玻璃共用变量 & 噪点纹理
+ * ============================================================ */
+
+/* SVG 噪点纹理（fractalNoise，极低不透明度模拟磨砂质感） */
+.aether-ai-activity,
+.aether-result-modal,
+.aether-import-modal {
+  --aether-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+ * AI 浮动活动指示器（毛玻璃版）
  * ============================================================ */
 
 @property --aether-glow-angle {
@@ -259,32 +270,31 @@
   gap: 0.55rem;
   padding: 0.7rem 0.95rem 0.85rem;
 
-  background: color-mix(in srgb, var(--background-primary) 78%, transparent);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border-radius: 14px;
-  box-shadow:
-    0 14px 50px -10px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 0 60px -10px var(--interactive-accent);
+  /* 毛玻璃核心：高 blur + 高饱和 + 轻微提亮 */
+  background: color-mix(in srgb, var(--background-primary) 86%, white 4%);
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.03);
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03);
+  border-radius: 16px;
 
-  border: 1.5px solid transparent;
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--background-primary) 78%, transparent),
-                    color-mix(in srgb, var(--background-primary) 78%, transparent)),
-    conic-gradient(from var(--aether-glow-angle),
-      var(--interactive-accent),
-      transparent 30%,
-      transparent 60%,
-      var(--interactive-accent));
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+  /* 磨砂边：白色半透明，不用彩色旋转描边 */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+
+  /* 多层阴影：深度感 + 极淡 accent 晕染 */
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 16px 48px -8px rgba(0, 0, 0, 0.5),
+    0 4px 16px -4px rgba(0, 0, 0, 0.3),
+    0 0 40px -16px color-mix(in srgb, var(--interactive-accent) 50%, transparent);
+
+  /* 噪点纹理叠加（极低不透明度） */
+  background-image: var(--aether-noise);
+  background-blend-mode: overlay;
+  background-size: 200px 200px;
 
   transform: translateX(-50%) translateY(-160%);
   opacity: 0;
-  animation:
-    aether-activity-in 0.55s cubic-bezier(0.22, 1.4, 0.36, 1) forwards,
-    aether-activity-rotate 4s linear infinite;
+  animation: aether-activity-in 0.55s cubic-bezier(0.22, 1.4, 0.36, 1) forwards;
 }
 
 @keyframes aether-activity-in {
@@ -293,21 +303,18 @@
     opacity: 1;
   }
 }
-@keyframes aether-activity-rotate {
-  to { --aether-glow-angle: 360deg; }
-}
 
 .aether-ai-activity.is-done,
 .aether-ai-activity.is-error {
-  animation:
-    aether-activity-out 0.32s cubic-bezier(0.7, 0, 0.84, 0) forwards,
-    aether-activity-rotate 4s linear infinite;
+  animation: aether-activity-out 0.32s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
 .aether-ai-activity.is-error {
+  border-color: rgba(255, 80, 80, 0.2);
   box-shadow:
-    0 14px 50px -10px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 80, 80, 0.3) inset,
-    0 0 60px -10px var(--text-error, #ef4444);
+    0 0 0 0.5px rgba(255, 80, 80, 0.1) inset,
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 16px 48px -8px rgba(0, 0, 0, 0.5),
+    0 0 40px -16px rgba(239, 68, 68, 0.4);
 }
 @keyframes aether-activity-out {
   to {
@@ -315,6 +322,10 @@
     opacity: 0;
     filter: blur(4px);
   }
+}
+/* 保留旋转动画 keyframe（进度条等仍在用） */
+@keyframes aether-activity-rotate {
+  to { --aether-glow-angle: 360deg; }
 }
 
 .aether-ai-activity-header {
@@ -433,30 +444,23 @@
   animation-play-state: paused;
 }
 
-/* AI 结果 Modal */
+/* AI 结果 Modal（毛玻璃版） */
 .aether-result-modal {
-  background: color-mix(in srgb, var(--background-primary) 82%, transparent) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-radius: 16px !important;
-  border: 1.5px solid transparent !important;
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--background-primary) 82%, transparent),
-                    color-mix(in srgb, var(--background-primary) 82%, transparent)),
-    conic-gradient(from var(--aether-glow-angle),
-      var(--interactive-accent),
-      transparent 30%,
-      transparent 60%,
-      var(--interactive-accent)) !important;
-  background-origin: border-box !important;
-  background-clip: padding-box, border-box !important;
+  background: color-mix(in srgb, var(--background-primary) 88%, white 4%) !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background-image: var(--aether-noise) !important;
+  background-blend-mode: overlay !important;
+  background-size: 200px 200px !important;
   box-shadow:
-    0 20px 60px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 0 80px -20px var(--interactive-accent) !important;
-  animation:
-    aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both,
-    aether-activity-rotate 6s linear infinite;
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 24px 64px -12px rgba(0, 0, 0, 0.55),
+    0 8px 24px -8px rgba(0, 0, 0, 0.3),
+    0 0 60px -24px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+  animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 @keyframes aether-modal-in {
   from {
@@ -578,30 +582,23 @@
   box-shadow: 0 0 28px -4px var(--interactive-accent);
 }
 
-/* 导入 Modal */
+/* 导入 Modal（毛玻璃版） */
 .aether-import-modal {
-  background: color-mix(in srgb, var(--background-primary) 82%, transparent) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-radius: 16px !important;
-  border: 1.5px solid transparent !important;
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--background-primary) 82%, transparent),
-                    color-mix(in srgb, var(--background-primary) 82%, transparent)),
-    conic-gradient(from var(--aether-glow-angle),
-      var(--interactive-accent),
-      transparent 30%,
-      transparent 60%,
-      var(--interactive-accent)) !important;
-  background-origin: border-box !important;
-  background-clip: padding-box, border-box !important;
+  background: color-mix(in srgb, var(--background-primary) 88%, white 4%) !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background-image: var(--aether-noise) !important;
+  background-blend-mode: overlay !important;
+  background-size: 200px 200px !important;
   box-shadow:
-    0 20px 60px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 0 80px -20px var(--interactive-accent) !important;
-  animation:
-    aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both,
-    aether-activity-rotate 6s linear infinite;
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 24px 64px -12px rgba(0, 0, 0, 0.55),
+    0 8px 24px -8px rgba(0, 0, 0, 0.3),
+    0 0 60px -24px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+  animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 
 /* Tab 栏 */
