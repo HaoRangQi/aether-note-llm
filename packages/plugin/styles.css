@@ -194,10 +194,48 @@
 .aether-provider-card {
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
-  padding: 0.4rem 0.75rem 0.6rem;
-  margin-bottom: 0.75rem;
+  padding: 0 0.75rem 0;
+  margin-bottom: 0.5rem;
   background: var(--background-secondary);
 }
+.aether-provider-card[open] {
+  padding-bottom: 0.6rem;
+}
+.aether-provider-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.aether-provider-summary::-webkit-details-marker { display: none; }
+.aether-provider-summary-name {
+  font-weight: 600;
+  flex: 1;
+}
+.aether-provider-summary-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.aether-provider-key-dot.set   { color: var(--text-success, #16a34a); }
+.aether-provider-key-dot.unset { color: var(--text-faint); }
+.aether-provider-model-hint { font-size: 0.75rem; }
+.aether-provider-dup-btn,
+.aether-provider-del-btn {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: var(--background-modifier-hover);
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.aether-provider-del-btn:hover { color: var(--text-error); }
 
 /* AI 角色编辑器 Modal */
 .aether-role-editor textarea {

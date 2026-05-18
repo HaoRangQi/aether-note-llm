@@ -20,8 +20,11 @@ async function runRoleOnSelection(
     new Notice(t("ai.selectFirst"), 3000);
     return;
   }
+  // 立即显示 loading 提示，让用户知道 AI 在工作
+  const loading = new Notice(t("ai.running", { name: role.name }), 0);
   try {
     const out = await plugin.core.runRole(role.id, { selection: sel });
+    loading.hide();
     let text: string;
     if (Array.isArray(out)) {
       text = (out as string[]).map((p) => `- ${p}`).join("\n");
@@ -34,6 +37,7 @@ async function runRoleOnSelection(
       editor.replaceSelection(replacement),
     ).open();
   } catch (e) {
+    loading.hide();
     new Notice(t("ai.failed", { error: (e as Error).message }), 5000);
   }
 }

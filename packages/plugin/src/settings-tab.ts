@@ -280,6 +280,22 @@ export class AetherSettingsTab extends PluginSettingTab {
     );
   }
 
+  private async duplicateProvider(p: ProviderConfig): Promise<void> {
+    const id = newUlid();
+    const apiKeyRef = `key:${id}`;
+    const oldKey = this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "";
+    await this.patch((s) => {
+      s.providers.push({
+        ...p,
+        id,
+        name: p.name ? `${p.name} (副本)` : "",
+        apiKeyRef,
+        createdAt: Date.now(),
+      });
+      if (oldKey) s.apiKeys[apiKeyRef] = oldKey;
+    });
+  }
+
   private async addProviderFromPreset(presetId: string): Promise<void> {
     const ps = findPresetById(presetId);
     if (!ps) return;
@@ -336,11 +352,56 @@ export class AetherSettingsTab extends PluginSettingTab {
   }
 
   private renderProviderCard(root: HTMLElement, p: ProviderConfig): void {
-    const card = root.createDiv({ cls: "aether-provider-card" });
     const preset = p.kind ? findPresetById(p.kind) : undefined;
     const apiKeySet = (this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "").length > 0;
+    const cached = this.modelCache.get(p.id);
+    const displayName = p.name || preset?.displayName || p.id;
+    const keyDot = apiKeySet ? "●" : "○";
+    const modelHint = cached ? `${cached.length} 个模型` : "";
 
-    // —— 行 0：名称（用户自己取的别名，多实例时区分用）——
+    // —— 折叠卡片：summary 一行显示核心状态，默认收起 ——
+    const details = root.createEl("details", { cls: "aether-provider-card" });
+    const summary = details.createEl("summary", { cls: "aether-provider-summary" });
+    summary.createSpan({ cls: "aether-provider-summary-name", text: displayName });
+    const badges = summary.createSpan({ cls: "aether-provider-summary-badges" });
+    badges.createSpan({
+      cls: `aether-provider-key-dot ${apiKeySet ? "set" : "unset"}`,
+      text: keyDot,
+      title: apiKeySet ? t("settings.providers.apiKey.set") : t("settings.providers.apiKey.unset"),
+    });
+    if (modelHint) badges.createSpan({ cls: "aether-provider-model-hint", text: modelHint });
+    // 复制按钮放在 summary 里，阻止冒泡避免触发折叠
+    const dupBtn = summary.createEl("button", {
+      cls: "aether-provider-dup-btn",
+      text: t("settings.providers.duplicate"),
+      title: t("settings.providers.duplicate.desc"),
+    });
+    dupBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.duplicateProvider(p);
+    };
+
+    const delBtn = summary.createEl("button", {
+      cls: "aether-provider-del-btn",
+      text: "✕",
+      title: t("common.remove"),
+    });
+    delBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.patch((s) => {
+        s.providers = s.providers.filter((x) => x.id !== p.id);
+        for (const r of s.roles) {
+          if (r.providerId === p.id) { r.providerId = ""; r.modelName = ""; }
+        }
+        delete s.apiKeys[p.apiKeyRef];
+      });
+    };
+
+    const card = details; // 内容区就是 details 本身
+
+    // —— 行 0：名称 ——
     new Setting(card)
       .setName(t("settings.providers.name"))
       .setDesc(t("settings.providers.name.desc"))
@@ -377,25 +438,7 @@ export class AetherSettingsTab extends PluginSettingTab {
             }
           }),
         );
-      })
-      .addExtraButton((b) =>
-        b
-          .setIcon("trash")
-          .setTooltip(t("common.remove"))
-          .onClick(() =>
-            this.patch((s) => {
-              s.providers = s.providers.filter((x) => x.id !== p.id);
-              // 把任何引用此 provider 的 role 解绑
-              for (const r of s.roles) {
-                if (r.providerId === p.id) {
-                  r.providerId = "";
-                  r.modelName = "";
-                }
-              }
-              delete s.apiKeys[p.apiKeyRef];
-            }),
-          ),
-      );
+      });
 
     const baseUrlSetting = new Setting(card).setName(t("settings.providers.baseUrl"));
     if (preset && preset.id !== "custom") {
@@ -438,7 +481,6 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
     }
 
-    const cached = this.modelCache.get(p.id);
     const isTesting = this.testingProviders.has(p.id);
     const testSetting = new Setting(card).setName(t("settings.providers.test"));
     if (isTesting) {

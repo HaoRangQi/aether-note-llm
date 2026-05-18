@@ -46,6 +46,8 @@ export const en: Dict = {
   "settings.providers.name.desc":
     "Used to distinguish providers in role bindings. Give each instance a unique alias.",
   "settings.providers.name.placeholder": "e.g. DeepSeek-Work / Company internal LLM",
+  "settings.providers.duplicate": "Duplicate",
+  "settings.providers.duplicate.desc": "Copy this provider config (including key)",
   "settings.providers.preset": "Provider",
   "settings.providers.preset.placeholder": "Pick a preset",
   "settings.providers.baseUrl": "Base URL",
@@ -156,6 +158,7 @@ export const en: Dict = {
 
   // ---- AI runtime ----
   "ai.selectFirst": "Select some text first",
+  "ai.running": "AI running: {name}…",
   "ai.failed": "AI call failed: {error}",
 
   // ---- Hub ----

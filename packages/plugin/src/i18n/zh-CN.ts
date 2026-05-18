@@ -53,6 +53,8 @@ export const zhCN: Dict = {
   "settings.providers.name": "显示名",
   "settings.providers.name.desc": "用于在角色绑定下拉里区分。多个同类服务商建议各取别名。",
   "settings.providers.name.placeholder": "例：DeepSeek-工作号 / 公司内网 LLM",
+  "settings.providers.duplicate": "复制",
+  "settings.providers.duplicate.desc": "复制此服务商配置（含 Key）",
   "settings.providers.preset": "服务商",
   "settings.providers.preset.placeholder": "选一个预设",
   "settings.providers.baseUrl": "Base URL",
@@ -161,6 +163,7 @@ export const zhCN: Dict = {
 
   // ---- AI 运行时 ----
   "ai.selectFirst": "请先选中一段文本",
+  "ai.running": "AI 处理中：{name}…",
   "ai.failed": "AI 调用失败：{error}",
 
   // ---- Hub 视图 ----
