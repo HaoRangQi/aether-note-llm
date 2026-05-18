@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Setting } from "obsidian";
+import { App, Modal, Notice, setIcon } from "obsidian";
 import { t } from "../i18n/index.js";
 
 export class RewriteResultModal extends Modal {
@@ -12,39 +12,68 @@ export class RewriteResultModal extends Modal {
   }
 
   onOpen(): void {
+    // 给 modal 容器加样式类，覆盖 Obsidian 默认
+    this.modalEl.addClass("aether-result-modal");
+
     const el = this.contentEl;
     el.empty();
-    el.createEl("h2", { text: t("modal.aiResult.title") });
 
-    el.createEl("h4", { text: t("modal.aiResult.original") });
-    const origPre = el.createEl("pre", { text: this.original, cls: "aether-result-pre" });
-    origPre.style.userSelect = "text";
-    origPre.style.webkitUserSelect = "text";
+    // —— 标题行 ——
+    const header = el.createDiv({ cls: "aether-result-header" });
+    const iconEl = header.createDiv({ cls: "aether-result-header-icon" });
+    setIcon(iconEl, "sparkles");
+    header.createDiv({ cls: "aether-result-header-title", text: t("modal.aiResult.title") });
 
-    el.createEl("h4", { text: t("modal.aiResult.rewritten") });
-    const rewritePre = el.createEl("pre", { text: this.rewritten, cls: "aether-result-pre" });
-    rewritePre.style.userSelect = "text";
-    rewritePre.style.webkitUserSelect = "text";
+    // —— 原文（折叠，默认收起） ——
+    const origDetails = el.createEl("details", { cls: "aether-result-section" });
+    origDetails.createEl("summary", {
+      cls: "aether-result-section-label",
+      text: t("modal.aiResult.original"),
+    });
+    const origPre = origDetails.createEl("pre", {
+      cls: "aether-result-pre",
+      text: this.original,
+    });
+    origPre.style.marginTop = "0.4rem";
 
-    new Setting(el)
-      .addButton((b) =>
-        b.setButtonText(t("common.discard")).onClick(() => this.close()),
-      )
-      .addButton((b) =>
-        b.setButtonText(t("modal.aiResult.copy")).onClick(async () => {
-          await navigator.clipboard.writeText(this.rewritten);
-          new Notice(t("modal.aiResult.copied"), 2000);
-        }),
-      )
-      .addButton((b) =>
-        b
-          .setButtonText(t("modal.aiResult.replace"))
-          .setCta()
-          .onClick(() => {
-            this.onApply(this.rewritten);
-            this.close();
-          }),
-      );
+    // —— AI 输出（展开） ——
+    const outSection = el.createDiv({ cls: "aether-result-section" });
+    outSection.createDiv({
+      cls: "aether-result-section-label",
+      text: t("modal.aiResult.rewritten"),
+    });
+    el.createEl("pre", { cls: "aether-result-pre aether-result-pre--main", text: this.rewritten });
+
+    // —— 操作按钮 ——
+    const actions = el.createDiv({ cls: "aether-result-actions" });
+
+    const discardBtn = actions.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("common.discard"),
+    });
+    discardBtn.onclick = () => this.close();
+
+    const copyBtn = actions.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("modal.aiResult.copy"),
+    });
+    const copyIcon = copyBtn.createSpan();
+    setIcon(copyIcon, "copy");
+    copyBtn.onclick = async () => {
+      await navigator.clipboard.writeText(this.rewritten);
+      new Notice(t("modal.aiResult.copied"), 2000);
+    };
+
+    const applyBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--cta",
+      text: t("modal.aiResult.replace"),
+    });
+    const applyIcon = applyBtn.createSpan();
+    setIcon(applyIcon, "check");
+    applyBtn.onclick = () => {
+      this.onApply(this.rewritten);
+      this.close();
+    };
   }
 
   onClose(): void {

@@ -434,19 +434,148 @@
 }
 
 /* AI 结果 Modal */
+.aether-result-modal {
+  background: color-mix(in srgb, var(--background-primary) 82%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-radius: 16px !important;
+  border: 1.5px solid transparent !important;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--background-primary) 82%, transparent),
+                    color-mix(in srgb, var(--background-primary) 82%, transparent)),
+    conic-gradient(from var(--aether-glow-angle),
+      var(--interactive-accent),
+      transparent 30%,
+      transparent 60%,
+      var(--interactive-accent)) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  box-shadow:
+    0 20px 60px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 0 80px -20px var(--interactive-accent) !important;
+  animation:
+    aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both,
+    aether-activity-rotate 6s linear infinite;
+}
+@keyframes aether-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+.aether-result-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+.aether-result-header-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+  display: grid;
+  place-items: center;
+  color: var(--interactive-accent);
+  filter: drop-shadow(0 0 6px var(--interactive-accent));
+  animation: aether-icon-pulse 2s ease-in-out infinite;
+}
+.aether-result-header-icon svg { width: 1.2rem; height: 1.2rem; }
+.aether-result-header-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: linear-gradient(
+    90deg,
+    var(--text-normal) 0%,
+    var(--interactive-accent) 50%,
+    var(--text-normal) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: aether-text-shimmer 3s linear infinite;
+}
+
+.aether-result-section {
+  margin-bottom: 0.75rem;
+}
+.aether-result-section-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
 .aether-result-pre {
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  max-height: 12rem;
+  background: color-mix(in srgb, var(--background-secondary) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  max-height: 10rem;
   overflow-y: auto;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
   user-select: text;
   -webkit-user-select: text;
   cursor: text;
+}
+.aether-result-pre--main {
+  max-height: 16rem;
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 12%, transparent) inset;
+}
+
+.aether-result-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+}
+.aether-result-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+  color: var(--text-normal);
+  transition: all 0.15s ease;
+}
+.aether-result-btn:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border);
+}
+.aether-result-btn svg { width: 0.85rem; height: 0.85rem; }
+.aether-result-btn--cta {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: transparent !important;
+  box-shadow: 0 0 20px -4px var(--interactive-accent);
+}
+.aether-result-btn--cta:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 28px -4px var(--interactive-accent);
 }
 
 /* AI 角色编辑器 Modal */
