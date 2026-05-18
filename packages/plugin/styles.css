@@ -1,47 +1,152 @@
-.aether-search-view,
-.aether-inbox-view {
+/* Hub 主面板（统一日常入口） */
+.aether-hub-view {
   padding: 0.75rem;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.aether-hub-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+.aether-hub-statusbar .aether-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.aether-hub-statusbar .aether-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-success, #16a34a);
+}
+.aether-hub-statusbar .aether-status-dot.warn {
+  background: var(--text-warning, #f59e0b);
+}
+.aether-hub-statusbar .aether-status-dot.error {
+  background: var(--text-error, #ef4444);
+}
+
+.aether-onboard-card {
+  border: 1px dashed var(--interactive-accent);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.aether-onboard-card .aether-onboard-title {
+  font-weight: 600;
+}
+.aether-onboard-card .aether-onboard-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .aether-search-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
   border-radius: 6px;
 }
 
-.aether-search-results {
+.aether-hub-filterbar {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.aether-hub-filterbar button {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--background-secondary);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.aether-hub-filterbar button.active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.aether-hub-quickactions {
+  display: flex;
+  gap: 0.5rem;
+}
+.aether-hub-quickactions button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.aether-hub-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-top: 0.25rem;
+}
+.aether-hub-section-title button.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.aether-hub-results {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
+.aether-hub-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.aether-hub-loading {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.5rem;
+}
+
+/* 复用旧 card / hit / tag 样式 */
 .aether-search-card,
-.aether-inbox-card {
+.aether-recent-card {
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   padding: 0.6rem 0.75rem;
   background: var(--background-secondary);
   cursor: pointer;
 }
-
 .aether-search-card:hover,
-.aether-inbox-card:hover {
+.aether-recent-card:hover {
   border-color: var(--interactive-accent);
 }
-
 .aether-card-title {
   font-weight: 600;
   margin-bottom: 0.2rem;
 }
-
 .aether-card-summary {
   color: var(--text-muted);
   font-size: 0.9rem;
   margin-bottom: 0.3rem;
 }
-
 .aether-card-excerpt {
   font-size: 0.85rem;
   color: var(--text-normal);
@@ -50,25 +155,23 @@
   padding: 0.25rem 0.5rem;
   margin-bottom: 0.25rem;
 }
-
 .aether-hit {
   background: var(--text-highlight-bg);
   border-radius: 2px;
 }
-
 .aether-card-meta {
   font-size: 0.75rem;
   color: var(--text-faint);
   margin-top: 0.3rem;
+  display: flex;
+  gap: 0.5rem;
 }
-
 .aether-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
   margin: 0.25rem 0;
 }
-
 .aether-tag {
   font-size: 0.75rem;
   background: var(--background-modifier-hover);
@@ -76,29 +179,67 @@
   padding: 0.05rem 0.5rem;
 }
 
-.aether-dup-warning {
-  color: var(--text-warning);
-  font-size: 0.8rem;
+/* Provider 卡片（Settings） */
+.aether-provider-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem 0.6rem;
+  margin-bottom: 0.75rem;
+  background: var(--background-secondary);
+}
+
+/* AI 角色编辑器 Modal */
+.aether-role-editor textarea {
+  width: 100%;
+  min-height: 8rem;
+  font-family: var(--font-monospace);
+  font-size: 0.85rem;
+}
+.aether-role-editor .aether-role-vars {
+  font-size: 0.75rem;
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
-
-.aether-card-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+.aether-role-editor .aether-role-vars code {
+  background: var(--background-modifier-hover);
+  border-radius: 3px;
+  padding: 0 0.25rem;
+  margin-right: 0.25rem;
+  cursor: pointer;
 }
-
-.aether-search-status {
-  color: var(--text-muted);
-  font-style: italic;
-  padding: 0.5rem;
-}
-
-.aether-card-preview {
-  font-size: 0.8rem;
+.aether-role-test-result {
+  margin-top: 0.75rem;
   background: var(--background-primary);
-  padding: 0.4rem;
-  border-radius: 4px;
-  max-height: 6rem;
-  overflow: hidden;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  border: 1px solid var(--background-modifier-border);
+}
+
+/* AI 角色列表行 */
+.aether-role-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--background-secondary);
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+}
+.aether-role-row:hover {
+  border-color: var(--interactive-accent);
+}
+.aether-role-row .aether-role-name {
+  font-weight: 600;
+  flex: 1;
+}
+.aether-role-row .aether-role-binding {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.aether-role-row .aether-role-disabled {
+  opacity: 0.5;
 }
