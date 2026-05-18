@@ -9,6 +9,7 @@ import {
 } from "@aether/core";
 import { ApiKeyModal } from "./modals/api-key-modal.js";
 import { RoleEditorModal } from "./modals/role-editor.js";
+import { RebuildPromptModal } from "./modals/rebuild-prompt.js";
 import { setLocale, t } from "./i18n/index.js";
 
 type Section = "quickstart" | "providers" | "roles" | "advanced";
@@ -522,6 +523,7 @@ export class AetherSettingsTab extends PluginSettingTab {
     }
 
     row.onclick = () => {
+      const before = this.plugin.core.settings.current.roles.find((x) => x.id === r.id);
       new RoleEditorModal(
         this.app,
         this.plugin,
@@ -532,6 +534,7 @@ export class AetherSettingsTab extends PluginSettingTab {
             const idx = s.roles.findIndex((x) => x.id === next.id);
             if (idx >= 0) s.roles[idx] = next;
           });
+          this.maybePromptRebuild(before, next);
         },
       ).open();
     };
@@ -575,12 +578,37 @@ export class AetherSettingsTab extends PluginSettingTab {
       draft,
       this.modelCache,
       async (next) => {
+        const before = this.plugin.core.settings.current.roles.find((x) => x.id === next.id);
         await this.patch((s) => {
           const idx = s.roles.findIndex((x) => x.id === next.id);
           if (idx >= 0) s.roles[idx] = next;
         });
+        this.maybePromptRebuild(before, next);
       },
     ).open();
+  }
+
+  /**
+   * 改完 embedding role 且新旧 provider/model 不同、index 里有数据时，弹 Modal。
+   * 仅 embedding —— 其他角色改了不会让索引失效。
+   */
+  private maybePromptRebuild(prev: AiRole | undefined, next: AiRole): void {
+    if (next.id !== "embedding") return;
+    if (!next.providerId || !next.modelName) return;
+    if (
+      prev &&
+      prev.providerId === next.providerId &&
+      prev.modelName === next.modelName
+    ) {
+      return;
+    }
+    const chunkCount = this.plugin.core.store.allChunks().length;
+    if (chunkCount === 0) return;
+    new RebuildPromptModal(this.app, this.plugin, {
+      oldModel: prev?.modelName,
+      newModel: next.modelName,
+      chunkCount,
+    }).open();
   }
 
   // ---- Advanced ---------------------------------------------------------

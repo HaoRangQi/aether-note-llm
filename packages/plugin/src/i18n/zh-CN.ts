@@ -196,6 +196,18 @@ export const zhCN: Dict = {
   // ---- 状态栏 ----
   "status.bar": "Aether · 索引 {indexed} · 服务商 {providers}",
 
+  // ---- 重建索引 Modal ----
+  "rebuild.title": "需要重建索引",
+  "rebuild.intro": "你刚修改了向量（embedding）配置。",
+  "rebuild.diff":
+    "旧模型：{old}　·　新模型：{next}　·　受影响的索引片段：{count}",
+  "rebuild.warn":
+    "不重建则现有内容用旧模型生成的向量搜索，可能完全失效或对不齐维度。重建只影响索引，不动你的笔记文件。",
+  "rebuild.now": "立即重建",
+  "rebuild.later": "稍后",
+  "rebuild.running": "重建中…",
+  "rebuild.failed": "重建失败：{error}",
+
   // ---- 高级 ----
   "settings.advanced.inboxFolder": "Inbox 文件夹",
   "settings.advanced.inboxFolder.desc": "导入的笔记保存到这里。默认值：Aether Inbox。",

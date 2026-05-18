@@ -191,6 +191,18 @@ export const en: Dict = {
   // ---- status bar ----
   "status.bar": "Aether · {indexed} indexed · {providers} provider(s)",
 
+  // ---- rebuild prompt modal ----
+  "rebuild.title": "Index rebuild required",
+  "rebuild.intro": "You just changed the embedding configuration.",
+  "rebuild.diff":
+    "Old model: {old}　·　New model: {next}　·　Affected chunks: {count}",
+  "rebuild.warn":
+    "Without a rebuild, existing chunks were vectorized with the old model and may be unreachable or dimension-mismatched. Rebuild only touches the index, not your notes.",
+  "rebuild.now": "Rebuild now",
+  "rebuild.later": "Later",
+  "rebuild.running": "Rebuilding…",
+  "rebuild.failed": "Rebuild failed: {error}",
+
   // ---- advanced ----
   "settings.advanced.inboxFolder": "Inbox folder",
   "settings.advanced.inboxFolder.desc":
