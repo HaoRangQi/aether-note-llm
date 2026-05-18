@@ -271,11 +271,11 @@
   padding: 0.7rem 0.95rem 0.85rem;
 
   /* 毛玻璃核心：background 必须混 transparent 才能让 backdrop-filter 透过去 */
-  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent);
+  background-color: color-mix(in srgb, var(--background-primary) 55%, transparent);
   background-image: var(--aether-noise);
   background-size: 200px 200px;
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.04);
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04);
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05);
   border-radius: 16px;
 
   /* 磨砂边：白色半透明，不用彩色旋转描边 */
@@ -447,17 +447,18 @@
 }
 
 /* AI 结果 Modal（毛玻璃版） */
-/* 关键：让 modal-container 蒙版变透明，backdrop-filter 才能穿透到编辑器 */
+/* backdrop-filter 放在 container 上，模糊整个弹出区域；
+   modal 本身只需半透明背景叠在模糊层上面 */
 .modal-container:has(.aether-result-modal),
 .modal-container:has(.aether-import-modal) {
-  background-color: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
+  background-color: rgba(0, 0, 0, 0.15) !important;
 }
 .aether-result-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 65%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   background-image: var(--aether-noise) !important;
@@ -593,11 +594,9 @@
 
 /* 导入 Modal（毛玻璃版） */
 .aether-import-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 65%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   background-image: var(--aether-noise) !important;
