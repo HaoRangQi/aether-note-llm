@@ -241,11 +241,11 @@
  * 毛玻璃共用变量 & 噪点纹理
  * ============================================================ */
 
-/* SVG 噪点纹理（fractalNoise，极低不透明度模拟磨砂质感） */
+/* SVG 噪点纹理（fractalNoise，opacity=0.05 保持半透明，不堵死 backdrop-filter） */
 .aether-ai-activity,
 .aether-result-modal,
 .aether-import-modal {
-  --aether-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  --aether-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
 /* ============================================================
@@ -270,10 +270,12 @@
   gap: 0.55rem;
   padding: 0.7rem 0.95rem 0.85rem;
 
-  /* 毛玻璃核心：高 blur + 高饱和 + 轻微提亮 */
-  background: color-mix(in srgb, var(--background-primary) 86%, white 4%);
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.03);
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03);
+  /* 毛玻璃核心：background 必须混 transparent 才能让 backdrop-filter 透过去 */
+  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent);
+  background-image: var(--aether-noise);
+  background-size: 200px 200px;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.04);
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04);
   border-radius: 16px;
 
   /* 磨砂边：白色半透明，不用彩色旋转描边 */
@@ -446,9 +448,11 @@
 
 /* AI 结果 Modal（毛玻璃版） */
 .aether-result-modal {
-  background: color-mix(in srgb, var(--background-primary) 88%, white 4%) !important;
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent) !important;
+  background-image: var(--aether-noise) !important;
+  background-size: 200px 200px !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   background-image: var(--aether-noise) !important;
@@ -584,9 +588,11 @@
 
 /* 导入 Modal（毛玻璃版） */
 .aether-import-modal {
-  background: color-mix(in srgb, var(--background-primary) 88%, white 4%) !important;
-  backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.03) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 72%, transparent) !important;
+  background-image: var(--aether-noise) !important;
+  background-size: 200px 200px !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
   border-radius: 18px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   background-image: var(--aether-noise) !important;
