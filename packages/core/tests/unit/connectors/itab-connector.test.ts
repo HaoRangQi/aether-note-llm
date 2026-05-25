@@ -15,9 +15,7 @@ const SAMPLE: object = {
           id: "d",
           name: "子文件夹",
           type: "folder",
-          children: [
-            { id: "e", name: "Nested", type: "link", url: "https://nested.example.com/" },
-          ],
+          children: [{ id: "e", name: "Nested", type: "link", url: "https://nested.example.com/" }],
         },
       ],
     },
@@ -43,7 +41,9 @@ describe("ITabConnector", () => {
   it("canHandle itab-data source", () => {
     const c = new ITabConnector();
     expect(c.canHandle(makeSource("{}"))).toBe(true);
-    expect(c.canHandle({ kind: "paste", label: "x", payload: { type: "paste-text", text: "" } })).toBe(false);
+    expect(
+      c.canHandle({ kind: "paste", label: "x", payload: { type: "paste-text", text: "" } }),
+    ).toBe(false);
   });
 
   it("extracts http bookmarks, skips chrome:// links", async () => {

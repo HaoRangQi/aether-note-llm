@@ -100,6 +100,10 @@ export class InMemoryHostAdapter implements IHostAdapter {
     this.opened.push(u);
   }
 
+  canOpenFolder(): boolean {
+    return true;
+  }
+
   async openFolder(p: string): Promise<void> {
     this.opened.push(`folder:${p}`);
   }

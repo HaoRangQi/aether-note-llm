@@ -1,10 +1,65 @@
 import { App, Modal, Notice, setIcon } from "obsidian";
 import type AetherPlugin from "../main.js";
-import type { ImportSource } from "@aether/core";
-import { AiActivityIndicator } from "../ui/ai-activity.js";
+import type { ImportSource, InboxItem, Note } from "@aether/core";
+import { JobTracker } from "../ui/job-tracker.js";
 import { t } from "../i18n/index.js";
+import { appendJobHistory } from "../job-history.js";
+import {
+  NEW_IMPORT_PREVIEW_POLICY,
+  PENDING_IMPORT_PREVIEW_POLICY,
+  type ImportPreviewPolicy,
+  shouldDiscardRemainingImportItemOnCancel,
+  shouldDiscardUnselectedImportItem,
+} from "../ui/import-preview-policy.js";
+import {
+  buildImportSourceFromFile,
+  buildImportSourceFromPaste,
+  IMPORT_FILE_ACCEPT,
+} from "../ui/import-source.js";
 
 type Mode = "paste" | "file";
+
+interface ImportedNoteSummary {
+  noteId: string;
+  vaultPath: string;
+  title: string;
+}
+
+interface MergedNoteSummary {
+  noteId: string;
+  vaultPath: string;
+  title: string;
+  sourceTitle: string;
+}
+
+interface ImportFailureSummary {
+  title: string;
+  sourceRef: string;
+  message: string;
+  retainedItemId?: string;
+  retained?: boolean;
+}
+
+type ImportDecision = "create" | "merge" | "discard";
+
+export function getPendingImportItems(plugin: AetherPlugin): InboxItem[] {
+  return plugin.core.inbox
+    .listItems({ status: "pending" })
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function openPendingImportItems(app: App, plugin: AetherPlugin): boolean {
+  const items = getPendingImportItems(plugin);
+  if (items.length === 0) {
+    new Notice(t("modal.importPending.empty"), 3000);
+    return false;
+  }
+  new ImportPreviewModal(app, plugin, items, [], PENDING_IMPORT_PREVIEW_POLICY, {
+    title: t("modal.importPending.title"),
+    summaryKey: "modal.importPending.summary",
+  }).open();
+  return true;
+}
 
 export class ImportModal extends Modal {
   private text = "";
@@ -71,11 +126,7 @@ export class ImportModal extends Modal {
         new Notice(t("modal.import.empty"), 3000);
         return false;
       }
-      const source: ImportSource = {
-        kind: "paste",
-        label: `paste-${Date.now()}`,
-        payload: { type: "paste-text", text: this.text },
-      };
+      const source = buildImportSourceFromPaste(this.text, `paste-${Date.now()}`);
       this.close();
       await this.runImport(source);
       return true;
@@ -98,7 +149,7 @@ export class ImportModal extends Modal {
 
     const fileInput = body.createEl("input");
     fileInput.type = "file";
-    fileInput.accept = ".itabdata,.json";
+    fileInput.accept = IMPORT_FILE_ACCEPT;
     fileInput.style.display = "none";
 
     let fileContent = "";
@@ -139,7 +190,7 @@ export class ImportModal extends Modal {
         new Notice(t("modal.import.file.noFile"), 3000);
         return false;
       }
-      const source = this.buildFileSource(fileContent, fileName);
+      const source = buildImportSourceFromFile(fileContent, fileName);
       if (!source) {
         new Notice(t("modal.import.file.unknown"), 4000);
         return false;
@@ -167,82 +218,67 @@ export class ImportModal extends Modal {
     importBtn.onclick = () => void onImport();
   }
 
-  private buildFileSource(raw: string, fileName: string): ImportSource | null {
-    const lower = fileName.toLowerCase();
-    if (lower.endsWith(".itabdata")) {
-      return { kind: "file", label: fileName, payload: { type: "itab-data", raw } };
-    }
-    if (lower.endsWith(".json")) {
-      try {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        if (Array.isArray(parsed.navConfig)) {
-          return { kind: "file", label: fileName, payload: { type: "itab-data", raw } };
-        }
-        if (parsed.roots) {
-          return { kind: "file", label: fileName, payload: { type: "bookmarks-json", raw } };
-        }
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-
   private async runImport(source: ImportSource): Promise<void> {
-    const indicator = new AiActivityIndicator({
-      roleName: t("modal.import.progress.title"),
-      roleIcon: "download",
+    const job = new JobTracker({
+      title: t("modal.import.progress.title"),
+      icon: "download",
       meta: source.label,
+      cancellable: true,
     });
 
-    const itemIds: string[] = [];
+    const items: InboxItem[] = [];
+    const failures: ImportFailureSummary[] = [];
     let hasError = false;
     let errorMsg = "";
     try {
-      for await (const e of this.plugin.core.importSource(source)) {
+      for await (const e of this.plugin.core.importSource(source, { signal: job.signal })) {
+        if (job.cancelled) break;
         if (e.type === "item-added") {
-          itemIds.push(e.item.id);
+          items.push(e.item);
           // 实时更新计数（借用 meta 行）
-          indicator.updateMeta(
-            t("modal.import.progress.parsed", { count: itemIds.length }),
-          );
+          job.update(t("modal.import.progress.parsed", { count: items.length }));
         } else if (e.type === "error") {
           hasError = true;
           errorMsg = e.message;
+          failures.push({
+            title: source.label,
+            sourceRef: source.label,
+            message: e.message,
+          });
           console.error("[Aether Import] Error:", e.message);
+        } else if (e.type === "batch-truncated") {
+          hasError = true;
+          errorMsg = t("modal.import.truncated", { cap: e.cap });
+          failures.push({
+            title: source.label,
+            sourceRef: source.label,
+            message: errorMsg,
+          });
         }
       }
-      if (hasError && itemIds.length === 0) {
-        indicator.hide("error");
+      if (job.cancelled) {
+        job.cancel(t("modal.import.cancelled"), 5000);
+        return;
+      }
+      if (hasError && items.length === 0) {
+        job.finish("error");
         new Notice(t("modal.import.failed", { error: errorMsg }), 6000);
         return;
       }
-      if (itemIds.length === 0) {
-        indicator.hide("error");
+      if (items.length === 0) {
+        job.finish("error");
         new Notice(t("modal.import.zero"), 5000);
         return;
       }
-      // 写入 vault
-      indicator.updateMeta(t("modal.import.progress.saving", { count: itemIds.length }));
-      const paths: string[] = [];
-      for (const id of itemIds) {
-        try {
-          const note = await this.plugin.core.approveInboxItem(id);
-          paths.push(note.vaultPath);
-        } catch (e) {
-          console.error("[Aether Import] Auto-approve failed:", e);
-        }
-      }
-      indicator.hide("done");
-      if (paths.length > 0) {
-        const folder = paths[0].split("/").slice(0, -1).join("/");
-        new Notice(t("modal.import.done", { count: paths.length }) + `\n📁 ${folder}`, 6000);
-      } else {
-        new Notice(t("modal.import.failed", { error: errorMsg || "approve failed" }), 6000);
-      }
+      job.finish("done");
+      new ImportPreviewModal(this.app, this.plugin, items, failures).open();
     } catch (e) {
-      indicator.hide("error");
+      job.finish("error");
       const msg = e instanceof Error ? e.message : String(e);
+      if (msg === "Aborted") {
+        new Notice(t("modal.import.cancelled"), 5000);
+        return;
+      }
       console.error("[Aether Import] Exception:", e);
       new Notice(t("modal.import.error", { error: msg }), 6000);
     }
@@ -251,4 +287,665 @@ export class ImportModal extends Modal {
   onClose(): void {
     this.contentEl.empty();
   }
+}
+
+class ImportPreviewModal extends Modal {
+  private readonly decisions = new Map<string, ImportDecision>();
+  private readonly drafts = new Map<
+    string,
+    { proposedTitle: string; proposedSummary: string; proposedTagsText: string }
+  >();
+  private finalized = false;
+  private working = false;
+
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+    private readonly items: InboxItem[],
+    private readonly parseFailures: ImportFailureSummary[],
+    private readonly policy: ImportPreviewPolicy = NEW_IMPORT_PREVIEW_POLICY,
+    private readonly copy: {
+      title?: string;
+      summaryKey?: string;
+    } = {},
+  ) {
+    super(app);
+    for (const item of items) {
+      this.decisions.set(item.id, this.defaultDecision(item));
+      this.drafts.set(item.id, {
+        proposedTitle: item.proposedTitle,
+        proposedSummary: item.proposedSummary,
+        proposedTagsText: item.proposedTags.join(", "),
+      });
+    }
+  }
+
+  onOpen(): void {
+    this.modalEl.addClass("aether-import-preview-modal");
+    this.render();
+  }
+
+  private render(): void {
+    const el = this.contentEl;
+    el.empty();
+
+    const header = el.createDiv({ cls: "aether-result-header" });
+    const iconEl = header.createDiv({ cls: "aether-result-header-icon" });
+    setIcon(iconEl, "list-checks");
+    header.createDiv({
+      cls: "aether-result-header-title",
+      text: this.copy.title ?? t("modal.importPreview.title"),
+    });
+
+    el.createEl("p", {
+      cls: "aether-import-result-summary",
+      text: t(this.copy.summaryKey ?? "modal.importPreview.summary", {
+        selected: this.selectedCount(),
+        total: this.items.length,
+        failed: this.parseFailures.length,
+      }),
+    });
+
+    const toolbar = el.createDiv({ cls: "aether-import-preview-toolbar" });
+    const allBtn = toolbar.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("modal.importPreview.selectAll"),
+    });
+    allBtn.disabled = this.working;
+    allBtn.onclick = () => {
+      for (const item of this.items) this.decisions.set(item.id, this.defaultDecision(item));
+      this.render();
+    };
+    const noneBtn = toolbar.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("modal.importPreview.selectNone"),
+    });
+    noneBtn.disabled = this.working;
+    noneBtn.onclick = () => {
+      for (const item of this.items) this.decisions.set(item.id, "discard");
+      this.render();
+    };
+
+    const list = el.createDiv({ cls: "aether-import-preview-list" });
+    for (const item of this.items) {
+      const decision = this.getDecision(item);
+      const row = list.createDiv({
+        cls: `aether-import-preview-row${decision !== "discard" ? " is-selected" : ""}`,
+      });
+      const checkbox = row.createEl("input", { cls: "aether-import-preview-checkbox" });
+      checkbox.type = "checkbox";
+      checkbox.checked = decision !== "discard";
+      checkbox.disabled = this.working;
+      checkbox.onchange = () => {
+        if (checkbox.checked) {
+          this.decisions.set(item.id, this.defaultDecision(item));
+        } else {
+          this.decisions.set(item.id, "discard");
+        }
+        this.render();
+      };
+      const main = row.createDiv({ cls: "aether-import-result-main" });
+      const draft = this.getDraft(item);
+      this.renderEditableField(main, {
+        label: t("modal.importPreview.field.title"),
+        value: draft.proposedTitle || item.sourceRef || item.id,
+        className: "aether-import-preview-title-input",
+        onInput: (value) => {
+          draft.proposedTitle = value;
+        },
+      });
+      main.createDiv({ cls: "aether-import-result-path", text: item.sourceRef });
+      this.renderEditableField(main, {
+        label: t("modal.importPreview.field.summary"),
+        value: draft.proposedSummary,
+        className: "aether-import-preview-summary-input",
+        multiline: true,
+        onInput: (value) => {
+          draft.proposedSummary = value;
+        },
+      });
+      const meta = main.createDiv({ cls: "aether-import-preview-meta" });
+      meta.createSpan({ text: item.kind });
+      this.renderEditableField(main, {
+        label: t("modal.importPreview.field.tags"),
+        value: draft.proposedTagsText,
+        className: "aether-import-preview-tags-input",
+        onInput: (value) => {
+          draft.proposedTagsText = value;
+        },
+      });
+      if (item.duplicateOf) {
+        meta.createSpan({
+          cls: "aether-import-preview-duplicate",
+          text: t("modal.importPreview.duplicate"),
+        });
+        this.renderDuplicateDecision(main, item);
+      }
+    }
+
+    if (this.parseFailures.length > 0) {
+      el.createDiv({
+        cls: "aether-import-result-section-title",
+        text: t("modal.importResult.failuresTitle", { count: this.parseFailures.length }),
+      });
+      el.createDiv({
+        cls: "aether-import-result-failure-hint",
+        text: t("modal.importPreview.parseFailuresNotRetained"),
+      });
+      const failureList = el.createDiv({ cls: "aether-import-result-failure-list" });
+      for (const failure of this.parseFailures) {
+        const row = failureList.createDiv({
+          cls: "aether-import-result-row aether-import-result-row--failed",
+        });
+        const main = row.createDiv({ cls: "aether-import-result-main" });
+        main.createDiv({ cls: "aether-import-result-title", text: failure.title });
+        if (failure.sourceRef)
+          main.createDiv({ cls: "aether-import-result-path", text: failure.sourceRef });
+        main.createDiv({ cls: "aether-import-result-error", text: failure.message });
+      }
+    }
+
+    const actions = el.createDiv({ cls: "aether-result-actions" });
+    const cancelBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--danger",
+      text: t("modal.importPreview.discardAll"),
+    });
+    cancelBtn.disabled = this.working;
+    cancelBtn.onclick = () => void this.discardAndClose();
+
+    const importBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--cta",
+      text: this.working
+        ? t("modal.importPreview.importing")
+        : t("modal.importPreview.importSelected", { count: this.selectedCount() }),
+    });
+    importBtn.disabled = this.working || this.selectedCount() === 0;
+    importBtn.onclick = () => void this.importSelected();
+  }
+
+  private async importSelected(): Promise<void> {
+    if (this.working) return;
+    if (this.selectedCount() === 0) {
+      new Notice(t("modal.importPreview.noneSelected"), 3000);
+      return;
+    }
+
+    this.working = true;
+    this.finalized = true;
+    this.render();
+
+    const imported: ImportedNoteSummary[] = [];
+    const merged: MergedNoteSummary[] = [];
+    const failures = [...this.parseFailures];
+    const retainedFailureItemIds = new Set<string>();
+    const selectedTotal = this.selectedCount();
+    let processed = 0;
+    const job = new JobTracker({
+      title: t("job.import.title"),
+      icon: "download",
+      meta: t("job.import.writing", { done: processed, total: selectedTotal }),
+      cancellable: true,
+    });
+    for (const item of this.items) {
+      const decision = this.getDecision(item);
+      if (decision === "discard") {
+        if (!shouldDiscardUnselectedImportItem(this.policy)) continue;
+        try {
+          await this.plugin.core.discardInboxItem(item.id);
+        } catch (e) {
+          console.error("[Aether Import] Discard skipped item failed:", item.id, e);
+        }
+        continue;
+      }
+      if (job.cancelled) {
+        if (shouldDiscardRemainingImportItemOnCancel(this.policy)) {
+          await this.discardRemainingPendingItems(retainedFailureItemIds);
+        }
+        try {
+          await this.plugin.openHubAndRefresh();
+        } catch (e) {
+          console.error("[Aether Import] Hub refresh failed:", e);
+        }
+        await this.recordImportJob(job, "cancelled", {
+          selectedTotal,
+          processed,
+          imported,
+          merged,
+          failures,
+        });
+        job.cancel(t("job.import.cancelled", { done: processed, total: selectedTotal }), 5000);
+        this.close();
+        new ImportResultModal(this.app, this.plugin, imported, merged, failures).open();
+        return;
+      }
+      processed += 1;
+      job.update(t("job.import.writing", { done: processed, total: selectedTotal }));
+      try {
+        await this.syncDraft(item);
+        if (decision === "merge" && item.duplicateOf) {
+          const note = await this.plugin.core.mergeInboxItem(item.id, item.duplicateOf);
+          merged.push({
+            noteId: note.id,
+            vaultPath: note.vaultPath,
+            title: note.title,
+            sourceTitle: this.getDraft(item).proposedTitle || item.proposedTitle || item.sourceRef,
+          });
+        } else {
+          const note = await this.plugin.core.approveInboxItem(item.id);
+          imported.push({
+            noteId: note.id,
+            vaultPath: note.vaultPath,
+            title: note.title,
+          });
+        }
+      } catch (e) {
+        const draft = this.getDraft(item);
+        retainedFailureItemIds.add(item.id);
+        failures.push({
+          title: draft.proposedTitle || item.proposedTitle || item.sourceRef || item.id,
+          sourceRef: item.sourceRef,
+          message: e instanceof Error ? e.message : String(e),
+          retainedItemId: item.id,
+          retained: true,
+        });
+        console.error("[Aether Import] Write failed:", e);
+      }
+    }
+
+    try {
+      await this.plugin.openHubAndRefresh();
+    } catch (e) {
+      console.error("[Aether Import] Hub refresh failed:", e);
+    }
+    await this.recordImportJob(job, failures.length > 0 ? "failed" : "done", {
+      selectedTotal,
+      processed,
+      imported,
+      merged,
+      failures,
+    });
+    job.finish("done");
+    this.close();
+    new ImportResultModal(this.app, this.plugin, imported, merged, failures).open();
+  }
+
+  private selectedCount(): number {
+    return this.items.filter((item) => this.getDecision(item) !== "discard").length;
+  }
+
+  private getDecision(item: InboxItem): ImportDecision {
+    return this.decisions.get(item.id) ?? this.defaultDecision(item);
+  }
+
+  private defaultDecision(item: InboxItem): ImportDecision {
+    return item.duplicateOf && this.getMergeTarget(item) ? "merge" : "create";
+  }
+
+  private getMergeTarget(item: InboxItem): Note | null {
+    return item.duplicateOf ? (this.plugin.core.store.getNote(item.duplicateOf) ?? null) : null;
+  }
+
+  private renderDuplicateDecision(parent: HTMLElement, item: InboxItem): void {
+    const target = this.getMergeTarget(item);
+    const wrap = parent.createDiv({ cls: "aether-import-duplicate-panel" });
+    const targetText = target
+      ? t("modal.importPreview.duplicateTarget", { title: target.title || target.vaultPath })
+      : t("modal.importPreview.duplicateTargetMissing");
+    wrap.createDiv({ cls: "aether-import-duplicate-target", text: targetText });
+    if (target?.vaultPath) {
+      wrap.createDiv({ cls: "aether-import-duplicate-path", text: target.vaultPath });
+    }
+    const actions = wrap.createDiv({ cls: "aether-import-duplicate-actions" });
+    this.renderDecisionButton(
+      actions,
+      item,
+      "merge",
+      t("modal.importPreview.action.merge"),
+      !target,
+    );
+    this.renderDecisionButton(actions, item, "create", t("modal.importPreview.action.create"));
+    this.renderDecisionButton(actions, item, "discard", t("modal.importPreview.action.discard"));
+  }
+
+  private renderDecisionButton(
+    parent: HTMLElement,
+    item: InboxItem,
+    decision: ImportDecision,
+    label: string,
+    disabled = false,
+  ): void {
+    const active = this.getDecision(item) === decision;
+    const btn = parent.createEl("button", {
+      cls: `aether-import-decision-btn${active ? " is-active" : ""}`,
+      text: label,
+    });
+    btn.disabled = this.working || disabled;
+    btn.onclick = () => {
+      this.decisions.set(item.id, decision);
+      this.render();
+    };
+  }
+
+  private getDraft(item: InboxItem): {
+    proposedTitle: string;
+    proposedSummary: string;
+    proposedTagsText: string;
+  } {
+    let draft = this.drafts.get(item.id);
+    if (!draft) {
+      draft = {
+        proposedTitle: item.proposedTitle,
+        proposedSummary: item.proposedSummary,
+        proposedTagsText: item.proposedTags.join(", "),
+      };
+      this.drafts.set(item.id, draft);
+    }
+    return draft;
+  }
+
+  private renderEditableField(
+    parent: HTMLElement,
+    opts: {
+      label: string;
+      value: string;
+      className: string;
+      multiline?: boolean;
+      onInput: (value: string) => void;
+    },
+  ): void {
+    const wrap = parent.createDiv({ cls: "aether-import-preview-field" });
+    wrap.createDiv({ cls: "aether-import-preview-field-label", text: opts.label });
+    if (opts.multiline) {
+      const input = wrap.createEl("textarea", { cls: opts.className });
+      input.value = opts.value;
+      input.rows = 2;
+      input.disabled = this.working;
+      input.addEventListener("input", () => opts.onInput(input.value));
+    } else {
+      const input = wrap.createEl("input", { cls: opts.className });
+      input.type = "text";
+      input.value = opts.value;
+      input.disabled = this.working;
+      input.addEventListener("input", () => opts.onInput(input.value));
+    }
+  }
+
+  private async syncDraft(item: InboxItem): Promise<void> {
+    const draft = this.getDraft(item);
+    await this.plugin.core.updateInboxItemDraft(item.id, {
+      proposedTitle: draft.proposedTitle.trim() || item.sourceRef || item.id,
+      proposedSummary: draft.proposedSummary,
+      proposedTags: parseTags(draft.proposedTagsText),
+    });
+  }
+
+  private async recordImportJob(
+    job: JobTracker,
+    status: "done" | "failed" | "cancelled",
+    result: {
+      selectedTotal: number;
+      processed: number;
+      imported: ImportedNoteSummary[];
+      merged: MergedNoteSummary[];
+      failures: ImportFailureSummary[];
+    },
+  ): Promise<void> {
+    await appendJobHistory(this.plugin, {
+      kind: "import-write",
+      title: t("job.import.title"),
+      status,
+      startedAt: job.startedAt,
+      finishedAt: Date.now(),
+      summary: {
+        selected: result.selectedTotal,
+        processed: result.processed,
+        imported: result.imported.length,
+        merged: result.merged.length,
+        failed: result.failures.length,
+        cancelled: status === "cancelled",
+      },
+      failures: result.failures.map((f) => ({
+        title: f.title,
+        path: f.sourceRef,
+        message: f.message,
+      })),
+    });
+  }
+
+  private async discardAndClose(): Promise<void> {
+    if (this.working) return;
+    this.working = true;
+    this.finalized = true;
+    this.render();
+    await this.discardPendingItems();
+    new Notice(t("modal.importPreview.discarded", { count: this.items.length }), 4000);
+    await this.plugin.openHubAndRefresh();
+    this.close();
+  }
+
+  private async discardPendingItems(): Promise<void> {
+    for (const item of this.items) {
+      try {
+        await this.plugin.core.discardInboxItem(item.id);
+      } catch (e) {
+        console.error("[Aether Import] Discard failed:", item.id, e);
+      }
+    }
+  }
+
+  private async discardRemainingPendingItems(
+    retainItemIds: ReadonlySet<string> = new Set<string>(),
+  ): Promise<void> {
+    for (const item of this.items) {
+      if (retainItemIds.has(item.id)) continue;
+      if (this.plugin.core.inbox.getItem(item.id)?.status !== "pending") continue;
+      try {
+        await this.plugin.core.discardInboxItem(item.id);
+      } catch (e) {
+        console.error("[Aether Import] Discard remaining item failed:", item.id, e);
+      }
+    }
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+    if (!this.policy.discardOnClose) return;
+    if (!this.finalized && !this.working) {
+      this.finalized = true;
+      void this.discardPendingItems();
+    }
+  }
+}
+
+class ImportResultModal extends Modal {
+  private undone = false;
+
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+    private readonly imported: ImportedNoteSummary[],
+    private readonly merged: MergedNoteSummary[],
+    private readonly failures: ImportFailureSummary[],
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.modalEl.addClass("aether-import-result-modal");
+    this.render();
+  }
+
+  private render(): void {
+    const el = this.contentEl;
+    el.empty();
+
+    const header = el.createDiv({ cls: "aether-result-header" });
+    const iconEl = header.createDiv({ cls: "aether-result-header-icon" });
+    setIcon(iconEl, "check-circle");
+    header.createDiv({ cls: "aether-result-header-title", text: t("modal.importResult.title") });
+
+    el.createEl("p", {
+      cls: "aether-import-result-summary",
+      text:
+        this.failures.length > 0
+          ? t("modal.importResult.summaryWithFailures", {
+              count: this.imported.length,
+              merged: this.merged.length,
+              failed: this.failures.length,
+            })
+          : t("modal.importResult.summary", {
+              count: this.imported.length,
+              merged: this.merged.length,
+            }),
+    });
+
+    if (this.imported.length > 0) {
+      el.createDiv({
+        cls: "aether-import-result-section-title",
+        text: t("modal.importResult.createdTitle", { count: this.imported.length }),
+      });
+      const list = el.createDiv({ cls: "aether-import-result-list" });
+      for (const item of this.imported) {
+        const row = list.createDiv({ cls: "aether-import-result-row" });
+        const main = row.createDiv({ cls: "aether-import-result-main" });
+        main.createDiv({ cls: "aether-import-result-title", text: item.title || item.vaultPath });
+        main.createDiv({ cls: "aether-import-result-path", text: item.vaultPath });
+        const openBtn = row.createEl("button", {
+          cls: "aether-result-btn",
+          text: t("modal.importResult.open"),
+        });
+        openBtn.onclick = () => {
+          void this.openVaultPath(item.vaultPath);
+        };
+      }
+    }
+
+    if (this.merged.length > 0) {
+      el.createDiv({
+        cls: "aether-import-result-section-title",
+        text: t("modal.importResult.mergedTitle", { count: this.merged.length }),
+      });
+      const list = el.createDiv({ cls: "aether-import-result-list" });
+      for (const item of this.merged) {
+        const row = list.createDiv({ cls: "aether-import-result-row" });
+        const main = row.createDiv({ cls: "aether-import-result-main" });
+        main.createDiv({
+          cls: "aether-import-result-title",
+          text: t("modal.importResult.mergedItem", {
+            source: item.sourceTitle,
+            title: item.title || item.vaultPath,
+          }),
+        });
+        main.createDiv({ cls: "aether-import-result-path", text: item.vaultPath });
+        const openBtn = row.createEl("button", {
+          cls: "aether-result-btn",
+          text: t("modal.importResult.open"),
+        });
+        openBtn.onclick = () => {
+          void this.openVaultPath(item.vaultPath);
+        };
+      }
+    }
+
+    const retainedFailures = this.failures.filter((failure) => failure.retained);
+    const parseFailures = this.failures.filter((failure) => !failure.retained);
+
+    if (this.failures.length > 0) {
+      el.createDiv({
+        cls: "aether-import-result-section-title",
+        text: t("modal.importResult.failuresTitle", { count: this.failures.length }),
+      });
+      if (retainedFailures.length > 0) {
+        el.createDiv({
+          cls: "aether-import-result-failure-hint",
+          text: t("modal.importResult.failuresRetained"),
+        });
+      }
+      if (parseFailures.length > 0) {
+        el.createDiv({
+          cls: "aether-import-result-failure-hint",
+          text: t("modal.importResult.parseFailuresNotRetained"),
+        });
+      }
+      const failureList = el.createDiv({ cls: "aether-import-result-failure-list" });
+      for (const failure of this.failures) {
+        const row = failureList.createDiv({
+          cls: "aether-import-result-row aether-import-result-row--failed",
+        });
+        const main = row.createDiv({ cls: "aether-import-result-main" });
+        main.createDiv({ cls: "aether-import-result-title", text: failure.title });
+        if (failure.sourceRef) {
+          main.createDiv({ cls: "aether-import-result-path", text: failure.sourceRef });
+        }
+        main.createDiv({ cls: "aether-import-result-error", text: failure.message });
+      }
+    }
+
+    const actions = el.createDiv({ cls: "aether-result-actions" });
+    const undoBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--danger",
+      text: t("modal.importResult.undo"),
+    });
+    undoBtn.disabled = this.imported.length === 0;
+    if (this.merged.length > 0) {
+      undoBtn.title = t("modal.importResult.undoCreatedOnly");
+    }
+    undoBtn.onclick = () => void this.undoImport(undoBtn);
+
+    if (retainedFailures.length > 0) {
+      const pendingBtn = actions.createEl("button", {
+        cls: "aether-result-btn",
+        text: t("modal.importResult.reviewPending"),
+      });
+      pendingBtn.onclick = () => {
+        this.close();
+        openPendingImportItems(this.app, this.plugin);
+      };
+    }
+
+    const closeBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--cta",
+      text: t("common.close"),
+    });
+    closeBtn.onclick = () => this.close();
+  }
+
+  private async openVaultPath(vaultPath: string): Promise<void> {
+    try {
+      await this.app.workspace.openLinkText(vaultPath, "", false);
+    } catch (e) {
+      new Notice(t("modal.importResult.openFailed", { error: (e as Error).message }), 5000);
+    }
+  }
+
+  private async undoImport(button: HTMLButtonElement): Promise<void> {
+    if (this.undone) return;
+    this.undone = true;
+    button.disabled = true;
+    button.setText(t("modal.importResult.undoing"));
+    let removed = 0;
+    for (const item of this.imported) {
+      try {
+        await this.plugin.core.deleteNote(item.noteId);
+        removed += 1;
+      } catch (e) {
+        console.error("[Aether Import] Undo failed:", item.vaultPath, e);
+      }
+    }
+    new Notice(t("modal.importResult.undone", { count: removed }), 5000);
+    await this.plugin.openHubAndRefresh();
+    this.close();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+function parseTags(value: string): string[] {
+  return value
+    .split(/[,，\s]+/)
+    .map((tag) => tag.trim().replace(/^#/, ""))
+    .filter((tag, idx, arr) => tag.length > 0 && arr.indexOf(tag) === idx)
+    .slice(0, 12);
 }

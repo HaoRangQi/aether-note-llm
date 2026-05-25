@@ -50,6 +50,24 @@ describe("OpenAICompatibleProvider", () => {
     expect(r.error).toMatch(/401/);
   });
 
+  it("omits Authorization header when api key is empty", async () => {
+    let headers: Headers | undefined;
+    const p = new OpenAICompatibleProvider({
+      id: "local",
+      baseUrl: "http://localhost:11434/v1",
+      apiKey: "",
+      defaultHeaders: {},
+      fetch: async (_input, init) => {
+        headers = new Headers(init?.headers);
+        return new Response(JSON.stringify({ data: [] }), { status: 200 });
+      },
+    });
+
+    await p.listModels();
+
+    expect(headers?.has("Authorization")).toBe(false);
+  });
+
   it("embed maps vectors + dim + usage", async () => {
     const p = mkProvider(
       async () =>
@@ -67,6 +85,65 @@ describe("OpenAICompatibleProvider", () => {
     expect(r.usage?.promptTokens).toBe(4);
   });
 
+  it("normalizes provider usage token counts before returning chunks or embeddings", async () => {
+    const embed = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: [0.1, 0.2] }],
+            usage: { prompt_tokens: -3, completion_tokens: 2.9 },
+          }),
+          { status: 200 },
+        ),
+    );
+    await expect(embed.embed({ inputs: ["x"], model: "m" })).resolves.toMatchObject({
+      usage: { promptTokens: 0, completionTokens: 2 },
+    });
+
+    const nonStreaming = mkProvider(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "full reply" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: "7", completion_tokens: null },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    );
+    const nonStreamingChunks = [];
+    for await (const chunk of nonStreaming.chat({
+      messages: [{ role: "user", content: "x" }],
+      model: "m",
+      stream: false,
+    })) {
+      nonStreamingChunks.push(chunk);
+    }
+    expect(nonStreamingChunks.at(-1)?.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
+
+    const streaming = mkProvider(
+      async () =>
+        new Response(
+          sseBody([
+            `data: ${JSON.stringify({
+              choices: [{ delta: { content: "" }, finish_reason: "stop" }],
+              usage: { prompt_tokens: 5.8, completion_tokens: -2 },
+            })}\n`,
+            `data: [DONE]\n`,
+          ]),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } },
+        ),
+    );
+    const streamingChunks = [];
+    for await (const chunk of streaming.chat({
+      messages: [{ role: "user", content: "x" }],
+      model: "m",
+      stream: true,
+    })) {
+      streamingChunks.push(chunk);
+    }
+    expect(streamingChunks.at(-1)?.usage).toEqual({ promptTokens: 5, completionTokens: 0 });
+  });
+
   it("embed throws PROVIDER_HTTP_ERROR on 401 (no retry for 401)", async () => {
     let calls = 0;
     const p = mkProvider(async () => {
@@ -78,6 +155,7 @@ describe("OpenAICompatibleProvider", () => {
   });
 
   it("chat streams SSE chunks", async () => {
+    let requestBody: Record<string, unknown> | undefined;
     const events = [
       `data: ${JSON.stringify({
         choices: [{ delta: { content: "Hel" }, finish_reason: null }],
@@ -87,18 +165,20 @@ describe("OpenAICompatibleProvider", () => {
       })}\n`,
       `data: ${JSON.stringify({
         choices: [{ delta: { content: "" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 5, completion_tokens: 2 },
       })}\n`,
       `data: [DONE]\n`,
     ];
-    const p = mkProvider(
-      async () =>
-        new Response(sseBody(events), {
-          status: 200,
-          headers: { "Content-Type": "text/event-stream" },
-        }),
-    );
+    const p = mkProvider(async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return new Response(sseBody(events), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    });
     const out: string[] = [];
     let finish: string | null = null;
+    let usage: { promptTokens: number; completionTokens: number } | undefined;
     for await (const c of p.chat({
       messages: [{ role: "user", content: "hi" }],
       model: "m",
@@ -106,9 +186,12 @@ describe("OpenAICompatibleProvider", () => {
     })) {
       out.push(c.delta);
       if (c.finishReason) finish = c.finishReason;
+      if (c.usage) usage = c.usage;
     }
     expect(out.join("")).toBe("Hello");
     expect(finish).toBe("stop");
+    expect(usage).toEqual({ promptTokens: 5, completionTokens: 2 });
+    expect(requestBody?.stream_options).toEqual({ include_usage: true });
   });
 
   it("chat falls back to non-streaming JSON when body absent", async () => {

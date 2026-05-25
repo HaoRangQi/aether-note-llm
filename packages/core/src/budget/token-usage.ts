@@ -26,8 +26,8 @@ export class TokenUsageStore {
       providerId: args.providerId,
       feature: args.feature,
       model: args.model,
-      promptTokens: args.usage.promptTokens,
-      completionTokens: args.usage.completionTokens,
+      promptTokens: normalizeTokenCount(args.usage.promptTokens),
+      completionTokens: normalizeTokenCount(args.usage.completionTokens),
     });
   }
 
@@ -60,6 +60,38 @@ export class TokenUsageStore {
     return [...this.entries];
   }
   fromJSON(entries: UsageEntry[]): void {
-    this.entries = [...entries];
+    this.entries = entries.flatMap((entry) => {
+      const normalized = normalizeUsageEntry(entry);
+      return normalized ? [normalized] : [];
+    });
   }
+}
+
+function normalizeUsageEntry(value: unknown): UsageEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.date === "string" &&
+    typeof v.providerId === "string" &&
+    typeof v.feature === "string" &&
+    typeof v.model === "string" &&
+    typeof v.promptTokens === "number" &&
+    Number.isFinite(v.promptTokens) &&
+    typeof v.completionTokens === "number" &&
+    Number.isFinite(v.completionTokens)
+  ) {
+    return {
+      date: v.date,
+      providerId: v.providerId,
+      feature: v.feature as Feature,
+      model: v.model,
+      promptTokens: normalizeTokenCount(v.promptTokens),
+      completionTokens: normalizeTokenCount(v.completionTokens),
+    };
+  }
+  return null;
+}
+
+function normalizeTokenCount(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }

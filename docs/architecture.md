@@ -23,6 +23,7 @@
 ```
 
 **架构约束**：
+
 - core 不能 `import "obsidian"`。所有宿主能力走 `IHostAdapter`。
 - plugin 不持业务逻辑。任何"算什么、怎么算"的判断都要在 core。
 - UI 文案统一走 `i18n/`，禁止硬编码中文/英文字符串。
@@ -39,43 +40,45 @@
 
 ```ts
 interface AiRole {
-  id: string;              // 内置 fixed: "summarize"; 自定义: ulid
-  builtIn: boolean;        // 内置不能删，可禁用
-  name: string;            // 显示名（i18n key 或字面）
-  icon: string;            // lucide 图标名
+  id: string; // 内置 fixed: "summarize"; 自定义: ulid
+  builtIn: boolean; // 内置不能删，可禁用
+  name: string; // 显示名（i18n key 或字面）
+  icon: string; // lucide 图标名
   description: string;
-  
-  providerId: string;      // 关联到哪个 Provider
+
+  providerId: string; // 关联到哪个 Provider
   modelName: string;
-  
-  promptTemplate: string;  // 含 {{variable}} 占位符
-  variables: string[];     // 声明用到了哪些变量
-  
+
+  promptTemplate: string; // 含 {{variable}} 占位符
+  variables: string[]; // 声明用到了哪些变量
+
   outputKind: "text" | "list" | "metadata" | "embedding";
   // ↑ 决定结果如何被消费；扩展时新增此 union 成员，并在 ai/run.ts 加分支
-  
-  params: Record<string, unknown>;  // 开放式：temperature/maxTokens/...
-  
-  enabled: boolean;        // 关掉 = 调用方拿不到这个 Role
-  showInEditor: boolean;   // 是否出现在编辑器右键菜单
-  
+
+  params: Record<string, unknown>; // 开放式：temperature/maxTokens/...
+
+  enabled: boolean; // 关掉 = 调用方拿不到这个 Role
+  showInEditor: boolean; // 是否出现在编辑器右键菜单
+
   createdAt: number;
   updatedAt: number;
 }
 ```
 
-### 5 个内置角色（id 与原 Feature 对齐，方便迁移）
+### 7 个内置角色（旧 Feature Binding 会迁移到对应 Role）
 
-| id                | outputKind | 编辑器右键 | 说明 |
-|-------------------|------------|-----------|------|
-| `summarize`       | text       | ✅        | 总结选中文本 |
-| `rewrite`         | text       | ✅        | 改写选中文本 |
-| `extract`         | list       | ✅        | 提取要点为 bullet 列表 |
-| `inbox_metadata`  | metadata   | ❌        | 给导入项目生成 title/tags/summary（JSON） |
-| `embedding`       | embedding  | ❌        | 文本向量化（无 promptTemplate） |
+| id               | outputKind | 编辑器右键 | 说明                                      |
+| ---------------- | ---------- | ---------- | ----------------------------------------- |
+| `summarize`      | text       | ✅         | 总结选中文本                              |
+| `rewrite`        | text       | ✅         | 改写选中文本                              |
+| `extract`        | list       | ✅         | 提取要点为 bullet 列表                    |
+| `critique`       | text       | ✅         | 批评性分析选中文本                        |
+| `answer`         | text       | ❌         | 基于 Hub 当前搜索结果生成带引用回答       |
+| `inbox_metadata` | metadata   | ❌         | 给导入项目生成 title/tags/summary（JSON） |
+| `embedding`      | embedding  | ❌         | 文本向量化（无 promptTemplate）           |
 
 > **embedding 是特例**：`promptTemplate` 为空、UI 不显示提示词编辑区。
-> **chat** 不再是内置角色——它是空壳，被前面 4 个 text 类角色覆盖了；保留 ID 兼容，迁移时丢弃。
+> **chat** 不再是内置角色——自定义聊天可用自定义 Role 表达；旧 binding 迁移时会被丢弃。
 
 ### 变量系统
 
@@ -86,6 +89,8 @@ interface AiRole {
 - `{{tags}}` — 标签 join 字符串
 - `{{url}}` — 来源 URL（书签/导入）
 - `{{kind}}` — 笔记类型 note/bookmark
+- `{{question}}` — Hub 综合回答的问题
+- `{{context}}` — Hub 综合回答使用的检索片段
 - `{{maxSentences}}` `{{maxPoints}}` — 调用时传入的数值
 
 新增变量：在 `roles/render-prompt.ts` 加键，并在 `default-roles.ts` 的某个 role 里用上。
@@ -93,6 +98,7 @@ interface AiRole {
 ### 自定义角色
 
 用户可在 Settings → AI 角色 → 「新建」加自己的角色（如「翻译为英文」「改成正式语气」）。
+
 - 自定义角色 `builtIn = false`，`id` 是新 ulid
 - `outputKind` 限定 `text` 和 `list`（更复杂的输出形态需要工程师在 ai/run.ts 加渲染分支）
 - 启用且 `showInEditor = true` 后自动出现在编辑器右键菜单
@@ -100,7 +106,7 @@ interface AiRole {
 ### 为什么这样设计
 
 - **数据驱动**：提示词是数据不是代码 → 用户能改、能加、能分享
-- **id 稳定**：5 个内置 id 不变 → 迁移、模板分享、bug 报告都能引用
+- **id 稳定**：内置 id 不变 → 迁移、模板分享、bug 报告都能引用
 - **outputKind 收敛**：`run.ts` 是唯一调用入口，4 个分支收敛了所有差异
 - **builtIn 标志**：UI 据此禁用「删除」，但允许「重置」回默认提示词
 
@@ -129,11 +135,17 @@ interface AiRole {
 - **搜索结果**：调 `core.search(...)`，原 SearchEngine 不变。
 - **状态条**：`core.store.allChunks().length` + Provider 配置数。
 
-### 为什么删除 Inbox 视图
+### Inbox 在 v0.2 的位置
 
-v0.1.2 起导入直接走 auto-approve，文件直写 vault。Inbox 待审核已经是**僵尸状态**——99% 时间是空的。删掉视图、删掉相关 i18n 和命令。
+v0.2 不再保留独立 Inbox 视图，但 `InboxStore` 仍是导入闭环的核心状态：
 
-> 反向兼容：用户老的 workspace.json 可能保留了 inbox-view-type 的 leaf 引用——Obsidian 会显示「未知视图」并自动忽略，不会崩。
+- `ImportPipeline` 解析来源并生成 `pending InboxItem`；
+- `ImportPreviewModal` 展示预览，用户可编辑 metadata、勾选、丢弃、合并或新建；
+- 只有用户确认写入的条目才会落到 vault 并进入索引；
+- 写入失败的条目保持 `pending`，可从 Hub 待处理入口或命令面板继续处理；
+- 旧 `inbox-view` leaf 不再注册，Obsidian 会把历史 workspace 引用当作未知视图处理。
+
+因此，删除的是旧的独立视图和旧的逐张审核入口，不是删除 Inbox 状态模型。
 
 ---
 
@@ -142,7 +154,7 @@ v0.1.2 起导入直接走 auto-approve，文件直写 vault。Inbox 待审核已
 ```
 设置 → Aether Note LLM
 ├─ 🚀 快速开始    (Quick Start)   首次必到，一屏配完
-├─ 🔌 AI 服务商   (Providers)
+├─ 🔌 AI 服务商   (AI Providers)
 ├─ 🎭 AI 角色     (Roles)         ← 新
 └─ ⚙️ 高级       (Advanced)
 ```
@@ -160,6 +172,7 @@ v0.1.2 起导入直接走 auto-approve，文件直写 vault。Inbox 待审核已
 ### AI 角色编辑器
 
 抽屉/Modal 形态，含：
+
 - 图标、名称、描述
 - Provider/Model 下拉
 - 提示词编辑器（textarea + 变量提示）
@@ -190,7 +203,7 @@ core/ai/run.ts 取 Role → renderPrompt → registry.getProvider → chat 流�
 RewriteResultModal 展示，用户接受/拒绝
 ```
 
-### 链路 B：导入 → 元数据生成
+### 链路 B：导入 → 预览 → 写入
 
 ```
 ImportModal 提交
@@ -201,7 +214,13 @@ core.importSource(source) → ImportPipeline
   ↓
 JSON 解析 → MetadataProposal
   ↓
-addItem(InboxItem) → 自动 approve → 写 vault 文件
+addItem(pending InboxItem)
+  ↓
+ImportPreviewModal 预览、编辑、选择 action
+  ↓
+create / merge / discard
+  ↓
+写 vault 文件或合并目标笔记 → reindex → 更新 InboxItem 状态
 ```
 
 ### 链路 C：Hub 搜索
@@ -224,15 +243,15 @@ SearchEngine 先文本搜，alpha > 0 且有 embedding 配置时叠加向量搜
 
 - `data.json`（plugin data）：
   - `settings.json` → `PersistedSettings`（含 `roles[]`）
-  - `inbox.json` → `PersistedInbox`（导入待审核遗留，逐步退场）
+  - `inbox.json` → `PersistedInbox`（导入预览、失败续处理、批次归档）
   - `index.json` → `PersistedIndex`
-- vault 文件：approve 后实际笔记 markdown 文件
+- vault 文件：用户在预览中选择 create / merge 后实际写入或更新的 markdown 文件
 
 ### Schema 演进
 
 - `schemaVersion: 1` 之外新增 `2`（v0.2 起，包含 `roles[]`）
 - `migrateSettings` 必须处理 v1 → v2 的迁移：
-  1. 老 `bindings[]` 按 5 个内置 Role 映射成 `roles[]`
+  1. 老 `bindings[]` 按对应内置 Role 映射成 `roles[]`
   2. 老的 `bindings` 字段保留为空数组（向后兼容字段，但不再被读取）
   3. 用户从未设过 binding 时，`roles[]` 用全部默认（仅 promptTemplate，没有 providerId）
 
@@ -241,10 +260,11 @@ SearchEngine 先文本搜，alpha > 0 且有 embedding 配置时叠加向量搜
 ## 7. 文件清单（新增/重构/删除）
 
 ### 新增
+
 ```
 packages/core/src/roles/
   ├─ types.ts                # AiRole 定义
-  ├─ default-roles.ts        # 5 个内置 + 提示词
+  ├─ default-roles.ts        # 内置 Role + 提示词
   ├─ render-prompt.ts        # 变量替换
   ├─ role-registry.ts        # CRUD + 查询
   └─ run-role.ts             # 调用入口（按 outputKind 分流）
@@ -258,6 +278,7 @@ docs/architecture.md         # 本文件
 ```
 
 ### 重构
+
 ```
 packages/core/src/
   ├─ types.ts                # 加 AiRole, PersistedSettings 加 roles
@@ -273,9 +294,10 @@ packages/plugin/src/
 ```
 
 ### 删除
+
 ```
 packages/plugin/src/views/search-view.ts   # 合并入 hub
-packages/plugin/src/views/inbox-view.ts    # auto-approve 后已无意义
+packages/plugin/src/views/inbox-view.ts    # 待处理入口合并到 Hub + ImportPreviewModal
 ```
 
 ---
@@ -292,21 +314,25 @@ packages/plugin/src/views/inbox-view.ts    # auto-approve 后已无意义
 ## 9. 扩展指南（给以后的人）
 
 ### 新增一个内置角色
+
 1. `default-roles.ts` 加条目（含 promptTemplate 和默认 outputKind）
 2. 在 `migrateSettings` 的初始化 roles 时把它带进去
 3. 不需要改其他代码——UI 自动渲染、调用自动可用
 
 ### 新增一种 outputKind（如 `code`、`json`）
+
 1. `types.ts` 扩 union
 2. `run-role.ts` 加分支处理（怎么解析、怎么呈现）
 3. 角色编辑器对应的输出预览组件加分支
 
 ### 新增一种变量
+
 1. `render-prompt.ts` 的 `KNOWN_VARS` 加键
 2. `runRole` 的调用方传 context 时填充
 3. 角色编辑器的「可用变量」提示同步更新
 
 ### 新增一个 Provider 预设
+
 1. `provider/presets.ts` 加条目
 2. 不需要改 RoleRegistry——预设只影响 ProviderConfig
 
@@ -341,6 +367,7 @@ packages/plugin/src/views/inbox-view.ts    # auto-approve 后已无意义
 **现象**：换 embedding 模型后搜索报 `EMBED_DIM_MISMATCH`。  
 **根因**：旧索引 chunks 是 dim=8 的向量，新模型返回 dim=2560，`searchHybrid` 校验不通过。  
 **解法（三道安全网）**：
+
 1. **保存时弹 Modal**：角色编辑器保存 embedding role 且 provider/model 变化时，弹 `RebuildPromptModal` 询问立即重建。
 2. **rebuildAll 自动适配维度**：先 probe 新模型取真实 dim，调 `store.setEmbeddingDim(dim)` 重置 schema 清空旧 chunks，再全量重建。
 3. **Hub 搜索兜底**：捕获 `EMBED_DIM_MISMATCH` 错误码，显示自愈卡片「立即重建索引」。

@@ -6,16 +6,16 @@
 
 <p>
   <a href="#-status">
-    <img alt="status" src="https://img.shields.io/badge/status-v0.1%20code--complete-blue" />
+    <img alt="status" src="https://img.shields.io/badge/status-v0.3%20P0%20hardening-blue" />
   </a>
   <a href="#-which-ai-providers">
     <img alt="provider" src="https://img.shields.io/badge/AI-OpenAI%20compatible-orange" />
   </a>
   <a href="./docs/testing/strategy.md">
-    <img alt="tests" src="https://img.shields.io/badge/tests-153%20passed-brightgreen" />
+    <img alt="tests" src="https://img.shields.io/badge/tests-374%20passed-brightgreen" />
   </a>
   <a href="./docs/architecture/core-package.md">
-    <img alt="coverage" src="https://img.shields.io/badge/coverage-89%25-brightgreen" />
+    <img alt="coverage" src="https://img.shields.io/badge/coverage-90.5%25-brightgreen" />
   </a>
   <a href="./LICENSE">
     <img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey" />
@@ -30,8 +30,8 @@
 
 Once installed in Obsidian, Aether lets you:
 
-- **Ingest** scattered markdown / web articles / Chrome bookmarks / Notion ZIP exports into your vault with one paste
-- **Distill** — AI auto-generates titles, tags, summaries; you only click `Approve / Discard / Merge`
+- **Ingest** scattered markdown, pasted text, Chrome bookmarks, and URL lists into your vault (URL lists store links; they do not fetch article bodies automatically)
+- **Distill** — AI auto-generates titles, tags, summaries, then writes imported notes into `Aether Inbox/`
 - **Recall** — natural-language search across notes + bookmarks with snippet highlights and one-click jump-to-source
 - **Rewrite** — select any paragraph in your editor → right-click → AI rewrite / summarize / extract
 
@@ -41,18 +41,20 @@ Once installed in Obsidian, Aether lets you:
 
 ## ✨ Core features at a glance
 
-| Capability              | Keywords                                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------------------- |
-| 🪄 Smart import         | markdown / paste / Notion ZIP / Chrome bookmarks JSON / URL list                          |
-| 🧠 AI auto-metadata     | title / tags / summary / duplicate detection (vector cosine ≥ 0.92)                       |
-| 📥 Inbox review         | Card-based approve / discard / merge into existing                                        |
-| 🔍 Hybrid retrieval     | BM25 text + vector semantics, tunable α, auto-bias to BM25 when index is stale            |
-| ✏️ Paragraph-level AI   | Select → right-click → rewrite / summarize / extract key points                           |
-| 🔗 Searchable bookmarks | One search box for notes + bookmarks; click bookmark → opens default browser              |
-| 🔌 Multi-provider       | Any OpenAI-compatible endpoint: DeepSeek / Kimi / GLM / OpenRouter / Ollama / self-hosted |
-| 🎚 Per-feature model    | 6 features each bind to their own (provider, model)                                       |
-| 💸 Token usage          | Monthly aggregate + budget warnings                                                       |
-| 🩺 Diagnostics export   | One-click redacted JSON report with version / index / usage                               |
+| Capability              | Keywords                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| 🪄 Smart import         | markdown files / paste / Chrome bookmarks JSON / iTab / URL list                                       |
+| 🧠 AI auto-metadata     | title / tags / summary / duplicate detection (vector cosine ≥ 0.92)                                    |
+| 🧭 Hub view             | Search / recent imports / quick import / provider status in one daily entry point                      |
+| 🔍 Hybrid retrieval     | BM25 text + vector semantics; Hub shows Hybrid / BM25 / Stale-biased and fallback reason               |
+| 💬 Synthesised answers  | Generate cited answers from the current search results; citations open notes or bookmarks              |
+| ✏️ Paragraph-level AI   | Select → right-click → rewrite / summarize / extract key points                                        |
+| 🔗 Searchable bookmarks | One search box for notes + bookmarks; click bookmark → opens default browser                           |
+| 🔌 Multi-provider       | Any OpenAI-compatible endpoint: DeepSeek / Kimi / GLM / OpenRouter / Ollama / self-hosted              |
+| 🎭 AI roles             | Built-in and custom roles bind to provider, model, prompt, and params with prompt variable diagnostics |
+| 💸 Token usage          | Monthly aggregate + budget warnings                                                                    |
+| 🧾 Recent jobs          | Import / change refresh / rebuild status, duration, count summary, and failure details                 |
+| 🩺 Diagnostics export   | One-click redacted JSON report with version / index / recent jobs / usage                              |
 
 ---
 
@@ -62,13 +64,15 @@ Once installed in Obsidian, Aether lets you:
 <tr>
 <td valign="top" width="50%">
 
-**v0.1 — Code-complete, not yet released**
+**v0.3 — P0 hardening, not yet released**
 
-- 30 commits, 46 source files, 30 test files
-- 153 / 153 tests passing
-- Core coverage: lines 89%, branches 80%, funcs 91%
-- Plugin bundle 256 KB
-- **Never used in a real vault yet** — first thing for any maintainer is hands-on testing
+- Hub view replaces the old separate Search / Inbox views.
+- AI Role replaces Feature Binding and supports custom editor roles.
+- Imports show a metadata preview first, then write only the selected items into `Aether Inbox/`.
+- Failed import writes can be resumed from the result modal, Hub pending entry, or command palette.
+- Search falls back to BM25 when embedding config or provider calls are unavailable, and Hub shows the current mode and reason.
+- Search results can now generate cited answers from the currently displayed hits.
+- **Still needs long-running real-vault validation** before release.
 
 </td>
 <td valign="top" width="50%">
@@ -76,8 +80,8 @@ Once installed in Obsidian, Aether lets you:
 **Next**
 
 - Use in a real vault for a week
-- Convert real pain points into v0.2 plan
-- Roadmap candidates: RAG synthesised answers / long-doc splitting / browser extension / standalone Tauri app
+- Improve answer citation quality checks and long-context compression
+- Long-doc splitting / browser extension / standalone Tauri app
 
 See [📦 Phase snapshot (2026-05-17)](docs/snapshots/2026-05-17-v0.1-complete.md)
 
@@ -177,7 +181,7 @@ For prerequisites and troubleshooting see [Getting Started](docs/contributing/ge
 
 ## 🤖 Which AI providers
 
-Any OpenAI-compatible endpoint works. **API keys never leave your machine** — they live only in the Obsidian plugin data directory (`data.json`).
+Any OpenAI-compatible endpoint works. Aether **does not host or upload your API keys to Aether servers**; keys live only in the Obsidian plugin data directory (`data.json`) and are sent only to the provider you configure when Aether calls that provider.
 
 | Provider      | Base URL                               | Notes                                           |
 | ------------- | -------------------------------------- | ----------------------------------------------- |
@@ -190,7 +194,7 @@ Any OpenAI-compatible endpoint works. **API keys never leave your machine** — 
 | Ollama        | `http://localhost:11434/v1`            | Fully local, no key needed                      |
 | LM Studio     | `http://localhost:1234/v1`             | Fully local, no key needed                      |
 
-> **Typical combo**: `embedding → SiliconFlow + bge-m3`, everything else → `DeepSeek + deepseek-chat`. Monthly cost typically under a dollar of personal use.
+> **Typical combo**: `embedding → SiliconFlow + bge-m3`, everything else → `DeepSeek + deepseek-chat`. Aether shows provider-reported token usage and supports monthly token warning thresholds; provider-reported usage parsing, recording, and restore normalize abnormal negative / fractional token counts to non-negative integers; actual cost depends on each provider's billing.
 
 ---
 
@@ -216,9 +220,9 @@ docs/
 
 <table>
 <tr><th width="40%" align="left">Start here</th><th width="60%" align="left">What it covers</th></tr>
-<tr><td>📦 <a href="docs/snapshots/2026-05-17-v0.1-complete.md">Phase Snapshot: v0.1 Complete</a></td><td>Cross-section of the project right now, with decisions & trade-offs</td></tr>
+<tr><td>📦 <a href="docs/snapshots/2026-05-17-v0.1-complete.md">Phase Snapshot: v0.1 Complete</a></td><td>Historical v0.1 cross-section with decisions & trade-offs</td></tr>
 <tr><td>🚀 <a href="docs/contributing/getting-started.md">Getting Started</a></td><td>60-second health check → install in Obsidian → dev loop</td></tr>
-<tr><td>📘 <a href="docs/user-guide.md">User Guide</a></td><td>7 real scenarios + 8 common pitfalls</td></tr>
+<tr><td>📘 <a href="docs/user-guide.md">User Guide</a></td><td>7 real scenarios + 9 common pitfalls</td></tr>
 <tr><td>🧪 <a href="docs/testing/uat-checklist.md">UAT Checklist</a></td><td>Manual click-through list, must pass before release</td></tr>
 </table>
 
@@ -234,7 +238,7 @@ docs/
 <tr><th width="40%" align="left">Contributing</th><th width="60%" align="left">What it covers</th></tr>
 <tr><td>⚙️ <a href="docs/contributing/development-setup.md">Development setup</a></td><td>Symlink scripts + dev loop</td></tr>
 <tr><td>🎨 <a href="docs/contributing/coding-standards.md">Coding standards</a></td><td>TypeScript / architecture / testing / commits</td></tr>
-<tr><td>🚢 <a href="docs/contributing/release-checklist.md">Release checklist</a></td><td>8-step release + first-time community-plugin submission</td></tr>
+<tr><td>🚢 <a href="docs/contributing/release-checklist.md">Release checklist</a></td><td>Release verification, remote-push prep + first-time community-plugin submission</td></tr>
 <tr><td>🧬 <a href="docs/testing/strategy.md">Test strategy</a></td><td>Three-layer testing philosophy</td></tr>
 </table>
 
@@ -251,9 +255,9 @@ docs/
 ## 🔐 Privacy
 
 - **Data**: Every note is a plain markdown file in your vault. Uninstall → your notes stay.
-- **API keys**: Stored only in Obsidian's plugin data dir (obfuscated; not in a keychain because Obsidian mobile lacks one).
-- **AI calls**: Your pasted text goes only to **the provider you configured**. Aether collects nothing, telemetry-free.
-- **Diagnostics**: `⌘P → Diagnostics export` produces a JSON report with **API keys automatically redacted**.
+- **API keys**: Stored only in Obsidian's plugin data dir (obfuscated; not in a keychain because Obsidian mobile lacks one). Model calls send the key only to the provider you configured.
+- **AI calls**: Your pasted text goes only to **the provider you configured**. Aether collects nothing and sends nothing to Aether servers; if the content includes private files, API keys, or passwords, prefer a local model or trusted self-hosted service.
+- **Recent jobs / diagnostics**: `⌘P → View recent jobs` shows import / index refresh / rebuild failures first; job history rejects malformed or reversed timestamps on write and read, ignores non-finite numeric summaries, and normalizes negative / fractional count summaries to non-negative integers; `⌘P → Diagnostics export` produces a JSON report with **API keys automatically redacted** and non-JSON values normalized to JSON-safe values.
 
 ---
 

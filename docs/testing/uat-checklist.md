@@ -1,286 +1,284 @@
 # UAT 验收测试清单
 
-> **用途**：每次发布前 / 接手新环境 / 怀疑功能退化时，照这份清单**一步步打勾**，确认所有用户路径仍可用。
+> **用途**：每次发布前、接手新环境或怀疑功能退化时，按这份清单确认当前 v0.3 用户路径仍可用。
 >
-> 跟 [`docs/testing/strategy.md`](strategy.md) 的关系：strategy 讲"我们怎么测"，本文档是**可执行的、有打勾位的、按时间顺序排好的操作流程**。
->
-> 这份是**给真人按着做的**，不是 CI 自动跑的。预计完整跑完 30-60 分钟。
+> 这份是人工验收清单，不是 CI 自动测试。完整跑完约 30-60 分钟。
+
+---
+
+## 最近执行记录
+
+| 日期       | 范围                        | 环境 / 分支 | 结论                                                                                                     |
+| ---------- | --------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-05-25 | 自动化回归 + 提交前文档治理 | `main`      | PASS：`pnpm test` 374 tests、`pnpm typecheck`、`pnpm --filter aether-note-llm build`、`git diff --check` |
+| 2026-05-25 | 手工 Obsidian UAT           | `main`      | 待执行：提交前至少复核阶段 1、2、3.1、4、7 的用户可见路径                                                |
 
 ---
 
 ## 测试准备
 
-### 环境
-
-- [ ] 干净的 Obsidian vault（建议起名 `Aether QA`）
-- [ ] Node ≥ 20、pnpm ≥ 11
-- [ ] **两家不同的** OpenAI 兼容 Provider 真实 key（推荐 DeepSeek + SiliconFlow，覆盖 chat 与 embedding）
-- [ ] 测试用素材准备好（见下）
-
-### 素材清单（提前放在剪贴板或本地文件夹）
-
-| 编号 | 类型             | 内容                                                                                     |
-| ---- | ---------------- | ---------------------------------------------------------------------------------------- |
-| M1   | 短文本（中文）   | 一段 5-8 句的中文（举例：一篇关于"如何调试 SwiftUI 状态丢失"的经验记录）                 |
-| M2   | 短文本（英文）   | 一段 5-8 句的英文                                                                        |
-| M3   | 长文本           | 1000+ 字的文章                                                                           |
-| M4   | 损坏 frontmatter | `---\ntitle: [unclosed\n---\nbody`                                                       |
-| M5   | Chrome 书签 JSON | 真的从 `$HOME/Library/Application Support/Google/Chrome/Default/Bookmarks` 取一份        |
-| M6   | URL 列表         | 5 个 URL，含 1 个带 utm 跟踪参数的重复                                                   |
-| M7   | Notion ZIP 条目  | 从 Notion 真实导出（含 32-hex id 后缀的文件名）；如没有 → 用 `tests/fixtures` 里 fixture |
+- [ ] 干净的 Obsidian vault，建议命名为 `Aether QA`
+- [ ] Node >= 20、pnpm >= 11
+- [ ] 至少 1 个 OpenAI 兼容 chat Provider key
+- [ ] 推荐再准备 1 个 embedding Provider key，例如 SiliconFlow + `BAAI/bge-m3`
+- [ ] 准备短文本、长文本、Markdown 文件、Chrome Bookmarks JSON、iTab 数据或 URL 列表
 
 ---
 
-## 阶段 0：自动化冒烟（先跑这个）
-
-不需要 Obsidian、不需要 API key。
+## 阶段 0：自动化冒烟
 
 - [ ] **T0.1** `pnpm install` 成功
 - [ ] **T0.2** `pnpm --filter @aether/core build` 成功
 - [ ] **T0.3** `pnpm typecheck` 全绿
-- [ ] **T0.4** `pnpm test` 显示 `153 passed`
-- [ ] **T0.5** `pnpm --filter @aether/core test:coverage` 显示 lines ≥ 65%、branches ≥ 55%
+- [ ] **T0.4** `pnpm test` 全绿，当前应为 374 tests（core 240 + plugin 134）
+- [ ] **T0.5** `pnpm --filter @aether/core test:coverage` 达到阈值
 - [ ] **T0.6** `pnpm --filter @aether/core smoke` 输出 `=== 冒烟测试全部通过 ✓ ===`
-- [ ] **T0.7** `pnpm --filter aether-note-llm build` 产出 `packages/plugin/main.js`，大小约 250-280 KB
+- [ ] **T0.7** `pnpm --filter aether-note-llm build` 产出 `packages/plugin/main.js`
 
-> **任何一步失败 → 停下来排查，不要进入阶段 1**。
+任一步失败都先排查，不进入 Obsidian 手测。
 
 ---
 
 ## 阶段 1：安装与启用
 
 - [ ] **T1.1** 软链插件三件套到 `<vault>/.obsidian/plugins/aether-note-llm/`
-- [ ] **T1.2** Obsidian 打开 QA vault，Settings → Community plugins → 关闭 Restricted mode
-- [ ] **T1.3** Aether Note LLM 出现在 Installed plugins 列表
-- [ ] **T1.4** 点开关启用 → **无报错**（控制台 `⌘⌥I` 没有红字）
-- [ ] **T1.5** 左侧 ribbon 出现搜索图标
-- [ ] **T1.6** 底部状态栏出现 `Aether: Inbox 0`
-- [ ] **T1.7** `⌘P` 搜 "Aether" 至少出现 8 个命令
+- [ ] **T1.2** Obsidian 打开 QA vault，关闭 Restricted mode
+- [ ] **T1.3** 启用 Aether Note LLM，无控制台红字
+- [ ] **T1.4** 左侧 ribbon 出现小机器人助手风格的 Aether Hub 图标（非通用 search / layers 图标），悬停显示 `Aether Hub`
+- [ ] **T1.5** 首次启用后自动打开 Hub；关闭 Hub 后重启 Obsidian 不会再次强制打开
+- [ ] **T1.6** 状态栏显示已索引数量和 Provider 数量
+- [ ] **T1.7** `⌘P` 打开命令面板；英文界面能看到 Open Aether Hub、Import...、Review pending imports、Refresh index changes、Rebuild index、View recent jobs、View this month's usage、Diagnostics export；中文界面能看到打开 Aether Hub、导入...、处理待导入项、刷新索引变更、重建索引、查看最近任务、查看本月用量、导出诊断信息
 
 ---
 
-## 阶段 2：Provider 配置
+## 阶段 2：Quick Start 与 Provider
 
-- [ ] **T2.1** Settings → Aether Note LLM → 看到 Providers / Feature bindings / Advanced 三段
-- [ ] **T2.2** 点 `Add provider` → 出现新空 Provider 行（默认名 "New provider"）
-- [ ] **T2.3** 改 Name 为 `DeepSeek`，Base URL 为 `https://api.deepseek.com/v1`
-- [ ] **T2.4** 点 `Edit key` → 弹出 ApiKeyModal → 粘贴 key → Save
-- [ ] **T2.5** 点 `Test` → 看到 `Connected. N models`（N ≥ 1）
-- [ ] **T2.6** **故意输错 key**：Edit key → 随便改几个字符 → Save → Test → 看到 `Failed: HTTP 401` 或类似
-- [ ] **T2.7** 恢复正确 key
-- [ ] **T2.8** 再 Add 第二家 Provider（SiliconFlow），同样跑通 Test
-- [ ] **T2.9** Feature bindings 区：
-  - [ ] `embedding` 绑 SiliconFlow + `BAAI/bge-m3`
-  - [ ] `inbox_metadata` 绑 DeepSeek + `deepseek-chat`
-  - [ ] `summarize / rewrite / extract` 都绑 DeepSeek + `deepseek-chat`
-- [ ] **T2.10** Advanced 区：
-  - [ ] 看到 Aether Inbox folder = `Aether Inbox`
-  - [ ] 看到 Scan scope = `Entire vault`
-  - [ ] 看到 Hybrid α = 0.4
+- [ ] **T2.1** Settings → Aether Note LLM，看到 Quick Start / AI Providers / AI Roles / Advanced 四段；中文界面对应为 快速开始 / AI 服务商 / AI 角色 / 高级
+- [ ] **T2.2** Quick Start 中添加预设 Provider
+- [ ] **T2.3** AI Providers 中填写 API key 并 Test 成功
+- [ ] **T2.3a** AI Providers 中点击服务商申请 Key 链接；若浏览器拦截或 URL 无效，会显示失败提示，不影响当前 Provider 表单内容
+- [ ] **T2.3b** AI Providers 中服务商卡片左侧有明确展开 / 收起图标；点击「添加服务商」或从 Quick Start 添加预设后，新服务商卡片自动展开到可填写状态
+- [ ] **T2.3c** AI Providers 区块顶部和新建服务商展开表单中都显示风险提示：私密文件、密钥或密码应优先使用本地模型或可信自部署服务，避免发送给第三方模型
+- [ ] **T2.4** 故意填错 key，Test 显示明确失败信息；恢复正确 key
+- [ ] **T2.5** Quick Start 中选择 chat Provider 和 embedding Provider
+- [ ] **T2.6** 点应用绑定，AI Roles 中 `summarize` / `rewrite` / `extract` / `critique` / `answer` / `inbox_metadata` / `embedding` 已绑定 Provider / Model
+- [ ] **T2.6a** 若模型列表同时包含 chat 与 embedding 模型，Quick Start 会给聊天类角色选择 chat 模型，给 `embedding` 选择 embedding 模型
+- [ ] **T2.7** 新建一个自定义 AI Role，设置 `showInEditor = true`
+- [ ] **T2.8** Advanced 中能看到 Inbox folder、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
+- [ ] **T2.8a** 若旧设置中的 AI Role provider 参数包含 `temperature = NaN / Infinity / > 2` 或无效 `maxTokens`，迁移层会在运行 Role 前删除、回落到内置安全默认值或取整这些参数，同时保留自定义 prompt 变量参数
+- [ ] **T2.9** 无 Provider 或缺 API key / model 时，Hub 顶部显示 `需要配置`，健康卡片列出具体缺项并可打开 Settings
+- [ ] **T2.10** 仅清空 embedding Role Provider 时，Hub 顶部显示 `部分可用`，健康卡片提示 embedding 缺项，搜索仍可降级到 BM25
+- [ ] **T2.11** 自定义 Provider 的 Base URL 为空或不是 `http(s)` URL 时，Hub 健康卡片显示 Base URL 缺失 / 无效
 
 ---
 
-## 阶段 3：导入路径
+## 阶段 3：Hub 与导入
 
 ### 3.1 粘贴文本
 
-- [ ] **T3.1.1** `⌘P → Aether: Import...` → Modal 弹出
-- [ ] **T3.1.2** 粘贴 **M1**（中文段） → 点 Import → Modal 关闭
-- [ ] **T3.1.3** 1-3 秒后 toast `Imported 1 item(s) to Inbox`
-- [ ] **T3.1.4** 状态栏变成 `Aether: Inbox 1`
-- [ ] **T3.1.5** 打开 Inbox 视图（命令面板或左侧），看到 1 张卡片
-  - [ ] 卡片标题**与 M1 内容相关**（不是文件名）
-  - [ ] 卡片有 1-5 个标签
-  - [ ] 卡片有一段摘要
-  - [ ] 没有 `Possible duplicate of...` 警告
+- [ ] **T3.1.1** Hub → `Import` → 粘贴短文本 → `Import`
+- [ ] **T3.1.2** 进度提示显示解析状态，解析完成后弹出预览清单
+- [ ] **T3.1.2a** 预览清单显示标题、来源、摘要、标签，并可编辑标题 / 摘要 / 标签、全选 / 全不选 / 单条勾选
+- [ ] **T3.1.2b** 取消并丢弃后不写入 vault，Diagnostics 中 pending inbox 不增加
+- [ ] **T3.1.3** 点击写入所选后弹出结果清单，显示成功条数和生成文件路径
+- [ ] **T3.1.3b** 写入所选时显示统一任务进度，完成后自动关闭进度提示
+- [ ] **T3.1.3c** 写入过程中点击任务进度的 Cancel，后续未写入条目被丢弃，结果清单只显示已写入条目
+- [ ] **T3.1.3a** 如果部分条目写入失败，结果清单显示失败来源和错误原因，已成功条目仍可打开，且可点击处理待导入失败项重新打开预览流
+- [ ] **T3.1.3d** Hub 快捷操作显示待处理数量；有 pending import 时可从 Hub 或命令面板重新打开，关闭该历史 pending 预览不会自动丢弃条目
+- [ ] **T3.1.3e** 从待处理入口只写入部分 pending import 时，未选条目仍保持 pending，可再次从待处理入口继续处理
+- [ ] **T3.1.3f** 从待处理入口写入时点击任务进度 Cancel，已写入条目保持完成，剩余未处理条目仍为 pending，最近任务记录为 cancelled
+- [ ] **T3.1.4** vault 出现 `Aether Inbox/notes/<yyyy>/<mm>/...md`
+- [ ] **T3.1.5** 生成文件 frontmatter 包含 `aether_id`、`aether_kind`、`title`、`tags`、`aether_summary`
+- [ ] **T3.1.5a** 在预览清单修改标题、摘要、标签后写入，生成文件 frontmatter 和搜索结果使用修改后的 metadata
+- [ ] **T3.1.6** Hub 最近列表显示新导入文件，点击能打开笔记
+- [ ] **T3.1.7** 结果清单中点击 `Open` 可打开对应笔记
+- [ ] **T3.1.7a** 结果清单中点击 `Open` 打开失败时显示失败提示，结果清单和已写入 / 已合并路径仍保留可见
+- [ ] **T3.1.8** 再导入一条测试内容，点击 `Undo this import` 后文件从 vault 消失，搜索不再命中
+- [ ] **T3.1.9** 再导入相似内容时，预览清单显示可能重复目标，并可在合并 / 新建 / 丢弃之间切换
+- [ ] **T3.1.10** 选择合并后，结果清单显示已合并目标；点击 `Open` 打开原笔记，搜索能命中新合并内容
+- [ ] **T3.1.11** 同一批中同时存在新建和合并时，`Undo this import` 只删除本次新建笔记，不删除已合并目标笔记
 
-### 3.2 重复内容查重
+### 3.2 文件导入
 
-- [ ] **T3.2.1** **第二次**粘贴 **M1**（完全相同） → Import
-- [ ] **T3.2.2** Inbox 出现新卡片，**应有** `Possible duplicate of an existing note.` 警告
-  - 但 v0.1 在 approve 阶段，duplicate_of 指向已 approved 的笔记。仅在前一张已经 approve 后才会触发。如果前一张还在 pending，这里**不**应该报重复（设计如此）
+- [ ] **T3.2.1** Import → File tab 可选择 `.md` / `.markdown` / `.txt` / `.url` / `.json` / `.itabdata`
+- [ ] **T3.2.2** Chrome Bookmarks JSON 可导入多条 bookmark
+- [ ] **T3.2.3** iTab 数据可导入 bookmark
+- [ ] **T3.2.3a** 多条 bookmark 可在预览清单中选择性写入，未勾选条目不会生成 markdown
+- [ ] **T3.2.4** bookmark 文件落在 `Aether Inbox/bookmarks/<yyyy>/<mm>/`
+- [ ] **T3.2.5** bookmark frontmatter 包含 `aether_kind: bookmark` 和 `aether_url`
+- [ ] **T3.2.6** Markdown `.md` / `.markdown` 文件可从 File tab 导入，预览清单显示文件标题和正文
+- [ ] **T3.2.7** `.txt` / `.url` URL 列表文件可从 File tab 导入，完整 `http(s)` URL 进入预览，普通文本行会被跳过
 
-### 3.3 Markdown 多文件
+### 3.3 异常输入
 
-- [ ] **T3.3.1** 准备 3 个 `.md` 文件（含 / 不含 frontmatter 各一）
-- [ ] **T3.3.2** 在 Obsidian 之外（Finder）选中拖入 Aether Import Modal **或** 把内容逐个粘贴
-- [ ] **T3.3.3** 3 张卡片出现在 Inbox
-
-### 3.4 损坏 frontmatter
-
-- [ ] **T3.4.1** 粘贴 **M4** → Import
-- [ ] **T3.4.2** Inbox 卡片**不应崩溃**；标题用 AI 推断或 fallback；卡片可正常 approve
-
-### 3.5 Chrome 书签 JSON
-
-- [ ] **T3.5.1** 粘贴 **M5** JSON 内容 → Import
-- [ ] **T3.5.2** Inbox 出现多张卡片，每张 kind=bookmark，含 url 字段
-- [ ] **T3.5.3** **去重生效**：原 JSON 里如果有同 URL 不同 utm 参数，应只出现一张
-
-### 3.6 URL 列表
-
-- [ ] **T3.6.1** 粘贴 **M6**（一行一个 URL，含重复）→ Import
-- [ ] **T3.6.2** 去重后的条数 = 唯一 URL 数
-
----
-
-## 阶段 4：Inbox 审核
-
-- [ ] **T4.1** 选第一张卡片，点 `Approve`
-  - [ ] 卡片消失 / 状态变化
-  - [ ] toast `Approved`
-  - [ ] vault 出现 `Aether Inbox/notes/2026/05/<id>-<slug>.md`
-  - [ ] 打开该文件，frontmatter 含 `aether_id` / `aether_kind: note` / `title` / `tags` / `aether_summary` / `aether_source: import`
-- [ ] **T4.2** 选另一张卡片，点 `Discard`
-  - [ ] 卡片消失
-  - [ ] vault **无**新文件
-- [ ] **T4.3** 状态栏 `Aether: Inbox N` 数字正确更新
-- [ ] **T4.4** 把书签卡片 approve
-  - [ ] 文件落在 `Aether Inbox/bookmarks/2026/05/`
-  - [ ] frontmatter 含 `aether_kind: bookmark` 和 `aether_url`
+- [ ] **T3.3.1** 空文本导入会提示，不写入文件
+- [ ] **T3.3.2** 不支持的文件类型会提示，不崩溃
+- [ ] **T3.3.3** 单批超过 200 条时不崩溃，并能看到实际导入条数
+- [ ] **T3.3.4** URL 列表中的无协议文本、普通文本和 `mailto:` 会被跳过；仅完整 `http(s)` URL 进入预览
+- [ ] **T3.3.5** 解析失败项会在预览 / 结果中提示未保留为 pending，需要修正来源后重新导入
+- [ ] **T3.3.6** 粘贴多行完整 `http(s)` URL 时进入多条 bookmark 预览，而不是生成单条普通 note
 
 ---
 
-## 阶段 5：检索
+## 阶段 4：搜索
 
-### 5.1 基础搜索
+- [ ] **T4.1** Hub 搜索框输入已导入内容的关键词，300ms 左右出现结果
+- [ ] **T4.1a** Hub 搜索框下方显示隐私提示：私密笔记、密钥或密码应优先使用本地模型，避免发送给第三方模型
+- [ ] **T4.2** 结果卡片显示标题、摘要、命中片段、kind 和路径
+- [ ] **T4.3** 点击 note 结果打开 Obsidian 文件
+- [ ] **T4.3a** note 搜索结果或 Hub 最近导入卡片打开失败时显示失败提示，当前结果 / 最近列表仍保留可见
+- [ ] **T4.4** 点击 bookmark 结果打开默认浏览器 URL
+- [ ] **T4.5** `全部` / `笔记` / `书签` 过滤有效
+- [ ] **T4.6** 搜索不存在的字符串，显示空结果，不崩溃
+- [ ] **T4.7** 搜索结果上方显示当前模式：`Hybrid`、`BM25` 或 `Stale-biased`
+- [ ] **T4.8** 有搜索结果时点击 `综合回答`，生成基于当前结果的回答，并显示 `[1]` 等引用入口
+- [ ] **T4.8a** Provider 返回空回答或仅包含空白字符的回答时显示空状态，不显示 `复制回答 + 来源` 或来源打开按钮
+- [ ] **T4.9** 展开综合回答来源，可看到证据片段、路径、标题层级；点击来源打开按钮时，note 来源在 Obsidian 中打开对应文件，bookmark 来源打开原始 URL
+- [ ] **T4.9a** note 或 bookmark 来源打开失败时显示失败提示，回答正文、上下文 token 状态和来源证据仍保留
+- [ ] **T4.10** 回答下方显示本次使用的上下文 token 估算；长上下文被截断时显示预算截断提示，截断来源也显示片段截断提示
+- [ ] **T4.11** 如果回答正文没有任何来源编号，或引用了不存在的编号（如 `[3]` 但来源列表没有 `[3]`），回答下方显示需要人工核对的风险提示
+- [ ] **T4.12** 点击 `复制回答 + 来源` 后，剪贴板包含回答正文、来源编号、路径、标题层级、URL 和证据片段，且页面中的回答和来源仍保留可见
+- [ ] **T4.12a** 若系统拒绝剪贴板写入，`复制回答 + 来源` 显示复制失败提示，不清空回答正文、上下文 token 状态或来源列表
+- [ ] **T4.13** 取消或清空 `answer` Role 绑定后点击 `综合回答`，显示配置提示，不影响基础搜索结果，也不显示 `复制回答 + 来源` 或来源打开按钮
+- [ ] **T4.13a** `answer` Role 的 Provider 调用失败时显示失败原因，按钮恢复为 `综合回答`，不显示 `复制回答 + 来源` 或来源打开按钮
+- [ ] **T4.14** `综合回答` 运行中点击 Cancel，回答区域显示已取消，按钮恢复为 `综合回答`，不显示失败样式；若底层 Provider 在取消后才返回结果，不渲染过期回答
 
-- [ ] **T5.1.1** `⌘P → Aether: Open Search` → 视图打开
-- [ ] **T5.1.2** 输入跟 M1 内容相关的关键词
-- [ ] **T5.1.3** 命中卡片在 300ms 后出现
-  - [ ] 标题 / 摘要正确
-  - [ ] 命中片段含 `<mark class="aether-hit">` 高亮
-  - [ ] kind 标签清晰显示
-- [ ] **T5.1.4** 点击卡片 → 笔记打开在编辑器
+### 4.1 BM25 降级
 
-### 5.2 搜索书签
+- [ ] **T4.1.1** 取消或清空 embedding Role 的 Provider 绑定
+- [ ] **T4.1.2** 回到 Hub 搜索明确存在的关键词
+- [ ] **T4.1.3** 搜索仍返回文本命中结果，不弹 `BINDING_NOT_FOUND`
+- [ ] **T4.1.4** 结果上方显示 `BM25`，并说明 embedding Role / API key / Provider 的降级原因
+- [ ] **T4.1.5** 恢复 embedding Role 后，搜索恢复 `Hybrid`
 
-- [ ] **T5.2.1** 输入 T4.4 approve 的书签标题里的词
-- [ ] **T5.2.2** 命中书签卡片
-- [ ] **T5.2.3** 点击 → 默认浏览器打开原 URL（**不是** Obsidian 编辑器）
+### 4.2 维度不匹配
 
-### 5.3 空结果
-
-- [ ] **T5.3.1** 输入一个绝对不会命中的字符串（如 `qzwxecrv12345`）
-- [ ] **T5.3.2** 显示 `No matches.`，不崩溃
-
-### 5.4 缺 embedding 的降级
-
-- [ ] **T5.4.1** Settings → 删掉 `embedding` 这个 Feature Binding（把 Provider 选成 `(none)`）
-- [ ] **T5.4.2** 回到搜索 → 输入关键词
-- [ ] **T5.4.3** **应该报** `BINDING_NOT_FOUND: embedding` 之类的 Notice（这是预期行为）
-- [ ] **T5.4.4** 把 embedding binding 加回去
-
----
-
-## 阶段 6：段落级 AI
-
-- [ ] **T6.1** 打开任意笔记，**选中一段** 50-200 字的文字
-- [ ] **T6.2** 右键 → 出现 3 个 Aether 菜单项（rewrite / summarize / extract）
-- [ ] **T6.3** 点 `Aether: AI summarize`
-  - [ ] Modal 弹出，含 Original / Rewritten 两段
-  - [ ] AI 输出**不为空** 且**是中文**（如果选中是中文）
-- [ ] **T6.4** 点 `Replace selection` → 编辑器里选区被替换为 AI 输出
-- [ ] **T6.5** 撤销（`⌘Z`）能恢复原文
-- [ ] **T6.6** 重复 T6.3-T6.5 对 rewrite 和 extract
-  - [ ] extract 的输出是 bullet 列表（以 `- ` 开头）
-- [ ] **T6.7** **未选中文字时点命令** → 弹 `Select some text first` Notice
+- [ ] **T4.2.1** 切换 embedding 模型到不同向量维度的模型
+- [ ] **T4.2.2** 搜索出现重建索引提示
+- [ ] **T4.2.3** 点击提示里的 rebuild 按钮后，显示统一任务进度；重建完成并恢复搜索
 
 ---
 
-## 阶段 7：持久化 / 重启
+## 阶段 5：编辑器 AI Role
 
-- [ ] **T7.1** 当前已有若干 approved 笔记 + 1-2 个 pending inbox 卡片
-- [ ] **T7.2** 关闭 Obsidian
-- [ ] **T7.3** 重新打开
-- [ ] **T7.4** Inbox 视图 → pending 卡片**仍在**
-- [ ] **T7.5** 搜索之前用过的关键词 → 命中**仍正确**
-- [ ] **T7.6** Settings → Providers / Feature bindings 配置**保留**
-- [ ] **T7.7** API key **保留**（不需要重输）
-
----
-
-## 阶段 8：重建 / 诊断
-
-- [ ] **T8.1** Settings → `Rebuild index` → toast `Rebuilt: N/N files`
-  - [ ] N = 当前 vault 里所有 `.md` 文件数（含 Aether 创建 + 用户原有）
-  - [ ] 重建后再搜索能正常命中
-- [ ] **T8.2** `⌘P → Aether: Diagnostics export`
-  - [ ] Modal 弹出 JSON
-  - [ ] `pluginVersion` = `0.1.0`
-  - [ ] `indexCount > 0`
-  - [ ] `chunkCount > 0`
-  - [ ] `settings.apiKeys.*` 的值是 `<redacted>`（**关键：脱敏生效**）
-  - [ ] 点 `Copy to clipboard` 后系统剪贴板含 JSON 文本
+- [ ] **T5.1** 打开任意笔记并选中 50-200 字
+- [ ] **T5.2** 右键菜单显示启用且 `showInEditor = true` 的 AI Role
+- [ ] **T5.3** summarize / rewrite / extract 输出不为空
+- [ ] **T5.4** 自定义 AI Role 出现在右键菜单并可运行
+- [ ] **T5.5** AI Role 编辑器中模型列表未缓存时，可在当前弹窗点击刷新模型列表并选择模型
+- [ ] **T5.6** 命令面板运行 `Run current AI role…` 打开实时 AI Role 选择器；新建、启用或取消隐藏的 Role 无需重启即可出现，输入关键词时按最新角色名称 / 描述过滤；选择 Role 后调用 Provider 并打开结果 Modal
+- [ ] **T5.6a** 已注册的 AI Role 命令在对应 Role 被停用、隐藏或解绑后运行，只提示角色不可用，不调用 Provider，也不打开结果 Modal；若 `Run current AI role…` 的选择器已打开后该 Role 被停用、隐藏或解绑，选择旧条目同样只提示不可用，不调用 Provider
+- [ ] **T5.7** AI Role 编辑器提示词区域显示已使用变量、可用但未使用变量；模板引用不存在变量时显示缺失变量警告
+- [ ] **T5.8** 通过命令或自定义 Role 运行时，即使运行时覆盖参数里包含 `temperature = NaN / Infinity / > 2` 或无效 `maxTokens`，发往 Provider 前也会回落到安全默认值、删除无效 token 上限或取整合法 token 上限
+- [ ] **T5.8** 模板存在缺失变量时运行 Role，会在调用 Provider 前失败并提示变量名
+- [ ] **T5.9** Modal 中 `Replace selection` 可替换选区并关闭 Modal，`Discard` 只关闭 Modal 且不替换选区，`⌘Z` 可撤销已替换内容
+- [ ] **T5.9a** Modal 中 `Copy` 只复制 AI 输出，不包含原文；若系统拒绝剪贴板写入，显示复制失败提示，Modal 不关闭，原文和 AI 输出仍可见
+- [ ] **T5.10** 未选中文本时运行已注册 Role 命令或 `Run current AI role…`，提示先选择文本，不调用 Provider，不打开 Role 选择器，也不打开结果 Modal
+- [ ] **T5.11** 运行中取消，显示取消提示，不替换文本，活动提示不显示为错误态；若 Provider 迟到返回结果，不打开结果 Modal；重复点击 Cancel 不会触发重复取消回调
 
 ---
 
-## 阶段 9：异常路径
+## 阶段 6：持久化 / 重启
 
-### 9.1 网络失败
-
-- [ ] **T9.1.1** 关闭网络 / 把 Provider Base URL 改成 `https://invalid.local/v1`
-- [ ] **T9.1.2** 搜索一个词 → Notice 报错而**不崩溃**
-- [ ] **T9.1.3** AI 选段操作 → Notice 报 `AI failed: ...`
-- [ ] **T9.1.4** 恢复网络 / URL，所有功能立即恢复
-
-### 9.2 索引文件损坏
-
-- [ ] **T9.2.1** 关闭 Obsidian
-- [ ] **T9.2.2** 编辑 `<vault>/.obsidian/plugins/aether-note-llm/data.json` → 把 `index.json` 字段值改成 `"{not json"`
-- [ ] **T9.2.3** 重启 Obsidian
-- [ ] **T9.2.4** 出现 Notice `Index corrupt; please rebuild from settings`
-- [ ] **T9.2.5** `Settings → Rebuild` → 恢复成功
-
-### 9.3 设置文件损坏
-
-- [ ] **T9.3.1** 关闭 Obsidian
-- [ ] **T9.3.2** 把 `data.json` 里 `settings.json` 字段值改成 `"{not json"`
-- [ ] **T9.3.3** 重启 Obsidian
-- [ ] **T9.3.4** 设置加载**不崩溃**，恢复成默认（Providers 为空）
-- [ ] **T9.3.5** `data.json` 应该出现 `settings.json.bak.<timestamp>` 字段（备份原值）
+- [ ] **T6.1** 当前已有导入文件、Provider 配置和自定义 Role
+- [ ] **T6.2** 关闭并重启 Obsidian
+- [ ] **T6.3** Hub 能打开，最近文件仍显示
+- [ ] **T6.4** 搜索之前用过的关键词仍命中
+- [ ] **T6.5** AI Providers / AI Roles / Advanced 设置保留
+- [ ] **T6.6** API key 按预期保留或按同步策略重新填写
 
 ---
 
-## 阶段 10：性能 / 极限
+## 阶段 7：重建与诊断
 
-### 10.1 中等量
-
-- [ ] **T10.1.1** 准备 50-100 篇随机笔记内容（可以拿一本书每章拆一段）
-- [ ] **T10.1.2** 分 5-10 批 Import
-- [ ] **T10.1.3** 全部 approve（用"全选 → 接受"如有；v0.1 没有，得一张张点）
-- [ ] **T10.1.4** 重建索引 → 应在 1-3 分钟内完成（取决于 embedding API 延迟）
-- [ ] **T10.1.5** 搜索响应时间感觉 < 1s
-
-### 10.2 单批大量
-
-- [ ] **T10.2.1** 一次粘贴一份**真实 Chrome Bookmarks**（实际可能 500+ 条）
-- [ ] **T10.2.2** Aether 不卡顿、不崩溃
-- [ ] **T10.2.3** 单批超过 200 条时**停止处理** —— 看 toast / Inbox 数（v0.1 是硬截断）
-
-### 10.3 token 用量
-
-- [ ] **T10.3.1** 跑完阶段 3-6 后看 Diagnostics export → `usage.monthTotal`
-- [ ] **T10.3.2** prompt + completion 在数千到几万 tokens 范围（具体看导入量）
+- [ ] **T7.1** Settings → Refresh index changes 成功，Hub → `刷新变更` 也可触发同一任务
+- [ ] **T7.1a** 修改一篇已索引 markdown 后执行 Refresh index changes，搜索能命中新内容，旧正文片段不再出现在结果片段中
+- [ ] **T7.1b** 删除一篇已索引 markdown 后执行 Refresh index changes，搜索不再命中该文件，任务历史显示 removed 数量
+- [ ] **T7.1c** Refresh index changes 运行中点击 Cancel，任务提示显示已取消，活动提示不显示为错误态，最近任务状态为 cancelled 而不是 failed，Settings / Hub 触发按钮恢复可点
+- [ ] **T7.1d** 重建或刷新任务运行中再次从 Settings / Hub 触发刷新，会提示已有索引任务运行中，刚点击的按钮恢复可点
+- [ ] **T7.1e** 刷新索引核心任务已成功但后续 Hub / Settings UI 刷新失败时，仅显示界面刷新失败提示，最近任务仍记录为 done，不改成 failed
+- [ ] **T7.1f** Refresh index changes 部分文件刷新失败时，完成提示显示失败数量，最近任务状态为 failed 并保留失败路径 / 原因，同时仍执行 Hub / Settings 后续 UI 刷新
+- [ ] **T7.1g** Refresh index changes 遇到非取消错误时显示失败提示，最近任务状态为 failed 并保留错误摘要，不调用取消或完成后的 UI 刷新路径
+- [ ] **T7.2** Settings → Aether Note LLM → Advanced → Rebuild index 成功
+- [ ] **T7.3** 重建过程显示扫描 / 索引 / 保存进度，完成后显示 scanned / indexed 数量
+- [ ] **T7.3a** 若部分文件重建失败，完成提示显示失败数量，控制台能看到失败文件路径和原因
+- [ ] **T7.3a.1** Rebuild index 遇到非取消错误时显示失败提示，最近任务状态为 failed 并保留错误摘要，不调用取消或完成后的 UI 刷新路径
+- [ ] **T7.3b** 重建过程中点击任务进度的 Cancel，若核心返回 cancelled 结果或抛出 ABORTED，活动提示都不显示为错误态，最近任务状态为 cancelled 且记录 scanned / indexed 数量（异常中断时为 0/0），Settings / Hub / rebuild prompt 触发按钮恢复可点
+- [ ] **T7.3b.1** 长任务进度文案会随阶段更新但保留已运行时间；启动新的 AI / 导入 / 索引活动时，旧活动提示会被取消并移除
+- [ ] **T7.3c** 刷新或重建任务运行中再次从 Settings / Hub / rebuild prompt 触发重建，会提示已有索引任务运行中，刚点击的按钮恢复可点
+- [ ] **T7.3d** 重建核心任务已成功但后续 Hub / Settings / rebuild prompt UI 刷新失败时，仅显示界面刷新失败提示，最近任务仍记录为 done；若只有部分文件失败，最近任务记录为 failed 并保留失败路径 / 原因
+- [ ] **T7.4** 重建后搜索能命中 Aether 创建的文件
+- [ ] **T7.5** scan scope 改为 `Aether Inbox only` 后，刷新变更和重建范围只覆盖导入目录
+- [ ] **T7.6** `⌘P → Diagnostics export`（中文界面：`导出诊断信息`）打开 JSON modal
+- [ ] **T7.7** `pluginVersion` = `0.3.0`
+- [ ] **T7.8** `settings.apiKeys.*`、Provider `defaultHeaders` 中的 Authorization / API key、失败文本里的 `Authorization: ...` / `Proxy-Authorization: ...` / `Cookie: ...` / `Set-Cookie: ...` / `proxy-authorization=...` / `cookie=...` / `set-cookie=...`、Base URL userinfo（如 `https://user:pass@host`）、Base URL query / fragment / hash-route 中的 key / token / access-token / refresh-token / id-token / client-secret / 自定义 `*token` / `*secret` 参数，以及失败文本里的 `X-Api-Key: ...` / `access-token: ...` / `refresh-token: ...` / `id-token: ...` / `client-secret: ...` / `auth-token: ...` 已脱敏
+- [ ] **T7.9** Copy to clipboard 可复制诊断 JSON，剪贴板内容包含 `pluginVersion`、`recentJobs` 和 `usage`
+- [ ] **T7.9a** 诊断 JSON 复制失败时显示复制失败提示，modal 不关闭，JSON 内容仍留在 modal 中可手动选取
+- [ ] **T7.9b** 最近任务读取失败时 Diagnostics export 仍打开并可复制，JSON 中 `recentJobs` 为 `[]` 且仍包含 `usage`
+- [ ] **T7.10** 诊断 JSON 包含 `recentJobs` 和 `usage`；`recentJobs` 包含最近导入写入 / 刷新索引变更 / 重建任务的状态、数量摘要和失败摘要；失败文本、summary key / value 中的 URL userinfo、Bearer token、`Authorization: ...`、`Proxy-Authorization: ...`、`Cookie: ...`、`Set-Cookie: ...`、`proxy-authorization=...`、`cookie=...`、`set-cookie=...`、`api_key=`、`token=`、`access-token=`、`refresh-token=`、`id_token=`、`client_secret=`、自定义 `*token=` / `*secret=`、`X-Api-Key: ...`、`secret: ...` 和 `sk-...` 不含明文；异常 NaN / Infinity 数字、BigInt / Symbol / function / undefined 和循环引用会归一化为 JSON-safe 值，负数 / 小数任务数量摘要会归一化为非负整数
+- [ ] **T7.11** Hub → `最近任务` 和 `⌘P → View recent jobs`（中文界面：`查看最近任务`）都能打开任务历史面板
+- [ ] **T7.12** 任务历史面板显示导入写入 / 刷新索引变更 / 重建任务的状态、耗时、数量摘要和失败明细；写入或读取历史时遇到畸形 / 倒序时间戳、NaN / Infinity 数量摘要，不会让异常记录进入面板或 JSON；URL query / fragment / hash-route 中的 `api_key=`、`access_token=`、`id_token=`、`client_secret=`、自定义 `*token=`，以及 Bearer token、`Proxy-Authorization: ...`、`Cookie: ...`、`Set-Cookie: ...`、`proxy-authorization=...`、`cookie=...`、`set-cookie=...`、`X-Api-Key: ...`、`access-token: ...`、`refresh-token: ...`、`secret: ...` 等失败文本在持久化前和读取旧历史时都会脱敏；负数 / 小数数量摘要显示和复制时归一化为非负整数；取消任务显示 cancelled 状态和数量摘要但不显示空失败明细；复制 JSON 时包含 status、summary 和 failures
+- [ ] **T7.12a** 任务历史 JSON 复制失败时显示复制失败提示，modal 不关闭，历史列表和失败明细不丢失
+- [ ] **T7.12b** 没有任何任务历史或任务历史读取失败时显示空状态，复制 JSON 按钮禁用；这两种空状态下，即使按钮事件被程序化触发，也不会写入空历史 JSON
+- [ ] **T7.13** Hub → `本月用量` 和 `⌘P → View this month's usage`（中文界面：`查看本月用量`）都能打开用量面板
+- [ ] **T7.14** 用量面板显示本月总 token、prompt / completion、按功能拆分和预算状态；解析服务商上报、记录 / 恢复 / 显示 / 复制时，异常 NaN / Infinity / 负数用量数字归一化为 0，小数 token 向下取整；复制 JSON 时包含 budget、monthTotal 和 perFeature 用量快照
+- [ ] **T7.14a** 用量 JSON 复制失败时显示复制失败提示，用量面板不关闭，总量、预算进度和按功能拆分不丢失
+- [ ] **T7.14b** 本月没有 AI token 用量时显示空状态，总量 / prompt / completion 为 0，复制 JSON 仍可用，且 payload 中 `monthTotal` 为 0、`perFeature` 为空对象
+- [ ] **T7.14c** 本月 token 用量达到 Monthly token budget warning 阈值时，用量面板显示预算提醒
+- [ ] **T7.14d** 未设置 Monthly token budget warning，或设置数据中出现 NaN / Infinity / 非正数预算阈值时，迁移层和用量面板都会归一化为未设置；用量面板显示未设置预算提醒和设置入口提示，复制 JSON 仍可用，且显式未设置和无效阈值导出的 `budget` 都为 `null`
+- [ ] **T7.14e** 设置数据中出现小数 Monthly token budget warning 时，迁移层和用量面板都会向下取整；用量面板和复制 JSON 不显示小数预算
 
 ---
 
-## 回归测试模板（每次发布前用）
+## 阶段 8：异常路径
 
-完整跑 0、1、2 关键步骤、3.1、4、5.1、6、7、8、9.1。约 20 分钟。
+### 8.1 网络失败
 
-如果任意一项失败 → **阻塞发布**，去查 commit、写 issue、修。
+- [ ] **T8.1.1** 把 chat Provider Base URL 改成无效地址
+- [ ] **T8.1.2** AI Role 运行失败时显示 Notice，不崩溃
+- [ ] **T8.1.3** 搜索在 embedding Provider 失败时降级到 BM25
+- [ ] **T8.1.4** 恢复 Provider 后功能恢复
+
+### 8.2 索引文件损坏
+
+- [ ] **T8.2.1** 关闭 Obsidian
+- [ ] **T8.2.2** 修改 `<vault>/.obsidian/plugins/aether-note-llm/data.json` 中 `index.json` 字段为坏 JSON
+- [ ] **T8.2.3** 重启后出现索引损坏提示
+- [ ] **T8.2.4** Rebuild index 可恢复
+
+### 8.3 设置文件损坏
+
+- [ ] **T8.3.1** 关闭 Obsidian
+- [ ] **T8.3.2** 修改 `settings.json` 字段为坏 JSON
+- [ ] **T8.3.3** 重启后不崩溃，设置恢复默认
+- [ ] **T8.3.4** `data.json` 出现 `settings.json.bak.<timestamp>` 备份字段
+
+---
+
+## 阶段 9：性能 / 极限
+
+- [ ] **T9.1** 导入 50-100 条文本或书签，不出现 UI 长时间卡死
+- [ ] **T9.2** 重建 100+ 篇 markdown 后，搜索响应体感 < 1s
+- [ ] **T9.3** Diagnostics 与本月用量面板中的 token 用量与导入 / 搜索 / AI 操作量大致匹配
+- [ ] **T9.4** 大批量导入可先预览选择；失败项不会阻断已成功项落库，结果清单能定位失败条目；写入失败项可重新打开 pending 预览继续处理
+- [ ] **T9.5** 设置 Monthly token budget warning 后，首次跨过阈值时出现主动提醒，本月用量面板显示预算提醒；重启 Obsidian 后用量仍保留
+
+---
+
+## 回归测试模板
+
+每次发布前至少跑：阶段 0、1、2、3.1、4、4.1、5、6、7、8.1。
+
+任意一项失败都阻塞发布，先修代码或更新这份清单。
 
 ---
 
 ## Bug 报告模板
 
-发现问题时，在 issue 里贴这个：
-
 ````markdown
 **版本**：Aether Note LLM v[X.Y.Z]（看 manifest.json）
-**Obsidian 版本**：[在 Settings → About 看]
-**系统**：[macOS / Windows / Linux + 版本]
+**Obsidian 版本**：[Settings → About]
+**系统**：[macOS / Windows / Linux / iOS / Android + 版本]
 
 **复现步骤**：
 
@@ -291,13 +289,13 @@
 **期望行为**：...
 **实际行为**：...
 
-**Diagnostics 报告**（`⌘P → Aether: Diagnostics export → Copy`）：
+**Diagnostics 报告**：
 
 ```json
-{ ... 这里粘贴脱敏后的 JSON ... }
+{ ... 脱敏后的 JSON ... }
 ```
 
-**控制台日志**（`⌘⌥I` → Console 标签，截图或粘贴红字部分）：
+**控制台日志**：
 
 ```
 ...
@@ -306,6 +304,6 @@
 
 ---
 
-## 自检：本文档自己也要保持有效
+## 维护规则
 
-下次发布前，本人按这份跑完一遍之后 —— 如果发现某个步骤**写错了 / 漏了 / 多余了**，**当场改这份文档**。否则跑完一次它的"准确度"就掉了。
+每次 UAT 跑完，如果发现步骤与当前产品不一致，当场更新本文档。历史设计稿可以保留旧状态，当前验收清单不能保留旧流程。

@@ -1,5 +1,6 @@
 export type AetherErrorCode =
   | "PROVIDER_NOT_FOUND"
+  | "PROVIDER_CONFIG_INVALID"
   | "BINDING_NOT_FOUND"
   | "API_KEY_MISSING"
   | "PROVIDER_HTTP_ERROR"

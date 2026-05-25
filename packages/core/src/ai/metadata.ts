@@ -1,7 +1,7 @@
 import type { ProviderRegistry } from "../provider/registry.js";
 import type { RoleRegistry } from "../roles/role-registry.js";
 import { runRole } from "../roles/run-role.js";
-import type { RawCandidate } from "../types.js";
+import type { Feature, RawCandidate, TokenUsage } from "../types.js";
 
 export interface MetadataProposal {
   title: string;
@@ -15,6 +15,12 @@ export async function proposeMetadata(args: {
   candidate: RawCandidate;
   fallbackTitle: string;
   signal?: AbortSignal;
+  onUsage?: (args: {
+    providerId: string;
+    feature: Feature;
+    model: string;
+    usage: TokenUsage;
+  }) => void | Promise<void>;
 }): Promise<MetadataProposal> {
   const { candidate, fallbackTitle } = args;
   const opts: Parameters<typeof runRole>[0] = {
@@ -31,6 +37,14 @@ export async function proposeMetadata(args: {
   if (args.signal) opts.signal = args.signal;
   try {
     const r = await runRole(opts);
+    if (r.usage) {
+      await args.onUsage?.({
+        providerId: r.role.providerId,
+        feature: "inbox_metadata",
+        model: r.role.modelName,
+        usage: r.usage,
+      });
+    }
     return parseProposal(r.output) ?? fallbackProposal(candidate, fallbackTitle);
   } catch {
     return fallbackProposal(candidate, fallbackTitle);

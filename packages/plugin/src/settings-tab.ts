@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type AetherPlugin from "./main.js";
 import {
   PROVIDER_PRESETS,
@@ -11,6 +11,9 @@ import { ApiKeyModal } from "./modals/api-key-modal.js";
 import { RoleEditorModal } from "./modals/role-editor.js";
 import { RebuildPromptModal } from "./modals/rebuild-prompt.js";
 import { setLocale, t } from "./i18n/index.js";
+import { runRebuildJob, runRefreshIndexJob } from "./ui/job-tracker.js";
+import { chooseModelForUse, mergeModels, type ModelUse } from "./ui/model-selection.js";
+import { openExternalLink } from "./ui/external-link.js";
 
 type Section = "quickstart" | "providers" | "roles" | "advanced";
 
@@ -27,6 +30,7 @@ export class AetherSettingsTab extends PluginSettingTab {
   private modelCache = new Map<string, string[]>();
   private testingProviders = new Set<string>();
   private currentSection: Section = "quickstart";
+  private expandedProviderId = "";
   /** Quick Start 里「绑定向导」当前选择，未保存到 settings 直到点应用。 */
   private bindWizard = { chatProviderId: "", embeddingProviderId: "" };
 
@@ -90,9 +94,7 @@ export class AetherSettingsTab extends PluginSettingTab {
    * 持久化 + 应用。会触发整个 Settings 重新渲染——任何变更影响其他控件状态时必须用它。
    * （比如：切预设要让 baseUrl 行换形态、删 Provider 要让卡片消失。）
    */
-  private async patch(
-    update: (s: ReturnType<typeof this.snapshot>) => void,
-  ): Promise<void> {
+  private async patch(update: (s: ReturnType<typeof this.snapshot>) => void): Promise<void> {
     const next = this.snapshot();
     update(next);
     await this.plugin.core.settings.save(next);
@@ -104,9 +106,7 @@ export class AetherSettingsTab extends PluginSettingTab {
   /**
    * 持久化 + 应用，但不重新渲染。文本输入用这个，避免每打一个字 input 失焦。
    */
-  private async patchSilent(
-    update: (s: ReturnType<typeof this.snapshot>) => void,
-  ): Promise<void> {
+  private async patchSilent(update: (s: ReturnType<typeof this.snapshot>) => void): Promise<void> {
     const next = this.snapshot();
     update(next);
     await this.plugin.core.settings.save(next);
@@ -184,33 +184,34 @@ export class AetherSettingsTab extends PluginSettingTab {
       cls: "setting-item-description",
     });
 
-    // 默认值：chat 取第一个 recommendedFor.chat 的 / embedding 同理 / 都没找到取第一个
+    // 默认值：chat 取第一个 recommendedFor.chat 的；embedding 必须明确支持，避免把 chat-only 服务商绑定成向量模型。
     const fallback = providers[0]!.id;
+    const chatProviders = providers.filter((p) => providerSupportsUse(p, "chat"));
+    const embeddingProviders = providers.filter((p) => providerSupportsUse(p, "embedding"));
     if (!this.bindWizard.chatProviderId) {
-      this.bindWizard.chatProviderId =
-        providers.find((p) => {
-          const ps = p.kind ? findPresetById(p.kind) : undefined;
-          return ps?.recommendedFor.chat;
-        })?.id ?? fallback;
+      this.bindWizard.chatProviderId = chatProviders[0]?.id ?? fallback;
     }
     if (!this.bindWizard.embeddingProviderId) {
-      this.bindWizard.embeddingProviderId =
-        providers.find((p) => {
-          const ps = p.kind ? findPresetById(p.kind) : undefined;
-          return ps?.recommendedFor.embedding;
-        })?.id ?? fallback;
+      this.bindWizard.embeddingProviderId = embeddingProviders[0]?.id ?? "";
+    }
+    if (!embeddingProviders.some((p) => p.id === this.bindWizard.embeddingProviderId)) {
+      this.bindWizard.embeddingProviderId = embeddingProviders[0]?.id ?? "";
     }
 
     const mkRow = (
       label: string,
       desc: string,
       key: "chatProviderId" | "embeddingProviderId",
+      options: ProviderConfig[],
     ): void => {
       new Setting(root)
         .setName(label)
         .setDesc(desc)
         .addDropdown((d) => {
-          for (const p of providers) {
+          if (options.length === 0 && key === "embeddingProviderId") {
+            d.addOption("", t("settings.quickStart.noEmbeddingProvider"));
+          }
+          for (const p of options) {
             d.addOption(p.id, p.name || p.kind || p.id);
           }
           d.setValue(this.bindWizard[key]);
@@ -223,12 +224,20 @@ export class AetherSettingsTab extends PluginSettingTab {
       t("settings.quickStart.bindChat"),
       t("settings.quickStart.bindChat.desc"),
       "chatProviderId",
+      chatProviders.length > 0 ? chatProviders : providers,
     );
     mkRow(
       t("settings.quickStart.bindEmbedding"),
       t("settings.quickStart.bindEmbedding.desc"),
       "embeddingProviderId",
+      embeddingProviders,
     );
+    if (embeddingProviders.length === 0) {
+      root.createEl("p", {
+        text: t("settings.quickStart.noEmbeddingProvider.desc"),
+        cls: "setting-item-description",
+      });
+    }
 
     new Setting(root).addButton((b) => {
       b.setButtonText(t("settings.quickStart.applyBind"))
@@ -244,7 +253,9 @@ export class AetherSettingsTab extends PluginSettingTab {
     if (!chatId && !embedId) return;
     const providers = this.plugin.core.settings.current.providers;
     const chatProvider = providers.find((p) => p.id === chatId);
-    const embedProvider = providers.find((p) => p.id === embedId);
+    const embedProvider = providers.find(
+      (p) => p.id === embedId && providerSupportsUse(p, "embedding"),
+    );
     if (!chatProvider && !embedProvider) {
       new Notice(t("settings.bindings.empty"), 4000);
       return;
@@ -255,18 +266,35 @@ export class AetherSettingsTab extends PluginSettingTab {
         const r = s.roles.find((x) => x.id === id);
         if (!r) return;
         r.providerId = providerId;
-        if (!r.modelName) r.modelName = model;
+        r.modelName = model;
       };
       if (embedProvider) {
         const ps = embedProvider.kind ? findPresetById(embedProvider.kind) : undefined;
-        const model =
-          this.modelCache.get(embedProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
+        const model = chooseModelForUse(
+          this.modelCache.get(embedProvider.id),
+          ps?.fallbackModels,
+          "embedding",
+          { allowUnclassifiedEmbedding: !ps || ps.id === "custom" },
+        );
+        if (!model) return;
         setRole("embedding", embedProvider.id, model);
       }
       if (chatProvider) {
         const ps = chatProvider.kind ? findPresetById(chatProvider.kind) : undefined;
-        const model = this.modelCache.get(chatProvider.id)?.[0] ?? ps?.fallbackModels?.[0] ?? "";
-        for (const id of ["summarize", "rewrite", "extract", "inbox_metadata"]) {
+        const model = chooseModelForUse(
+          this.modelCache.get(chatProvider.id),
+          ps?.fallbackModels,
+          "chat",
+        );
+        if (!model) return;
+        for (const id of [
+          "summarize",
+          "rewrite",
+          "extract",
+          "critique",
+          "answer",
+          "inbox_metadata",
+        ]) {
           setRole(id, chatProvider.id, model);
         }
       }
@@ -284,6 +312,7 @@ export class AetherSettingsTab extends PluginSettingTab {
     const id = newUlid();
     const apiKeyRef = `key:${id}`;
     const oldKey = this.plugin.core.settings.current.apiKeys[p.apiKeyRef] ?? "";
+    this.expandedProviderId = id;
     await this.patch((s) => {
       s.providers.push({
         ...p,
@@ -314,12 +343,17 @@ export class AetherSettingsTab extends PluginSettingTab {
       s.providers.push(config);
     });
     this.currentSection = "providers";
+    this.expandedProviderId = id;
     this.display();
     new Notice(t("settings.quickStart.providerAdded", { name: ps.displayName }), 4000);
   }
 
   // ---- Providers --------------------------------------------------------
   private renderProviders(root: HTMLElement): void {
+    root.createDiv({
+      cls: "aether-provider-risk-note",
+      text: t("settings.providers.riskHint"),
+    });
     const providers = this.plugin.core.settings.current.providers;
     if (providers.length === 0) {
       root.createEl("p", {
@@ -335,6 +369,7 @@ export class AetherSettingsTab extends PluginSettingTab {
         .setCta()
         .onClick(() => {
           const id = newUlid();
+          this.expandedProviderId = id;
           this.patch((s) => {
             s.providers.push({
               id,
@@ -361,7 +396,10 @@ export class AetherSettingsTab extends PluginSettingTab {
 
     // —— 折叠卡片：summary 一行显示核心状态，默认收起 ——
     const details = root.createEl("details", { cls: "aether-provider-card" });
+    details.open = p.id === this.expandedProviderId;
     const summary = details.createEl("summary", { cls: "aether-provider-summary" });
+    const toggleIcon = summary.createSpan({ cls: "aether-provider-toggle-icon" });
+    setIcon(toggleIcon, "chevron-right");
     summary.createSpan({ cls: "aether-provider-summary-name", text: displayName });
     const badges = summary.createSpan({ cls: "aether-provider-summary-badges" });
     badges.createSpan({
@@ -393,13 +431,20 @@ export class AetherSettingsTab extends PluginSettingTab {
       this.patch((s) => {
         s.providers = s.providers.filter((x) => x.id !== p.id);
         for (const r of s.roles) {
-          if (r.providerId === p.id) { r.providerId = ""; r.modelName = ""; }
+          if (r.providerId === p.id) {
+            r.providerId = "";
+            r.modelName = "";
+          }
         }
         delete s.apiKeys[p.apiKeyRef];
       });
     };
 
     const card = details; // 内容区就是 details 本身
+    card.createDiv({
+      cls: "aether-provider-card-risk-note",
+      text: t("settings.providers.riskHint"),
+    });
 
     // —— 行 0：名称 ——
     new Setting(card)
@@ -417,28 +462,26 @@ export class AetherSettingsTab extends PluginSettingTab {
           ),
       );
 
-    new Setting(card)
-      .setName(t("settings.providers.preset"))
-      .addDropdown((d) => {
-        d.addOption("", t("settings.providers.preset.placeholder"));
-        for (const ps of PROVIDER_PRESETS) d.addOption(ps.id, ps.displayName);
-        d.setValue(p.kind ?? "");
-        d.onChange((value) =>
-          this.patch((s) => {
-            const found = s.providers.find((x) => x.id === p.id);
-            if (!found) return;
-            found.kind = value;
-            const ps = findPresetById(value);
-            if (ps) {
-              // 仅当用户没自定义名称时，才用预设名作为默认值
-              if (!found.name || found.name === preset?.displayName) {
-                found.name = ps.displayName;
-              }
-              if (ps.id !== "custom") found.baseUrl = ps.baseUrl;
+    new Setting(card).setName(t("settings.providers.preset")).addDropdown((d) => {
+      d.addOption("", t("settings.providers.preset.placeholder"));
+      for (const ps of PROVIDER_PRESETS) d.addOption(ps.id, ps.displayName);
+      d.setValue(p.kind ?? "");
+      d.onChange((value) =>
+        this.patch((s) => {
+          const found = s.providers.find((x) => x.id === p.id);
+          if (!found) return;
+          found.kind = value;
+          const ps = findPresetById(value);
+          if (ps) {
+            // 仅当用户没自定义名称时，才用预设名作为默认值
+            if (!found.name || found.name === preset?.displayName) {
+              found.name = ps.displayName;
             }
-          }),
-        );
-      });
+            if (ps.id !== "custom") found.baseUrl = ps.baseUrl;
+          }
+        }),
+      );
+    });
 
     const baseUrlSetting = new Setting(card).setName(t("settings.providers.baseUrl"));
     if (preset && preset.id !== "custom") {
@@ -477,7 +520,12 @@ export class AetherSettingsTab extends PluginSettingTab {
         b
           .setIcon("external-link")
           .setTooltip(t("settings.providers.signup"))
-          .onClick(() => window.open(signupUrl, "_blank")),
+          .onClick(() =>
+            openExternalLink(signupUrl, {
+              failureMessage: (error) => t("settings.providers.signupOpenFailed", { error }),
+              notify: (message, timeoutMs) => new Notice(message, timeoutMs),
+            }),
+          ),
       );
     }
 
@@ -566,19 +614,13 @@ export class AetherSettingsTab extends PluginSettingTab {
 
     row.onclick = () => {
       const before = this.plugin.core.settings.current.roles.find((x) => x.id === r.id);
-      new RoleEditorModal(
-        this.app,
-        this.plugin,
-        r,
-        this.modelCache,
-        async (next) => {
-          await this.patch((s) => {
-            const idx = s.roles.findIndex((x) => x.id === next.id);
-            if (idx >= 0) s.roles[idx] = next;
-          });
-          this.maybePromptRebuild(before, next);
-        },
-      ).open();
+      new RoleEditorModal(this.app, this.plugin, r, this.modelCache, async (next) => {
+        await this.patch((s) => {
+          const idx = s.roles.findIndex((x) => x.id === next.id);
+          if (idx >= 0) s.roles[idx] = next;
+        });
+        this.maybePromptRebuild(before, next);
+      }).open();
     };
 
     if (!r.builtIn) {
@@ -614,20 +656,14 @@ export class AetherSettingsTab extends PluginSettingTab {
     await this.patch((s) => {
       s.roles.push(draft);
     });
-    new RoleEditorModal(
-      this.app,
-      this.plugin,
-      draft,
-      this.modelCache,
-      async (next) => {
-        const before = this.plugin.core.settings.current.roles.find((x) => x.id === next.id);
-        await this.patch((s) => {
-          const idx = s.roles.findIndex((x) => x.id === next.id);
-          if (idx >= 0) s.roles[idx] = next;
-        });
-        this.maybePromptRebuild(before, next);
-      },
-    ).open();
+    new RoleEditorModal(this.app, this.plugin, draft, this.modelCache, async (next) => {
+      const before = this.plugin.core.settings.current.roles.find((x) => x.id === next.id);
+      await this.patch((s) => {
+        const idx = s.roles.findIndex((x) => x.id === next.id);
+        if (idx >= 0) s.roles[idx] = next;
+      });
+      this.maybePromptRebuild(before, next);
+    }).open();
   }
 
   /**
@@ -637,11 +673,7 @@ export class AetherSettingsTab extends PluginSettingTab {
   private maybePromptRebuild(prev: AiRole | undefined, next: AiRole): void {
     if (next.id !== "embedding") return;
     if (!next.providerId || !next.modelName) return;
-    if (
-      prev &&
-      prev.providerId === next.providerId &&
-      prev.modelName === next.modelName
-    ) {
+    if (prev && prev.providerId === next.providerId && prev.modelName === next.modelName) {
       return;
     }
     const chunkCount = this.plugin.core.store.allChunks().length;
@@ -655,7 +687,7 @@ export class AetherSettingsTab extends PluginSettingTab {
 
   // ---- Advanced ---------------------------------------------------------
   private renderAdvanced(root: HTMLElement): void {
-    new Setting(root)
+    const folderSetting = new Setting(root)
       .setName(t("settings.advanced.inboxFolder"))
       .setDesc(t("settings.advanced.inboxFolder.desc"))
       .addText((tx) =>
@@ -664,8 +696,10 @@ export class AetherSettingsTab extends PluginSettingTab {
             s.ui.aetherInboxFolder = v;
           }),
         ),
-      )
-      .addExtraButton((b) =>
+      );
+
+    if (this.plugin.core.canOpenImportFolder()) {
+      folderSetting.addExtraButton((b) =>
         b
           .setIcon("folder-open")
           .setTooltip(t("settings.advanced.inboxFolder.open"))
@@ -676,7 +710,7 @@ export class AetherSettingsTab extends PluginSettingTab {
               return;
             }
             try {
-              await this.plugin.core.host.openFolder(folder);
+              await this.plugin.core.openImportFolder();
             } catch (e) {
               new Notice(
                 t("settings.advanced.inboxFolder.openFailed", { error: (e as Error).message }),
@@ -685,6 +719,7 @@ export class AetherSettingsTab extends PluginSettingTab {
             }
           }),
       );
+    }
 
     new Setting(root).setName(t("settings.advanced.scope")).addDropdown((d) =>
       d
@@ -714,15 +749,82 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
 
     new Setting(root)
+      .setName(t("settings.advanced.monthlyTokenWarn"))
+      .setDesc(t("settings.advanced.monthlyTokenWarn.desc"))
+      .addText((tx) =>
+        tx
+          .setPlaceholder(t("settings.advanced.monthlyTokenWarn.placeholder"))
+          .setValue(
+            this.plugin.core.settings.current.budgets.monthlyTokenWarn === null
+              ? ""
+              : String(this.plugin.core.settings.current.budgets.monthlyTokenWarn),
+          )
+          .onChange((v) =>
+            this.patchSilent((s) => {
+              const trimmed = v.trim();
+              if (trimmed === "") {
+                s.budgets.monthlyTokenWarn = null;
+                return;
+              }
+              const parsed = Number(trimmed);
+              if (Number.isFinite(parsed) && parsed > 0) {
+                s.budgets.monthlyTokenWarn = Math.floor(parsed);
+              }
+            }),
+          ),
+      );
+
+    new Setting(root)
+      .setName(t("settings.advanced.refresh"))
+      .setDesc(t("settings.advanced.refresh.desc"))
+      .addButton((b) =>
+        b.setButtonText(t("settings.advanced.refresh.button")).onClick(async () => {
+          b.setDisabled(true);
+          try {
+            await runRefreshIndexJob(this.plugin, {
+              onDone: () => {
+                b.setDisabled(false);
+              },
+              onCancel: () => {
+                b.setDisabled(false);
+              },
+              onError: () => {
+                b.setDisabled(false);
+              },
+              onAlreadyRunning: () => {
+                b.setDisabled(false);
+              },
+            });
+          } finally {
+            b.setDisabled(false);
+          }
+        }),
+      );
+
+    new Setting(root)
       .setName(t("settings.advanced.rebuild"))
       .setDesc(t("settings.advanced.rebuild.desc"))
       .addButton((b) =>
         b.setButtonText(t("settings.advanced.rebuild.button")).onClick(async () => {
-          const r = await this.plugin.core.rebuildAll();
-          new Notice(
-            t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
-            6000,
-          );
+          b.setDisabled(true);
+          try {
+            await runRebuildJob(this.plugin, {
+              onDone: () => {
+                b.setDisabled(false);
+              },
+              onCancel: () => {
+                b.setDisabled(false);
+              },
+              onError: () => {
+                b.setDisabled(false);
+              },
+              onAlreadyRunning: () => {
+                b.setDisabled(false);
+              },
+            });
+          } finally {
+            b.setDisabled(false);
+          }
         }),
       );
   }
@@ -731,20 +833,8 @@ export class AetherSettingsTab extends PluginSettingTab {
   // (已被 renderBindWizard / applyBindWizard 取代)
 }
 
-function mergeModels(live: string[], fallback: string[] | undefined): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const m of live) {
-    if (!seen.has(m)) {
-      seen.add(m);
-      out.push(m);
-    }
-  }
-  for (const m of fallback ?? []) {
-    if (!seen.has(m)) {
-      seen.add(m);
-      out.push(m);
-    }
-  }
-  return out;
+function providerSupportsUse(provider: ProviderConfig, use: ModelUse): boolean {
+  const preset = provider.kind ? findPresetById(provider.kind) : undefined;
+  if (!preset || preset.id === "custom") return true;
+  return Boolean(preset.recommendedFor[use]);
 }

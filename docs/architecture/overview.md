@@ -3,7 +3,7 @@
 This document is the **canonical orientation** for new contributors. Read it
 once; come back to it whenever you wonder "where does X belong?".
 
-## Goals (v0.1)
+## Goals (v0.2)
 
 - Be useful inside Obsidian on day one — no separate server, no native deps.
 - Make every side effect plug-replaceable via `IHostAdapter`.
@@ -37,12 +37,13 @@ once; come back to it whenever you wonder "where does X belong?".
 ### Search
 
 ```
-User types → SearchView debounces 300 ms
-            → AetherCore.search(req)
-              → ProviderRegistry.resolve("embedding")
+User types → HubView debounces 300 ms
+            → AetherCore.searchWithMeta(req)
+              → RoleRegistry.resolve("embedding")
+              → ProviderRegistry.getProvider(role.providerId)
               → Provider.embed(query)
               → OramaIndexStore.searchHybrid(text + vector)
-            → SearchView renders cards (highlight hits)
+            → HubView renders mode metadata + cards (highlight hits)
 ```
 
 ### Import
@@ -51,22 +52,23 @@ User types → SearchView debounces 300 ms
 User pastes text in ImportModal
   → AetherCore.importSource(source)
     → SourceConnector.parse → AsyncIterable<RawCandidate>
-    → For each: proposeMetadata (AI feature=inbox_metadata)
+    → For each: proposeMetadata (AI role=inbox_metadata)
                 detectDuplicate (vector cosine ≥ 0.92)
                 InboxStore.addItem (status=pending)
     → InboxStore.save() (persisted to plugin data)
-  → InboxView re-renders on next layout-change
-  → User clicks Approve
-  → AetherCore.approveInboxItem(itemId)
-    → Write markdown file via host.writeFile
+  → ImportPreviewModal renders editable preview
+  → User chooses create / merge / discard and clicks write selected
+  → AetherCore.approveInboxItem(itemId) or mergeInboxItem(itemId, noteId)
+    → Write markdown file or merge into target via host.writeFile
     → reindexNote (chunk + embed + insert)
     → InboxStore.updateStatus → maybeArchive
+  → ImportResultModal shows written / merged / failed items
 ```
 
 ## Why Obsidian Plugin first?
 
-We considered three forms: Tauri standalone, hybrid, and plugin. v0.1 ships as
-a plugin because:
+We considered three forms: Tauri standalone, hybrid, and plugin. The project
+shipped first as an Obsidian plugin because:
 
 - **Editor reuse.** Obsidian already provides best-in-class markdown editing.
 - **Time to value.** A plugin ships in weeks; a standalone app in months.
@@ -85,7 +87,7 @@ A standalone Tauri app is a future direction. Because business logic lives in
 | Hybrid index (orama wrapper) | `packages/core/src/index-store/`                            |
 | Import sources               | `packages/core/src/connectors/`                             |
 | Inbox state machine          | `packages/core/src/import/`                                 |
-| Per-feature AI helpers       | `packages/core/src/ai/`                                     |
+| AI roles + thin helpers      | `packages/core/src/roles/`, `packages/core/src/ai/`         |
 | Settings schema + migration  | `packages/core/src/persistence/`                            |
 | Façade wiring                | `packages/core/src/app.ts`                                  |
 | Obsidian binding             | `packages/plugin/src/host-adapter.ts`                       |

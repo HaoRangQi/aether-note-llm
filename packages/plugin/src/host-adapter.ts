@@ -1,7 +1,9 @@
-import type { App, Plugin, TFile } from "obsidian";
+import type { App, TFile } from "obsidian";
 import { Notice, normalizePath, requestUrl } from "obsidian";
 import type { IHostAdapter, NoticeOptions, VaultFileMeta } from "@aether/core";
 import { newUlid } from "@aether/core";
+import type { PluginDataStore } from "./plugin-data-store.js";
+import { joinVaultFolderPath, normalizeExternalWebUrl } from "./ui/vault-path.js";
 
 /**
  * Maps @aether/core IHostAdapter onto the Obsidian Plugin API.
@@ -10,7 +12,7 @@ import { newUlid } from "@aether/core";
 export class ObsidianHostAdapter implements IHostAdapter {
   constructor(
     private readonly app: App,
-    private readonly plugin: Plugin,
+    private readonly dataStore: PluginDataStore,
   ) {}
 
   async listMarkdown(dir: string): Promise<VaultFileMeta[]> {
@@ -51,7 +53,7 @@ export class ObsidianHostAdapter implements IHostAdapter {
     const p = normalizePath(path);
     const exists = this.app.vault.getAbstractFileByPath(p);
     if (exists) return;
-    
+
     // Recursively create parent directories
     const parts = p.split("/");
     for (let i = 1; i <= parts.length; i++) {
@@ -70,14 +72,11 @@ export class ObsidianHostAdapter implements IHostAdapter {
   }
 
   async readData(key: string): Promise<string | null> {
-    const data = (await this.plugin.loadData()) as Record<string, string> | null;
-    return data?.[key] ?? null;
+    return this.dataStore.getString(key);
   }
 
   async writeData(key: string, value: string): Promise<void> {
-    const data = ((await this.plugin.loadData()) as Record<string, string> | null) ?? {};
-    data[key] = value;
-    await this.plugin.saveData(data);
+    await this.dataStore.setString(key, value);
   }
 
   async fetch(input: string, init?: RequestInit): Promise<Response> {
@@ -105,17 +104,31 @@ export class ObsidianHostAdapter implements IHostAdapter {
   }
 
   async openExternal(url: string): Promise<void> {
-    window.open(url, "_blank");
+    const safeUrl = normalizeExternalWebUrl(url);
+    const shell = typeof require === "function" ? require("electron")?.shell : undefined;
+    if (shell?.openExternal) {
+      await shell.openExternal(safeUrl);
+      return;
+    }
+    window.open(safeUrl, "_blank", "noopener,noreferrer");
+  }
+
+  canOpenFolder(): boolean {
+    const adapter = this.app.vault.adapter as { basePath?: string };
+    return Boolean(
+      adapter.basePath && typeof require === "function" && typeof window !== "undefined",
+    );
   }
 
   async openFolder(vaultPath: string): Promise<void> {
     try {
-      const vaultRoot = this.app.vault.adapter.basePath || "";
+      const adapter = this.app.vault.adapter as { basePath?: string };
+      const vaultRoot = adapter.basePath || "";
       if (!vaultRoot) throw new Error("Cannot determine vault root path");
-      
-      const folderPath = `${vaultRoot}/${vaultPath}`.replace(/\/+/g, "/");
+
+      const folderPath = joinVaultFolderPath(vaultRoot, vaultPath);
       console.log("[Aether] Opening folder:", folderPath);
-      
+
       const { shell } = require("electron");
       const result = await shell.openPath(folderPath);
       if (result) {

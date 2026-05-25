@@ -1,6 +1,16 @@
+import { AetherError } from "../errors.js";
 import type { ProviderRegistry } from "../provider/registry.js";
 import type { RoleRegistry } from "../roles/role-registry.js";
-import type { HitChunk, Note, SearchHit, SearchRequest } from "../types.js";
+import type {
+  HitChunk,
+  Note,
+  SearchFallbackReason,
+  SearchHit,
+  SearchMeta,
+  SearchRequest,
+  SearchResponse,
+  TokenUsage,
+} from "../types.js";
 import type { OramaIndexStore } from "../index-store/orama-store.js";
 
 export interface SearchEngineDeps {
@@ -9,12 +19,22 @@ export interface SearchEngineDeps {
   store: OramaIndexStore;
   /** Returns 0..1 — what fraction of chunks are stale; SearchEngine biases towards BM25 when high. */
   getStaleRatio?: () => number;
+  onUsage?: (args: {
+    providerId: string;
+    feature: "embedding";
+    model: string;
+    usage: TokenUsage;
+  }) => void | Promise<void>;
 }
 
 export class SearchEngine {
   constructor(private readonly deps: SearchEngineDeps) {}
 
   async search(req: SearchRequest): Promise<SearchHit[]> {
+    return (await this.searchWithMeta(req)).hits;
+  }
+
+  async searchWithMeta(req: SearchRequest): Promise<SearchResponse> {
     const limit = req.limit ?? 20;
     const baseAlpha = req.alpha ?? 0.4;
     const staleRatio = this.deps.getStaleRatio?.() ?? 0;
@@ -25,19 +45,18 @@ export class SearchEngine {
         : baseAlpha,
     );
 
-    const role = this.deps.roles.resolve("embedding");
-    const provider = this.deps.registry.getProvider(role.providerId);
-    const embed = await provider.embed({ inputs: [req.query], model: role.modelName });
-    const vector = embed.vectors[0] ?? [];
-
-    const searchArgs: Parameters<typeof this.deps.store.searchHybrid>[0] = {
+    const { rawHits, fallbackReason } = await this.searchWithBestAvailableIndex({
       query: req.query,
-      vector,
+      filters: req.filters,
       limit: limit * 2,
       alpha,
+    });
+    const meta: SearchMeta = {
+      mode: fallbackReason ? "bm25" : staleRatio > 0.3 ? "stale-biased" : "hybrid",
+      alpha,
+      staleRatio,
+      fallbackReason,
     };
-    if (req.filters) searchArgs.filters = req.filters;
-    const rawHits = await this.deps.store.searchHybrid(searchArgs);
 
     // Group chunks by note, keep top chunks per note (max 3).
     const byNote = new Map<string, { note: Note; chunks: HitChunk[]; score: number }>();
@@ -49,6 +68,8 @@ export class SearchEngine {
         chunkId: h.chunkId,
         headingPath: h.headingPath,
         excerpt: excerpt(h.content, req.query),
+        content: h.content,
+        tokenCount: h.tokenCount,
         score: h.score,
       };
       if (existing) {
@@ -59,7 +80,7 @@ export class SearchEngine {
       }
     }
 
-    return [...byNote.values()]
+    const hits = [...byNote.values()]
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map(({ note, chunks, score }) => ({
@@ -73,6 +94,78 @@ export class SearchEngine {
         topChunks: chunks,
         score,
       }));
+    return { hits, meta };
+  }
+
+  private async searchWithBestAvailableIndex(args: {
+    query: string;
+    filters: SearchRequest["filters"];
+    limit: number;
+    alpha: number;
+  }): Promise<{
+    rawHits: Awaited<ReturnType<OramaIndexStore["searchHybrid"]>>;
+    fallbackReason: SearchFallbackReason | null;
+  }> {
+    try {
+      const role = this.deps.roles.resolve("embedding");
+      const provider = this.deps.registry.getProvider(role.providerId);
+      const embed = await provider.embed({ inputs: [args.query], model: role.modelName });
+      if (embed.usage) {
+        await this.deps.onUsage?.({
+          providerId: provider.id,
+          feature: "embedding",
+          model: role.modelName,
+          usage: embed.usage,
+        });
+      }
+      const vector = embed.vectors[0] ?? [];
+
+      const searchArgs: Parameters<typeof this.deps.store.searchHybrid>[0] = {
+        query: args.query,
+        vector,
+        limit: args.limit,
+        alpha: args.alpha,
+      };
+      if (args.filters) searchArgs.filters = args.filters;
+      return {
+        rawHits: await this.deps.store.searchHybrid(searchArgs),
+        fallbackReason: null,
+      };
+    } catch (e) {
+      if (e instanceof AetherError && e.code === "EMBED_DIM_MISMATCH") {
+        throw e;
+      }
+      const fallbackReason = toFallbackReason(e);
+      if (fallbackReason) {
+        const searchArgs: Parameters<typeof this.deps.store.searchText>[0] = {
+          query: args.query,
+          limit: args.limit,
+        };
+        if (args.filters) searchArgs.filters = args.filters;
+        return {
+          rawHits: await this.deps.store.searchText(searchArgs),
+          fallbackReason,
+        };
+      }
+      throw e;
+    }
+  }
+}
+
+function toFallbackReason(e: unknown): SearchFallbackReason | null {
+  if (!(e instanceof AetherError)) return null;
+  switch (e.code) {
+    case "BINDING_NOT_FOUND":
+      return "embedding-role-missing";
+    case "PROVIDER_NOT_FOUND":
+      return "provider-missing";
+    case "API_KEY_MISSING":
+      return "api-key-missing";
+    case "PROVIDER_CONFIG_INVALID":
+    case "PROVIDER_HTTP_ERROR":
+      return "provider-error";
+    default:
+      return null;
   }
 }
 

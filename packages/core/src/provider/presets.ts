@@ -21,6 +21,8 @@ export interface ProviderPreset {
     chat?: boolean;
     embedding?: boolean;
   };
+  /** 本地 OpenAI-compatible 服务通常不需要 API key。默认 true。 */
+  requiresApiKey?: boolean;
   /** 若 listModels 失败（如 DeepSeek 不返回 embedding 模型），用这些作为兜底 */
   fallbackModels?: string[];
 }
@@ -43,6 +45,30 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     fallbackModels: ["BAAI/bge-m3", "BAAI/bge-large-zh-v1.5"],
   },
   {
+    id: "zhipu",
+    displayName: "智谱 GLM",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    signupUrl: "https://open.bigmodel.cn/",
+    recommendedFor: { chat: true, embedding: true },
+    fallbackModels: ["glm-4-flash", "embedding-3"],
+  },
+  {
+    id: "moonshot",
+    displayName: "Moonshot Kimi",
+    baseUrl: "https://api.moonshot.cn/v1",
+    signupUrl: "https://platform.moonshot.cn/",
+    recommendedFor: { chat: true },
+    fallbackModels: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+  },
+  {
+    id: "openrouter",
+    displayName: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    signupUrl: "https://openrouter.ai/",
+    recommendedFor: { chat: true },
+    fallbackModels: ["openai/gpt-4o-mini", "anthropic/claude-3.5-haiku"],
+  },
+  {
     id: "openai",
     displayName: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
@@ -56,6 +82,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://localhost:11434/v1",
     signupUrl: "https://ollama.com/",
     recommendedFor: { chat: true, embedding: true },
+    requiresApiKey: false,
+    fallbackModels: [],
+  },
+  {
+    id: "lmstudio",
+    displayName: "LM Studio（本地模型）",
+    baseUrl: "http://localhost:1234/v1",
+    signupUrl: "https://lmstudio.ai/",
+    recommendedFor: { chat: true, embedding: true },
+    requiresApiKey: false,
     fallbackModels: [],
   },
   {

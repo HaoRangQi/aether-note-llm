@@ -1,12 +1,54 @@
-import { Notice, type Editor } from "obsidian";
+import { Notice, SuggestModal, setIcon, type App, type Editor } from "obsidian";
 import type AetherPlugin from "./main.js";
-import { ImportModal } from "./modals/import-modal.js";
+import { ImportModal, openPendingImportItems } from "./modals/import-modal.js";
 import { RewriteResultModal } from "./modals/rewrite-result-modal.js";
 import { DiagnosticsModal } from "./modals/diagnostics-modal.js";
+import { JobHistoryModal } from "./modals/job-history-modal.js";
+import { UsageModal } from "./modals/usage-modal.js";
 import { HUB_VIEW_TYPE } from "./views/hub-view.js";
 import { AiActivityIndicator } from "./ui/ai-activity.js";
+import { runRebuildJob, runRefreshIndexJob } from "./ui/job-tracker.js";
 import { t } from "./i18n/index.js";
 import type { AiRole } from "@aether/core";
+
+class RoleSuggestModal extends SuggestModal<AiRole> {
+  constructor(
+    app: App,
+    private readonly plugin: AetherPlugin,
+    private readonly editor: Editor,
+  ) {
+    super(app);
+    this.setPlaceholder(t("modal.roleSuggest.placeholder"));
+    this.emptyStateText = t("modal.roleSuggest.empty");
+  }
+
+  getSuggestions(query: string): AiRole[] {
+    const q = query.trim().toLowerCase();
+    const roles = this.plugin.core.listEditorRoles();
+    if (!q) return roles;
+    return roles.filter((role) => `${role.name} ${role.description}`.toLowerCase().includes(q));
+  }
+
+  renderSuggestion(role: AiRole, el: HTMLElement): void {
+    const row = el.createDiv({ cls: "aether-role-suggestion" });
+    const icon = row.createSpan({ cls: "aether-role-suggestion-icon" });
+    setIcon(icon, role.icon || "sparkles");
+    const main = row.createDiv({ cls: "aether-role-suggestion-main" });
+    main.createDiv({ cls: "aether-role-suggestion-name", text: role.name });
+    if (role.description) {
+      main.createDiv({ cls: "aether-role-suggestion-desc", text: role.description });
+    }
+  }
+
+  onChooseSuggestion(role: AiRole): void {
+    const live = this.plugin.core.listEditorRoles().find((r) => r.id === role.id);
+    if (!live) {
+      new Notice(t("ai.roleUnavailable"), 4000);
+      return;
+    }
+    void runRoleOnSelection(this.plugin, this.editor, live);
+  }
+}
 
 /**
  * 编辑器选区上跑某个 AI 角色，结果展示给用户决定是否采纳。
@@ -37,6 +79,11 @@ async function runRoleOnSelection(
 
   try {
     const out = await plugin.core.runRole(role.id, { selection: sel }, ac.signal);
+    if (ac.signal.aborted) {
+      indicator.hide("cancelled");
+      new Notice(t("ai.cancelled"), 3000);
+      return;
+    }
     indicator.hide("done");
     let text: string;
     if (Array.isArray(out)) {
@@ -50,11 +97,12 @@ async function runRoleOnSelection(
       editor.replaceSelection(replacement),
     ).open();
   } catch (e) {
-    indicator.hide("error");
     if (ac.signal.aborted) {
+      indicator.hide("cancelled");
       new Notice(t("ai.cancelled"), 3000);
       return;
     }
+    indicator.hide("error");
     new Notice(t("ai.failed", { error: (e as Error).message }), 5000);
   }
 }
@@ -86,21 +134,51 @@ export function registerCommands(plugin: AetherPlugin): void {
   });
 
   plugin.addCommand({
+    id: "pending-imports",
+    name: t("cmd.pendingImports"),
+    callback: () => {
+      openPendingImportItems(plugin.app, plugin);
+    },
+  });
+
+  plugin.addCommand({
     id: "rebuild-index",
     name: t("cmd.rebuild"),
-    callback: async () => {
-      const r = await plugin.core.rebuildAll();
-      new Notice(
-        t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
-        6000,
-      );
-    },
+    callback: () => void runRebuildJob(plugin),
+  });
+
+  plugin.addCommand({
+    id: "refresh-index-changes",
+    name: t("cmd.refreshIndex"),
+    callback: () => void runRefreshIndexJob(plugin),
   });
 
   plugin.addCommand({
     id: "diagnostics",
     name: t("cmd.diagnostics"),
     callback: () => new DiagnosticsModal(plugin.app, plugin).open(),
+  });
+  plugin.addCommand({
+    id: "job-history",
+    name: t("cmd.jobHistory"),
+    callback: () => new JobHistoryModal(plugin.app, plugin).open(),
+  });
+  plugin.addCommand({
+    id: "usage",
+    name: t("cmd.usage"),
+    callback: () => new UsageModal(plugin.app, plugin).open(),
+  });
+
+  plugin.addCommand({
+    id: "run-ai-role",
+    name: t("cmd.runAiRole"),
+    editorCallback: (editor: Editor) => {
+      if (!editor.getSelection()) {
+        new Notice(t("ai.selectFirst"), 3000);
+        return;
+      }
+      new RoleSuggestModal(plugin.app, plugin, editor).open();
+    },
   });
 
   // ---- AI 角色：动态注册 ----
@@ -111,7 +189,12 @@ export function registerCommands(plugin: AetherPlugin): void {
       id: `ai-role-${role.id}`,
       name: t("cmd.aiRolePrefix") + role.name,
       editorCallback: (editor: Editor) => {
-        void runRoleOnSelection(plugin, editor, role);
+        const live = plugin.core.listEditorRoles().find((r) => r.id === role.id);
+        if (!live) {
+          new Notice(t("ai.roleUnavailable"), 4000);
+          return;
+        }
+        void runRoleOnSelection(plugin, editor, live);
       },
     });
   }

@@ -37,10 +37,10 @@ export function migrateSettings(raw: unknown): PersistedSettings {
   let roles: AiRole[];
   if (version === 2 && Array.isArray(obj.roles) && obj.roles.length > 0) {
     roles = obj.roles.map(normalizeRole);
-    // 兜底：内置 5 个角色不能少（用户配置可能漏掉某个）
+    // 兜底：内置角色不能少（用户配置可能漏掉某个）
     for (const seed of BUILTIN_ROLE_SEEDS) {
       if (!roles.some((r) => r.id === seed.id)) {
-        roles.push(applyBindingToSeed(seed, bindings, now));
+        roles.push(applyExistingRoleToSeed(seed, roles, bindings, now));
       }
     }
   } else {
@@ -58,20 +58,30 @@ export function migrateSettings(raw: unknown): PersistedSettings {
         ? (obj.apiKeys as Record<string, string>)
         : {},
     ui: {
-      alpha: typeof obj.ui?.alpha === "number" ? obj.ui.alpha : 0.4,
+      alpha: normalizeAlpha(obj.ui?.alpha),
       aetherInboxFolder:
         typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
       scanScope: obj.ui?.scanScope === "aether-inbox-only" ? "aether-inbox-only" : "vault",
       language: obj.ui?.language === "en" ? "en" : "zh-CN",
     },
     budgets: {
-      monthlyTokenWarn:
-        typeof obj.budgets?.monthlyTokenWarn === "number" ? obj.budgets.monthlyTokenWarn : null,
+      monthlyTokenWarn: normalizeMonthlyTokenWarn(obj.budgets?.monthlyTokenWarn),
     },
     flags: {
       aiTrace: Boolean(obj.flags?.aiTrace),
     },
   };
+}
+
+function normalizeMonthlyTokenWarn(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : null;
+}
+
+function normalizeAlpha(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0.4;
+  return Math.min(1, Math.max(0, value));
 }
 
 /** 老配置没有 kind 字段；从 baseUrl 反查预设，找不到就标 "custom"。 */
@@ -88,18 +98,58 @@ function applyBindingToSeed(
   now: number,
 ): AiRole {
   const role = seedToRole(seed, now);
-  const b = bindings.find((x) => (x.feature as BuiltInRoleId) === seed.id);
+  const b = findBindingForSeed(seed.id, bindings);
   if (b) {
     role.providerId = b.providerId;
     role.modelName = b.modelName;
-    if (typeof b.params.temperature === "number") {
-      role.params.temperature = b.params.temperature;
+    const temperature = normalizeTemperature(b.params.temperature);
+    if (temperature !== undefined) {
+      role.params.temperature = temperature;
     }
-    if (typeof b.params.maxTokens === "number") {
-      role.params.maxTokens = b.params.maxTokens;
+    const maxTokens = normalizeMaxTokens(b.params.maxTokens);
+    if (maxTokens !== undefined) {
+      role.params.maxTokens = maxTokens;
     }
   }
   return role;
+}
+
+function findBindingForSeed(
+  seedId: BuiltInRoleId,
+  bindings: FeatureBinding[],
+): FeatureBinding | undefined {
+  const direct = bindings.find((x) => (x.feature as BuiltInRoleId) === seedId);
+  if (direct) return direct;
+  if (seedId !== "answer") return undefined;
+  return (
+    bindings.find((x) => x.feature === "summarize") ??
+    bindings.find((x) => x.feature === "rewrite") ??
+    bindings.find((x) => x.feature === "extract") ??
+    bindings.find((x) => x.feature === "critique") ??
+    bindings.find((x) => x.feature === "inbox_metadata")
+  );
+}
+
+function applyExistingRoleToSeed(
+  seed: (typeof BUILTIN_ROLE_SEEDS)[number],
+  roles: AiRole[],
+  bindings: FeatureBinding[],
+  now: number,
+): AiRole {
+  const role = applyBindingToSeed(seed, bindings, now);
+  if (seed.id !== "answer" || role.providerId) return role;
+  const source =
+    roles.find((r) => r.id === "summarize" && r.providerId && r.modelName) ??
+    roles.find((r) => r.id === "rewrite" && r.providerId && r.modelName) ??
+    roles.find((r) => r.id === "extract" && r.providerId && r.modelName) ??
+    roles.find((r) => r.id === "critique" && r.providerId && r.modelName) ??
+    roles.find((r) => r.id === "inbox_metadata" && r.providerId && r.modelName);
+  if (!source) return role;
+  return {
+    ...role,
+    providerId: source.providerId,
+    modelName: source.modelName,
+  };
 }
 
 /** 用户已存在的 role 配置可能缺字段，补齐默认值，避免运行时崩。 */
@@ -117,12 +167,39 @@ function normalizeRole(r: Partial<AiRole>): AiRole {
     promptTemplate: r.promptTemplate ?? seed?.promptTemplate ?? "",
     variables: Array.isArray(r.variables) ? r.variables : (seed?.variables ?? []),
     outputKind: r.outputKind ?? seed?.outputKind ?? "text",
-    params: r.params ?? seed?.params ?? {},
+    params: normalizeRoleParams(r.params ?? seed?.params ?? {}),
     enabled: r.enabled ?? true,
     showInEditor: r.showInEditor ?? seed?.showInEditor ?? true,
     createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
     updatedAt: typeof r.updatedAt === "number" ? r.updatedAt : Date.now(),
   };
+}
+
+function normalizeRoleParams(params: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...params };
+  if ("temperature" in normalized) {
+    const temperature = normalizeTemperature(normalized.temperature);
+    if (temperature === undefined) delete normalized.temperature;
+    else normalized.temperature = temperature;
+  }
+  if ("maxTokens" in normalized) {
+    const maxTokens = normalizeMaxTokens(normalized.maxTokens);
+    if (maxTokens === undefined) delete normalized.maxTokens;
+    else normalized.maxTokens = maxTokens;
+  }
+  return normalized;
+}
+
+function normalizeTemperature(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 2
+    ? value
+    : undefined;
+}
+
+function normalizeMaxTokens(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : undefined;
 }
 
 // re-export for clarity

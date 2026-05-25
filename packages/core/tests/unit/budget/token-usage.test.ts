@@ -60,6 +60,41 @@ describe("TokenUsageStore", () => {
     expect(s.isOverBudget(2000)).toBe(false);
   });
 
+  it("normalizes recorded and restored token counts to non-negative integers", () => {
+    const fixed = Date.UTC(2026, 4, 16);
+    const recorded = new TokenUsageStore(() => fixed);
+    recorded.record({
+      providerId: "p",
+      feature: "answer",
+      model: "m",
+      usage: { promptTokens: -3, completionTokens: 8.9 },
+    });
+    expect(recorded.snapshot()).toEqual({
+      monthTotal: { promptTokens: 0, completionTokens: 8 },
+      perFeature: {
+        answer: { promptTokens: 0, completionTokens: 8 },
+      },
+    });
+
+    const restored = new TokenUsageStore(() => fixed);
+    restored.fromJSON([
+      {
+        date: "2026-05-16",
+        providerId: "p",
+        feature: "chat",
+        model: "m",
+        promptTokens: 5.7,
+        completionTokens: -2,
+      },
+    ]);
+    expect(restored.snapshot()).toEqual({
+      monthTotal: { promptTokens: 5, completionTokens: 0 },
+      perFeature: {
+        chat: { promptTokens: 5, completionTokens: 0 },
+      },
+    });
+  });
+
   it("toJSON / fromJSON round-trip", () => {
     const a = new TokenUsageStore(() => Date.UTC(2026, 4, 16));
     a.record({

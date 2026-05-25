@@ -1,7 +1,7 @@
 import type { AiRole } from "../types.js";
 
 /**
- * 5 个内置角色的默认值。id 与原 Feature 对齐（迁移时一一映射）。
+ * 内置角色的默认值。迁移时会把旧 Feature Binding 映射到对应 Role。
  *
  * 修改提示词模板：直接改这里。已存在的用户配置不会被覆盖（保留用户编辑的版本）；
  * 用户可在角色编辑器里点「重置默认」拉取此处的最新值。
@@ -47,11 +47,25 @@ const T_CRITIQUE = `你是一位严谨而建设性的点评家。请对下文进
 
 {{selection}}`;
 
+const T_ANSWER = `你是个人知识库问答助手。请只基于给定检索片段回答用户问题。
+
+要求：
+- 如果片段不足以回答，直接说明信息不足，不要编造。
+- 回答要简洁、可执行。
+- 引用事实时使用片段编号，如 [1]、[2]。
+
+用户问题：{{question}}
+
+--- 检索片段 ---
+{{context}}
+--- 片段结束 ---`;
+
 export const BUILTIN_ROLE_IDS = [
   "summarize",
   "rewrite",
   "extract",
   "critique",
+  "answer",
   "inbox_metadata",
   "embedding",
 ] as const;
@@ -114,6 +128,17 @@ export const BUILTIN_ROLE_SEEDS: BuiltInRoleSeed[] = [
     outputKind: "text",
     params: { temperature: 0.5 },
     showInEditor: true,
+  },
+  {
+    id: "answer",
+    name: "综合回答",
+    icon: "message-circle-question",
+    description: "基于搜索命中的片段回答问题并附引用",
+    promptTemplate: T_ANSWER,
+    variables: ["question", "context"],
+    outputKind: "text",
+    params: { temperature: 0.2, maxTokens: 800 },
+    showInEditor: false,
   },
   {
     id: "inbox_metadata",

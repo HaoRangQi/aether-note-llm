@@ -204,7 +204,14 @@ interface ProviderConfig {
 
 ```typescript
 interface FeatureBinding {
-  feature: "chat" | "embedding" | "summarize" | "rewrite" | "extract" | "inbox_metadata";
+  feature:
+    | "chat"
+    | "embedding"
+    | "summarize"
+    | "rewrite"
+    | "extract"
+    | "critique"
+    | "inbox_metadata";
   providerId: string;
   modelName: string;
   params: { temperature?: number; maxTokens?: number };
@@ -339,27 +346,28 @@ aether_updated: 1715846400000
 
 ### MVP 范围（修订后）
 
-| 来源类型                             | 支持级别  | 实现方式                                                    |
-| ------------------------------------ | --------- | ----------------------------------------------------------- |
-| **拖入单个 markdown 文件**           | ✅ MVP    | 解析 → frontmatter 提取 → 整篇入库                          |
-| **拖入文件夹（批量 md）**            | ✅ MVP    | 遍历 → 每个文件作为独立 InboxItem                           |
-| **粘贴文本 / markdown**              | ✅ MVP    | 直接作为 InboxItem                                          |
-| **Notion 导出 ZIP**                  | ✅ MVP    | 解 ZIP → markdown + assets 分离 → 批量入 Inbox              |
-| **浏览器书签 JSON（Chrome / Edge）** | ✅ MVP    | 解析层级 → 每条 URL = 一个 `kind: bookmark` 的 InboxItem    |
-| **粘贴 URL 列表**                    | ✅ MVP    | 每行一个 URL → 自动抓取 title → bookmark InboxItem          |
-| **Obsidian vault 导入**              | 🟡 V0.2   | 当前 vault 已经是 Obsidian，迁移其他 vault 通过文件复制即可 |
-| **Apple Notes / 飞书**               | 🔴 暂不做 | 用户先用第三方工具导出为 markdown                           |
-| **HTML / docx / PDF**                | 🔴 暂不做 | 需要 OCR / 解析器，超出 MVP                                 |
+| 来源类型                             | 支持级别     | 实现方式                                                            |
+| ------------------------------------ | ------------ | ------------------------------------------------------------------- |
+| **拖入单个 markdown 文件**           | ✅ MVP       | 解析 → frontmatter 提取 → 整篇入库                                  |
+| **拖入文件夹（批量 md）**            | ✅ MVP       | 遍历 → 每个文件作为独立 InboxItem                                   |
+| **粘贴文本 / markdown**              | ✅ MVP       | 直接作为 InboxItem                                                  |
+| **Notion 已解包 entries**            | 🟡 core 支持 | core 连接器支持已解包 markdown entries；插件入口暂不接收真实 `.zip` |
+| **浏览器书签 JSON（Chrome / Edge）** | ✅ MVP       | 解析层级 → 每条 URL = 一个 `kind: bookmark` 的 InboxItem            |
+| **粘贴 URL 列表**                    | ✅ MVP       | 每行一个 URL → 保存链接，不自动抓取网页正文                         |
+| **Obsidian vault 导入**              | 🟡 V0.2      | 当前 vault 已经是 Obsidian，迁移其他 vault 通过文件复制即可         |
+| **Apple Notes / 飞书**               | 🔴 暂不做    | 用户先用第三方工具导出为 markdown                                   |
+| **HTML / docx / PDF**                | 🔴 暂不做    | 需要 OCR / 解析器，超出 MVP                                         |
 
 ### 端到端流程
 
 ```
-[1] 触发: ImportModal (Command Palette "Aether: Import")
-        ↓ 用户拖文件 / 粘贴 / 选 ZIP
+[1] 触发: ImportModal (Command Palette "Import...")
+        ↓ 用户选择 markdown / 文本 / URL 列表 / 书签备份，或粘贴文本
 [2] SourceConnector 解析:
     ├─ MarkdownConnector: 单文件或目录遍历
-    ├─ NotionZipConnector: 解压 + 路径映射 + assets 提取
+    ├─ NotionZipConnector: core 内部支持已解包 entries；插件暂不接收真实 ZIP
     ├─ BookmarksJsonConnector: 解析 Chrome 书签结构
+    ├─ UrlListConnector: 解析 URL 列表为 bookmark 条目
     └─ PlainTextConnector: 兜底
         ↓ 输出归一化的候选条目
 [3] AI 元数据补全 (并发 + 流式):
@@ -700,12 +708,12 @@ this.registerEvent(
 
 **① 命令面板（核心入口）**
 
-- `Aether: Open Search` → 打开搜索视图
-- `Aether: Open Inbox` → 打开待审视图
-- `Aether: Import...` → 打开导入 Modal
-- `Aether: Rebuild Index` → 重建索引
-- `Aether: Show Stats` → 统计面板
-- 编辑器选中态：`Aether: Rewrite / Summarize / Extract` → 段落级 AI
+- `Open Aether Hub` → 打开 Hub 主面板
+- `Import...` → 打开导入 Modal
+- `Review pending imports` → 打开待处理导入清单
+- `Refresh index changes` / `Rebuild index` → 刷新变更或全量重建索引
+- `View recent jobs` / `View this month's usage` / `Diagnostics export` → 任务、用量和诊断
+- 编辑器选中态：`Aether AI · <role>` → 段落级 AI
 
 **② 侧栏视图**
 
@@ -873,11 +881,11 @@ Settings 提供 "导出诊断包" 按钮 → 打包：
 
 1. 装 Plugin → enable → 看见 Aether ribbon 图标
 2. 添加 Provider → 测试连接成功 → 设置 Feature Binding
-3. Command Palette → "Aether: Import" → 拖入一份 markdown → InboxView 出现卡片
+3. Command Palette → `Import...` → 选择 markdown → 预览清单出现条目
 4. Approve 卡片 → 笔记出现在 `Aether Inbox/notes/...`
-5. SearchView 输入查询 → 命中刚导入的笔记 + 高亮片段
-6. 选中编辑器一段文字 → 右键 "Aether: AI 改写" → 弹出结果 Modal
-7. 导入 Chrome 书签 JSON → SearchView 能搜到 → 点击在浏览器打开
+5. Hub 输入查询 → 命中刚导入的笔记 + 高亮片段
+6. 选中编辑器一段文字 → 右键 `Aether AI · <role>` → 弹出结果 Modal
+7. 导入 Chrome 书签 JSON → Hub 能搜到 → 点击在浏览器打开
 8. 关闭 Obsidian 重开 → Inbox 卡片仍在，索引完好
 9. 设置 → "重建全部索引" → 进度条正常 → 完成后搜索仍然命中
 10. 故意写错 API key → AI 操作时 Notice 明确告知 + 引导

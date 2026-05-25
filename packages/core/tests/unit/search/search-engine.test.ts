@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AetherError } from "../../../src/errors.js";
 import { OramaIndexStore } from "../../../src/index-store/orama-store.js";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
 import { ProviderRegistry } from "../../../src/provider/registry.js";
@@ -35,10 +36,10 @@ function deterministic(seed: string, dim: number): number[] {
   return out.map((v) => v / norm);
 }
 
-async function makeRig() {
+async function makeRig(mockOptions: ConstructorParameters<typeof MockProvider>[0] = {}) {
   const store = new OramaIndexStore({ embeddingDim: 8 });
   await store.init();
-  const mock = new MockProvider({ embedDim: 8 });
+  const mock = new MockProvider({ embedDim: 8, ...mockOptions });
   const factory: ProviderFactory = { kind: "openai-compatible", create: () => mock };
   const reg = new ProviderRegistry({
     factories: [factory],
@@ -100,6 +101,33 @@ describe("SearchEngine", () => {
     expect(hits[0]?.noteId).toBe("n1");
   });
 
+  it("reports hybrid search metadata", async () => {
+    const { store, engine } = await makeRig();
+    store.upsertNote(fakeNote("n1", "alpha.md", "Alpha"));
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "How to debug SwiftUI state loss",
+        tokenCount: 8,
+        embeddingModel: "m",
+        embedding: deterministic("How to debug SwiftUI state loss", 8),
+      },
+    ]);
+
+    const result = await engine.searchWithMeta({ query: "SwiftUI", limit: 5 });
+
+    expect(result.hits[0]?.noteId).toBe("n1");
+    expect(result.meta).toMatchObject({
+      mode: "hybrid",
+      fallbackReason: null,
+      staleRatio: 0,
+    });
+    expect(result.meta.alpha).toBe(0.4);
+  });
+
   it("groups chunks by note, returns up to 3 topChunks", async () => {
     const { store, engine } = await makeRig();
     store.upsertNote(fakeNote("n1", "a.md", "A"));
@@ -146,8 +174,101 @@ describe("SearchEngine", () => {
       store,
       getStaleRatio: () => 0.8,
     });
-    await engine2.search({ query: "x", limit: 5 });
+    const result = await engine2.searchWithMeta({ query: "x", limit: 5 });
     expect(observed).toBeGreaterThan(0.4);
     expect(mock.calls.embed.length).toBeGreaterThan(0);
+    expect(result.meta.mode).toBe("stale-biased");
+    expect(result.meta.fallbackReason).toBeNull();
+    expect(result.meta.staleRatio).toBe(0.8);
+  });
+
+  it("falls back to text search when embedding role is not configured", async () => {
+    const { store, roles } = await makeRig();
+    roles.setRoles([]);
+    store.upsertNote(fakeNote("n1", "a.md", "A"));
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "cat content here",
+        tokenCount: 3,
+        embeddingModel: null,
+        embedding: deterministic("zero", 8),
+      },
+    ]);
+    const engine = new SearchEngine({
+      registry: new ProviderRegistry({ factories: [], fetch: async () => new Response("{}") }),
+      roles,
+      store,
+    });
+
+    const result = await engine.searchWithMeta({ query: "cat", limit: 5 });
+
+    expect(result.hits.map((h) => h.noteId)).toContain("n1");
+    expect(result.meta.mode).toBe("bm25");
+    expect(result.meta.fallbackReason).toBe("embedding-role-missing");
+  });
+
+  it("falls back to text search when embedding provider call fails", async () => {
+    const { store, engine } = await makeRig({
+      embed: async () => {
+        throw new AetherError("PROVIDER_HTTP_ERROR", "provider unavailable");
+      },
+    });
+    store.upsertNote(fakeNote("n1", "a.md", "A"));
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "cat content here",
+        tokenCount: 3,
+        embeddingModel: "m",
+        embedding: deterministic("cat content here", 8),
+      },
+    ]);
+
+    const result = await engine.searchWithMeta({ query: "cat", limit: 5 });
+
+    expect(result.hits.map((h) => h.noteId)).toContain("n1");
+    expect(result.meta.mode).toBe("bm25");
+    expect(result.meta.fallbackReason).toBe("provider-error");
+  });
+
+  it("falls back to text search when embedding provider config is invalid", async () => {
+    const { store, engine, reg } = await makeRig();
+    reg.setConfigs([
+      {
+        id: "p",
+        name: "p",
+        baseUrl: "not-a-url",
+        apiKeyRef: "k",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
+    store.upsertNote(fakeNote("n1", "a.md", "A"));
+    await store.setChunks("n1", [
+      {
+        id: "c1",
+        noteId: "n1",
+        ordinal: 0,
+        headingPath: "",
+        content: "cat content here",
+        tokenCount: 3,
+        embeddingModel: "m",
+        embedding: deterministic("cat content here", 8),
+      },
+    ]);
+
+    const result = await engine.searchWithMeta({ query: "cat", limit: 5 });
+
+    expect(result.hits.map((h) => h.noteId)).toContain("n1");
+    expect(result.meta.mode).toBe("bm25");
+    expect(result.meta.fallbackReason).toBe("provider-error");
   });
 });

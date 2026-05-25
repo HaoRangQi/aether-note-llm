@@ -1,7 +1,7 @@
 import { AetherError } from "../errors.js";
 import type { ProviderRegistry } from "../provider/registry.js";
-import type { AiRole } from "../types.js";
-import { renderPrompt } from "./render-prompt.js";
+import type { AiRole, TokenUsage } from "../types.js";
+import { findMissingPromptVariables, renderPrompt } from "./render-prompt.js";
 import type { RoleRegistry } from "./role-registry.js";
 
 export interface RunRoleArgs {
@@ -21,6 +21,7 @@ export interface RunRoleResult {
   output: unknown;
   /** 原始返回（用于调试 / aiTrace） */
   raw: string;
+  usage?: TokenUsage;
 }
 
 /**
@@ -41,6 +42,13 @@ export async function runRole(args: RunRoleArgs): Promise<RunRoleResult> {
 
   const params = { ...role.params, ...(args.overrideParams ?? {}) };
   const promptVars = { ...params, ...args.vars } as Record<string, string | number>;
+  const missingVars = findMissingPromptVariables(role.promptTemplate, promptVars);
+  if (missingVars.length > 0) {
+    throw new AetherError(
+      "PARSE_ERROR",
+      `Prompt template for role ${role.id} references missing variable(s): ${missingVars.join(", ")}`,
+    );
+  }
   const userPrompt = renderPrompt(role.promptTemplate, promptVars).trim();
   if (!userPrompt) {
     throw new AetherError("PARSE_ERROR", `Prompt rendered empty for role: ${role.id}`);
@@ -48,17 +56,20 @@ export async function runRole(args: RunRoleArgs): Promise<RunRoleResult> {
 
   const provider = args.registry.getProvider(role.providerId);
   let raw = "";
+  let usage: TokenUsage | undefined;
   const chatReq: Parameters<typeof provider.chat>[0] = {
     messages: [{ role: "user", content: userPrompt }],
     model: role.modelName,
     stream: true,
-    temperature: typeof params.temperature === "number" ? params.temperature : 0.4,
+    temperature: normalizeTemperature(params.temperature) ?? 0.4,
   };
-  if (typeof params.maxTokens === "number") chatReq.maxTokens = params.maxTokens;
+  const maxTokens = normalizeMaxTokens(params.maxTokens);
+  if (maxTokens !== undefined) chatReq.maxTokens = maxTokens;
   if (args.signal) chatReq.signal = args.signal;
 
   for await (const c of provider.chat(chatReq)) {
     raw += c.delta;
+    if (c.usage) usage = sumUsage(usage, c.usage);
   }
   const text = raw.trim();
 
@@ -82,7 +93,7 @@ export async function runRole(args: RunRoleArgs): Promise<RunRoleResult> {
       output = text;
   }
 
-  return { role, output, raw };
+  return { role, output, raw, ...(usage ? { usage } : {}) };
 }
 
 async function runEmbedding(args: RunRoleArgs, role: AiRole): Promise<RunRoleResult> {
@@ -97,7 +108,26 @@ async function runEmbedding(args: RunRoleArgs, role: AiRole): Promise<RunRoleRes
   };
   if (args.signal) req.signal = args.signal;
   const r = await provider.embed(req);
-  return { role, output: r.vectors[0] ?? [], raw: "" };
+  return { role, output: r.vectors[0] ?? [], raw: "", ...(r.usage ? { usage: r.usage } : {}) };
+}
+
+function sumUsage(a: TokenUsage | undefined, b: TokenUsage): TokenUsage {
+  return {
+    promptTokens: (a?.promptTokens ?? 0) + b.promptTokens,
+    completionTokens: (a?.completionTokens ?? 0) + b.completionTokens,
+  };
+}
+
+function normalizeTemperature(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 2
+    ? value
+    : undefined;
+}
+
+function normalizeMaxTokens(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : undefined;
 }
 
 function parseJsonObject(raw: string): unknown {

@@ -8,7 +8,7 @@ describe("migrateSettings", () => {
     const s = migrateSettings({});
     expect(s.schemaVersion).toBe(2);
     expect(s.providers).toEqual([]);
-    expect(s.roles.length).toBe(6); // 6 个内置角色（含 critique）
+    expect(s.roles.length).toBe(7); // 7 个内置角色（含 critique / answer）
     expect(s.roles.find((r) => r.id === "summarize")?.builtIn).toBe(true);
     expect(s.ui.alpha).toBe(0.4);
     expect(s.ui.scanScope).toBe("vault");
@@ -28,10 +28,94 @@ describe("migrateSettings", () => {
     const summarize = s.roles.find((r) => r.id === "summarize");
     expect(summarize?.providerId).toBe("p1");
     expect(summarize?.modelName).toBe("m1");
+    const answer = s.roles.find((r) => r.id === "answer");
+    expect(answer?.providerId).toBe("p1");
+    expect(answer?.modelName).toBe("m1");
     const embedding = s.roles.find((r) => r.id === "embedding");
     expect(embedding?.providerId).toBe("p2");
     // 迁移后老 bindings 字段被清空
     expect(s.bindings).toEqual([]);
+  });
+
+  it("normalizes provider role params while preserving prompt variables", () => {
+    const fromBindings = migrateSettings({
+      schemaVersion: 1,
+      bindings: [
+        {
+          feature: "summarize",
+          providerId: "p1",
+          modelName: "m1",
+          params: {
+            temperature: 99,
+            maxTokens: -1,
+          },
+        },
+      ],
+    });
+    expect(fromBindings.roles.find((r) => r.id === "summarize")?.params.temperature).toBe(0.3);
+    expect(fromBindings.roles.find((r) => r.id === "summarize")?.params).not.toHaveProperty(
+      "maxTokens",
+    );
+
+    const fromRoles = migrateSettings({
+      schemaVersion: 2,
+      roles: [
+        {
+          id: "rewrite",
+          builtIn: true,
+          name: "改写",
+          icon: "wand",
+          description: "",
+          providerId: "p2",
+          modelName: "m2",
+          promptTemplate: "Rewrite {{selection}} as {{style}}",
+          variables: ["selection", "style"],
+          outputKind: "text",
+          params: {
+            temperature: Number.NaN,
+            maxTokens: 1200.8,
+            style: "更清晰",
+          },
+          enabled: true,
+          showInEditor: true,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    });
+    expect(fromRoles.roles.find((r) => r.id === "rewrite")?.params).toMatchObject({
+      maxTokens: 1200,
+      style: "更清晰",
+    });
+    expect(fromRoles.roles.find((r) => r.id === "rewrite")?.params).not.toHaveProperty(
+      "temperature",
+    );
+
+    const validTemperature = migrateSettings({
+      schemaVersion: 2,
+      roles: [
+        {
+          id: "summarize",
+          builtIn: true,
+          name: "总结",
+          icon: "file-text",
+          description: "",
+          providerId: "p3",
+          modelName: "m3",
+          promptTemplate: "Summarize {{selection}}",
+          variables: ["selection"],
+          outputKind: "text",
+          params: {
+            temperature: 2,
+          },
+          enabled: true,
+          showInEditor: true,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    });
+    expect(validTemperature.roles.find((r) => r.id === "summarize")?.params.temperature).toBe(2);
   });
 
   it("v2 input keeps user-edited prompt templates", () => {
@@ -62,6 +146,10 @@ describe("migrateSettings", () => {
     );
     // 缺失的内置角色会自动补齐
     expect(s.roles.find((r) => r.id === "embedding")).toBeDefined();
+    expect(s.roles.find((r) => r.id === "answer")).toMatchObject({
+      providerId: "p",
+      modelName: "m",
+    });
   });
 
   it("preserves provided values", () => {
@@ -87,6 +175,38 @@ describe("migrateSettings", () => {
       ui: { language: "fr" },
     });
     expect(s.ui.language).toBe("zh-CN");
+  });
+
+  it("normalizes invalid search weight alpha values", () => {
+    expect(migrateSettings({ schemaVersion: 2, ui: { alpha: -0.5 } }).ui.alpha).toBe(0);
+    expect(migrateSettings({ schemaVersion: 2, ui: { alpha: 1.5 } }).ui.alpha).toBe(1);
+    for (const alpha of [Number.NaN, Number.POSITIVE_INFINITY, "0.7"]) {
+      expect(migrateSettings({ schemaVersion: 2, ui: { alpha } as never }).ui.alpha).toBe(0.4);
+    }
+  });
+
+  it("normalizes invalid monthly token budget warnings", () => {
+    expect(
+      migrateSettings({
+        schemaVersion: 2,
+        budgets: { monthlyTokenWarn: 1234.9 },
+      }).budgets.monthlyTokenWarn,
+    ).toBe(1234);
+    for (const monthlyTokenWarn of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      0,
+      -1,
+      "5000",
+    ]) {
+      expect(
+        migrateSettings({
+          schemaVersion: 2,
+          budgets: { monthlyTokenWarn } as never,
+        }).budgets.monthlyTokenWarn,
+      ).toBeNull();
+    }
   });
 
   it("backfills provider kind from known baseUrl", () => {

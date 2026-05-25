@@ -1,5 +1,6 @@
 import { App, Modal, Notice, setIcon } from "obsidian";
 import { t } from "../i18n/index.js";
+import { copyToClipboard } from "../ui/clipboard.js";
 
 export class RewriteResultModal extends Modal {
   constructor(
@@ -60,8 +61,10 @@ export class RewriteResultModal extends Modal {
     const copyIcon = copyBtn.createSpan();
     setIcon(copyIcon, "copy");
     copyBtn.onclick = async () => {
-      await navigator.clipboard.writeText(this.rewritten);
-      new Notice(t("modal.aiResult.copied"), 2000);
+      await copyToClipboard(this.rewritten, {
+        successMessage: t("modal.aiResult.copied"),
+        notify: (message, timeoutMs) => new Notice(message, timeoutMs),
+      });
     };
 
     const applyBtn = actions.createEl("button", {

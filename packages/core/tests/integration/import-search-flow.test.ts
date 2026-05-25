@@ -81,6 +81,66 @@ describe("import → approve → search flow", () => {
     expect(hits[0]?.title).toBe("Hello Notes");
   });
 
+  it("approves edited inbox metadata from import preview", async () => {
+    const { host, core } = await bootstrap();
+    const events = await collect(
+      core.importSource({
+        kind: "paste",
+        label: "test",
+        payload: { type: "paste-text", text: "Draft content about edited metadata" },
+      }),
+    );
+    const added = events.find(
+      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
+    );
+    expect(added).toBeDefined();
+    if (!added) throw new Error("no item-added event");
+
+    await core.updateInboxItemDraft(added.item.id, {
+      proposedTitle: "Edited Preview Title",
+      proposedSummary: "Edited preview summary",
+      proposedTags: ["edited", "#preview", "edited"],
+    });
+    const note = await core.approveInboxItem(added.item.id);
+    const raw = await host.readFile(note.vaultPath);
+
+    expect(note.title).toBe("Edited Preview Title");
+    expect(note.summary).toBe("Edited preview summary");
+    expect(note.tags).toEqual(["edited", "preview"]);
+    expect(raw).toContain("title: Edited Preview Title");
+    expect(raw).toContain("aether_summary: Edited preview summary");
+    expect(await core.search({ query: "Edited Preview Title" })).toHaveLength(1);
+  });
+
+  it("deletes an approved note, its file, and index rows", async () => {
+    const { host, core } = await bootstrap();
+    const events = await collect(
+      core.importSource({
+        kind: "paste",
+        label: "test",
+        payload: { type: "paste-text", text: "Hello notes about Aether searching" },
+      }),
+    );
+    const added = events.find(
+      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
+    );
+    expect(added).toBeDefined();
+    if (!added) throw new Error("no item-added event");
+
+    const note = await core.approveInboxItem(added.item.id);
+    expect(await host.exists(note.vaultPath)).toBe(true);
+    expect(core.store.getNote(note.id)).toBeDefined();
+    expect(core.store.allChunks().some((c) => c.noteId === note.id)).toBe(true);
+
+    await core.deleteNote(note.id);
+
+    expect(await host.exists(note.vaultPath)).toBe(false);
+    expect(core.store.getNote(note.id)).toBeUndefined();
+    expect(core.store.allChunks().some((c) => c.noteId === note.id)).toBe(false);
+    const hits = await core.search({ query: "Hello notes" });
+    expect(hits.find((h) => h.noteId === note.id)).toBeUndefined();
+  });
+
   it("discards an inbox item without writing a file", async () => {
     const { host, core } = await bootstrap();
     const events = await collect(
@@ -100,5 +160,44 @@ describe("import → approve → search flow", () => {
     const list = await host.listMarkdown("");
     expect(list).toHaveLength(0);
     expect(newUlid()).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+  });
+
+  it("writes only selected items from a parsed batch", async () => {
+    const { host, core } = await bootstrap();
+    const events = await collect(
+      core.importSource({
+        kind: "file",
+        label: "batch",
+        payload: {
+          type: "markdown-files",
+          files: [
+            { path: "keep.md", content: "# Keep\n\nAlpha selected content" },
+            { path: "skip.md", content: "# Skip\n\nBeta discarded content" },
+          ],
+        },
+      }),
+    );
+    const added = events.filter(
+      (e): e is Extract<ImportEvent, { type: "item-added" }> => e.type === "item-added",
+    );
+    expect(added).toHaveLength(2);
+
+    const keep = added.find((e) => e.item.sourceRef === "keep.md")?.item;
+    const skip = added.find((e) => e.item.sourceRef === "skip.md")?.item;
+    expect(keep).toBeDefined();
+    expect(skip).toBeDefined();
+    if (!keep || !skip) throw new Error("missing parsed items");
+
+    await core.approveInboxItem(keep.id);
+    await core.discardInboxItem(skip.id);
+
+    expect(core.inbox.getItem(keep.id)?.status).toBe("approved");
+    expect(core.inbox.getItem(skip.id)?.status).toBe("discarded");
+    expect(await host.listMarkdown("")).toHaveLength(1);
+    expect(core.store.allNotes()).toHaveLength(1);
+    expect(core.store.allNotes()[0]?.sourceMeta.originalSourceRef).toBe("keep.md");
+
+    const keptHits = await core.search({ query: "Alpha selected" });
+    expect(keptHits.length).toBeGreaterThan(0);
   });
 });

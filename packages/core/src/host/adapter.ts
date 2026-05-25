@@ -24,6 +24,7 @@ export interface IHostAdapter {
 
   notify(message: string, options?: NoticeOptions): void;
   openExternal(url: string): Promise<void>;
+  canOpenFolder?(): boolean;
   openFolder(vaultPath: string): Promise<void>;
 
   now(): number;

@@ -1,8 +1,8 @@
 # aether-note-llm (Obsidian plugin)
 
-Obsidian plugin packaging of Aether Note LLM. Provides UI (Search view, Inbox view,
-Settings tab, Import modal), command-palette commands, and editor right-click AI
-helpers — all backed by `@aether/core`.
+Obsidian plugin packaging of Aether Note LLM. Provides the Hub view, Quick Start
+settings, AI Roles, import preview / retry modals, command-palette commands, and
+editor right-click AI helpers — all backed by `@aether/core`.
 
 ## Build
 
@@ -22,11 +22,11 @@ The build outputs `main.js`. To install for development, symlink or copy
 src/
   main.ts                Plugin entry, lifecycle, view registration
   host-adapter.ts        ObsidianHostAdapter (IHostAdapter implementation)
-  settings-tab.ts        Providers / bindings / advanced UI
+  settings-tab.ts        Quick Start / AI Providers / AI Roles / Advanced UI
   commands.ts            Command palette + editor menu
-  views/                 SearchView, InboxView
-  modals/                ImportModal, RewriteResultModal, DiagnosticsModal, ApiKeyModal
-  ui/                    Render helpers (highlight, escapeHtml)
+  views/                 HubView
+  modals/                ImportModal, RoleEditorModal, DiagnosticsModal, job / usage modals
+  ui/                    Render, import source, prompt diagnostics, clipboard and job helpers
 manifest.json            Obsidian plugin manifest
 styles.css               Plugin-scoped CSS
 ```
@@ -34,7 +34,7 @@ styles.css               Plugin-scoped CSS
 ## Plugin lifecycle
 
 1. `onload()` — construct `ObsidianHostAdapter`, instantiate `AetherCore`, call `core.init()`.
-2. Register `SEARCH_VIEW_TYPE` / `INBOX_VIEW_TYPE` views, settings tab, commands, ribbon, status-bar.
-3. `onunload()` — call `core.saveIndex()` (also called transparently on approve / discard).
+2. Register `HUB_VIEW_TYPE`, settings tab, commands, ribbon, and status bar.
+3. `onunload()` — call `core.saveIndex()` (also called after import / index mutations).
 
 No plugin code holds business state; everything is read from `core` at render time.

@@ -1,5 +1,6 @@
 import { AetherError } from "../errors.js";
 import type { Feature, FeatureBinding, ProviderConfig } from "../types.js";
+import { findPresetById } from "./presets.js";
 import type { Provider, ProviderFactory } from "./types.js";
 
 /**
@@ -64,8 +65,16 @@ export class ProviderRegistry {
     if (!config.enabled) throw new AetherError("PROVIDER_NOT_FOUND", `Disabled: ${providerId}`);
     const factory = this.factories.get(factoryKind);
     if (!factory) throw new AetherError("PROVIDER_NOT_FOUND", `Unknown factory: ${factoryKind}`);
-    const apiKey = this.apiKeys[config.apiKeyRef];
-    if (!apiKey) throw new AetherError("API_KEY_MISSING", `Missing key for provider ${providerId}`);
+    const apiKey = this.apiKeys[config.apiKeyRef]?.trim() ?? "";
+    if (providerRequiresApiKey(config) && !apiKey) {
+      throw new AetherError("API_KEY_MISSING", `Missing key for provider ${providerId}`);
+    }
+    if (!isValidHttpUrl(config.baseUrl)) {
+      throw new AetherError(
+        "PROVIDER_CONFIG_INVALID",
+        `Invalid base URL for provider ${providerId}`,
+      );
+    }
     const instance = factory.create({
       id: providerId,
       baseUrl: config.baseUrl,
@@ -80,5 +89,19 @@ export class ProviderRegistry {
   resolve(feature: Feature): { provider: Provider; model: string; binding: FeatureBinding } {
     const binding = this.getBinding(feature);
     return { provider: this.getProvider(binding.providerId), model: binding.modelName, binding };
+  }
+}
+
+function providerRequiresApiKey(config: ProviderConfig): boolean {
+  const preset = config.kind ? findPresetById(config.kind) : undefined;
+  return preset?.requiresApiKey !== false;
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
   }
 }

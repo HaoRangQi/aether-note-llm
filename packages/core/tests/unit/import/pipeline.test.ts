@@ -4,11 +4,13 @@ import { InMemoryHostAdapter } from "../../../src/host/in-memory.js";
 import { InboxStore } from "../../../src/import/inbox-store.js";
 import { OramaIndexStore } from "../../../src/index-store/orama-store.js";
 import { MarkdownConnector } from "../../../src/connectors/markdown-connector.js";
+import { UrlListConnector } from "../../../src/connectors/url-list-connector.js";
 import { MockProvider } from "../../../src/provider/mock-provider.js";
 import { ProviderRegistry } from "../../../src/provider/registry.js";
 import { RoleRegistry } from "../../../src/roles/role-registry.js";
 import { BUILTIN_ROLE_SEEDS, seedToRole } from "../../../src/roles/default-roles.js";
-import type { ImportSource, BuiltInRoleId } from "../../../src/index.js";
+import { AetherError, type ImportSource, type BuiltInRoleId } from "../../../src/index.js";
+import type { SourceConnector } from "../../../src/connectors/connector.js";
 
 function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
   const list = BUILTIN_ROLE_SEEDS.filter((s) => ids.includes(s.id)).map((s) => {
@@ -20,7 +22,9 @@ function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
   roles.setRoles(list);
 }
 
-async function makeRig() {
+async function makeRig(
+  options: { connectors?: SourceConnector[]; maxItemsPerBatch?: number } = {},
+) {
   const host = new InMemoryHostAdapter({
     now: () => 5_000_000,
     newId: (() => {
@@ -61,7 +65,8 @@ async function makeRig() {
     roles,
     store,
     inbox,
-    connectors: [new MarkdownConnector()],
+    connectors: options.connectors ?? [new MarkdownConnector()],
+    maxItemsPerBatch: options.maxItemsPerBatch,
   });
   return { host, store, inbox, pipeline, provider, reg, roles };
 }
@@ -141,6 +146,135 @@ describe("ImportPipeline", () => {
     };
     const events = await collect(p.run(src));
     expect(events.filter((e) => e.type === "item-added")).toHaveLength(2);
+    expect(events).toContainEqual({
+      type: "batch-truncated",
+      batchId: "id-1",
+      imported: 2,
+      cap: 2,
+    });
+    expect(events.at(-1)).toEqual({ type: "batch-finished", batchId: "id-1", total: 2 });
     void provider;
+  });
+
+  it("keeps url-only bookmarks on the cheap path without AI metadata or embedding", async () => {
+    const { pipeline, inbox, provider } = await makeRig({ connectors: [new UrlListConnector()] });
+    const src: ImportSource = {
+      kind: "paste",
+      label: "urls",
+      payload: { type: "url-list", urls: ["https://example.com/docs/a"] },
+    };
+
+    await collect(pipeline.run(src));
+
+    expect(provider.calls.chat).toHaveLength(0);
+    expect(provider.calls.embed).toHaveLength(0);
+    expect(inbox.listItems()[0]).toMatchObject({
+      kind: "bookmark",
+      url: "https://example.com/docs/a",
+      proposedTitle: "a",
+      proposedSummary: "",
+    });
+  });
+
+  it("continues a truncated url import by skipping pending normalized URLs", async () => {
+    const { pipeline, inbox } = await makeRig({
+      connectors: [new UrlListConnector()],
+      maxItemsPerBatch: 2,
+    });
+    const src: ImportSource = {
+      kind: "paste",
+      label: "urls",
+      payload: {
+        type: "url-list",
+        urls: [
+          "https://example.com/1?utm_source=newsletter",
+          "https://example.com/2",
+          "https://example.com/3",
+          "https://example.com/4",
+          "https://example.com/5",
+        ],
+      },
+    };
+
+    const first = await collect(pipeline.run(src));
+    const second = await collect(pipeline.run(src));
+
+    expect(first.filter((e) => e.type === "item-added")).toHaveLength(2);
+    expect(second.filter((e) => e.type === "item-added")).toHaveLength(2);
+    expect(inbox.listItems().map((item) => item.url)).toEqual([
+      "https://example.com/1?utm_source=newsletter",
+      "https://example.com/2",
+      "https://example.com/3",
+      "https://example.com/4",
+    ]);
+    expect(second).toContainEqual({
+      type: "batch-truncated",
+      batchId: "id-4",
+      imported: 2,
+      cap: 2,
+    });
+  });
+
+  it("skips url imports that already exist as indexed bookmark notes", async () => {
+    const { pipeline, store, inbox } = await makeRig({ connectors: [new UrlListConnector()] });
+    store.upsertNote({
+      id: "note-1",
+      vaultPath: "Aether Inbox/bookmarks/2026/05/example.md",
+      kind: "bookmark",
+      title: "Existing",
+      summary: null,
+      tags: [],
+      url: "https://example.com/a",
+      source: "import",
+      sourceMeta: {},
+      createdAt: 1,
+      updatedAt: 1,
+      contentHash: "hash",
+      indexState: "fresh",
+    });
+    const src: ImportSource = {
+      kind: "paste",
+      label: "urls",
+      payload: {
+        type: "url-list",
+        urls: ["https://example.com/a?utm_source=newsletter", "https://example.com/b"],
+      },
+    };
+
+    const events = await collect(pipeline.run(src));
+
+    expect(events.filter((e) => e.type === "item-added")).toHaveLength(1);
+    expect(inbox.listItems().map((item) => item.url)).toEqual(["https://example.com/b"]);
+  });
+
+  it("aborts import preparation before creating inbox items", async () => {
+    const { pipeline, inbox } = await makeRig({ connectors: [new UrlListConnector()] });
+    const ac = new AbortController();
+    ac.abort();
+    const src: ImportSource = {
+      kind: "paste",
+      label: "urls",
+      payload: { type: "url-list", urls: ["https://example.com/a"] },
+    };
+
+    await expect(collect(pipeline.run(src, { signal: ac.signal }))).rejects.toBeInstanceOf(
+      AetherError,
+    );
+    expect(inbox.listItems()).toEqual([]);
+  });
+
+  it("passes AbortSignal through metadata and embedding preparation calls", async () => {
+    const { pipeline, provider } = await makeRig();
+    const ac = new AbortController();
+    const src: ImportSource = {
+      kind: "file",
+      label: "a.md",
+      payload: { type: "markdown-file", path: "a.md", content: "Hello world" },
+    };
+
+    await collect(pipeline.run(src, { signal: ac.signal }));
+
+    expect(provider.calls.chat[0]?.signal).toBe(ac.signal);
+    expect(provider.calls.embed[0]?.signal).toBe(ac.signal);
   });
 });

@@ -12,6 +12,7 @@ export const en: Dict = {
   "common.loading": "Loading…",
   "common.none": "(none)",
   "common.copy": "Copy",
+  "common.copyFailed": "Copy failed. Check clipboard permissions and try again.",
   "common.close": "Close",
 
   // ---- settings: section titles ----
@@ -22,7 +23,8 @@ export const en: Dict = {
   "settings.section.advanced": "⚙️ Advanced",
 
   // ---- Quick Start ----
-  "settings.quickStart.intro": "First time? Pick a provider, paste a key, you're ready in 30 seconds.",
+  "settings.quickStart.intro":
+    "First time? Pick a provider, paste a key, you're ready in 30 seconds.",
   "settings.quickStart.statusTitle": "Current status",
   "settings.quickStart.statusEmpty": "No AI provider configured yet. Add a preset below.",
   "settings.quickStart.statusOk": "{count} provider(s) configured. Manage them in 'AI Providers'.",
@@ -31,7 +33,21 @@ export const en: Dict = {
     "Added {name}. Open 'AI Providers' to set the API key and test connection.",
   "settings.quickStart.applyRecommended": "Apply recommended bindings",
   "settings.quickStart.applyRecommended.desc":
-    "Bind all AI roles (summarize/rewrite/extract/inbox-metadata/embedding) to your providers automatically.",
+    "Bind all AI roles (summarize/rewrite/extract/critique/answer/inbox-metadata/embedding) to your providers automatically.",
+  "settings.quickStart.bindTitle": "Bind AI roles",
+  "settings.quickStart.bindDesc":
+    "Choose one provider for chat roles and one for embedding, then apply the bindings.",
+  "settings.quickStart.bindChat": "Chat roles use",
+  "settings.quickStart.bindChat.desc":
+    "Summarize, rewrite, extract, critique, answer, and import metadata share this provider.",
+  "settings.quickStart.bindEmbedding": "Embedding role uses",
+  "settings.quickStart.bindEmbedding.desc":
+    "Used for semantic search; pick a provider that supports embeddings.",
+  "settings.quickStart.noEmbeddingProvider": "No embedding-capable provider found",
+  "settings.quickStart.noEmbeddingProvider.desc":
+    "Only chat roles will be bound for now. Add SiliconFlow, OpenAI, Ollama, or a custom embedding provider to enable semantic search.",
+  "settings.quickStart.applyBind": "Apply bindings",
+  "settings.quickStart.applied": "Bound: chat -> {chat}, embedding -> {embed}",
 
   // ---- language ----
   "settings.language": "Interface language / 界面语言",
@@ -41,6 +57,8 @@ export const en: Dict = {
 
   // ---- providers ----
   "settings.providers.empty": "No AI service yet. Click 'Add provider' below to start.",
+  "settings.providers.riskHint":
+    "Risk notice: provider calls may send note content, search terms, import excerpts, or answer context to the selected model. For private files, API keys, or passwords, prefer a local model or trusted self-hosted service instead of a third-party model.",
   "settings.providers.add": "Add provider",
   "settings.providers.name": "Display name",
   "settings.providers.name.desc":
@@ -58,6 +76,7 @@ export const en: Dict = {
   "settings.providers.apiKey.set": "set ●●●●",
   "settings.providers.editKey": "Edit key",
   "settings.providers.signup": "Get a key",
+  "settings.providers.signupOpenFailed": "Cannot open provider signup page: {error}",
   "settings.providers.test": "Test connection",
   "settings.providers.testing": "Testing…",
   "settings.providers.test.ok": "OK — {count} models found",
@@ -102,6 +121,10 @@ export const en: Dict = {
   "role.field.prompt": "Prompt template",
   "role.field.prompt.vars": "Click to insert variable:",
   "role.field.prompt.insertVar": "Click to insert at cursor",
+  "role.field.prompt.usedVars": "Template uses: {vars}",
+  "role.field.prompt.missingVars": "Missing variables: {vars}. The role will not run until fixed.",
+  "role.field.prompt.unusedVars": "Available but unused: {vars}",
+  "role.field.prompt.varsOk": "Prompt variables match this role input.",
   "role.field.advanced": "Advanced parameters",
   "role.field.temperature": "Temperature",
   "role.field.temperature.desc": "0 = very conservative, 1 = creative. Typical 0.2 ~ 0.6.",
@@ -133,17 +156,65 @@ export const en: Dict = {
   "modal.import.button": "Import",
   "modal.import.empty": "Please enter some text to import",
   "modal.import.failed": "Import failed: {error}",
+  "modal.import.cancelled": "Import preparation cancelled",
   "modal.import.zero": "No items imported. Check console for details.",
   "modal.import.done": "Imported {count} item(s)",
   "modal.import.error": "Import error: {error}",
   "modal.import.progress.title": "Importing",
   "modal.import.progress.parsed": "Parsed {count} items",
   "modal.import.progress.saving": "Writing {count} items to vault…",
+  "modal.import.truncated":
+    "Only the first {cap} items were prepared for this batch. Start another import for the remaining items.",
   "modal.import.file.desc":
-    "Supports iTab backup (.itabdata) and Chrome/Edge bookmarks (Bookmarks.json).",
+    "Supports Markdown (.md/.markdown), URL lists (.txt/.url), iTab backup (.itabdata), and Chrome/Edge bookmarks (Bookmarks.json).",
   "modal.import.file.noFile": "Please select a file first",
   "modal.import.file.ready": "Selected: {name} — click Import to start",
-  "modal.import.file.unknown": "Unrecognised file format. Please select .itabdata or Chrome bookmarks JSON.",
+  "modal.import.file.unknown":
+    "Unrecognised file content. Choose .md/.markdown, .txt/.url URL lists, .itabdata, or Chrome/Edge bookmarks JSON.",
+  "modal.importPreview.title": "Preview import",
+  "modal.importPreview.summary": "{selected} / {total} selected; {failed} parse failure(s).",
+  "modal.importPreview.selectAll": "Select all",
+  "modal.importPreview.selectNone": "Select none",
+  "modal.importPreview.duplicate": "Possible duplicate",
+  "modal.importPreview.duplicateTarget": "Similar note found: {title}",
+  "modal.importPreview.duplicateTargetMissing":
+    "A duplicate signal was found, but the target note is no longer indexed.",
+  "modal.importPreview.action.merge": "Merge",
+  "modal.importPreview.action.create": "Create",
+  "modal.importPreview.action.discard": "Discard",
+  "modal.importPreview.discardAll": "Cancel and discard",
+  "modal.importPreview.importSelected": "Write {count} selected",
+  "modal.importPreview.importing": "Writing…",
+  "modal.importPreview.noneSelected": "Select at least one item to write",
+  "modal.importPreview.discarded": "Discarded {count} pending item(s)",
+  "modal.importPreview.parseFailuresNotRetained":
+    "Parse failures were not added to pending imports. Fix the source and import again.",
+  "modal.importPreview.field.title": "Title",
+  "modal.importPreview.field.summary": "Summary",
+  "modal.importPreview.field.tags": "Tags (comma or space separated)",
+  "modal.importResult.title": "Import complete",
+  "modal.importResult.summary": "Created {count} item(s), merged {merged} item(s).",
+  "modal.importResult.summaryWithFailures":
+    "Created {count} item(s), merged {merged} item(s); {failed} item(s) failed.",
+  "modal.importResult.createdTitle": "Created notes ({count})",
+  "modal.importResult.mergedTitle": "Merged ({count})",
+  "modal.importResult.mergedItem": "{source} -> {title}",
+  "modal.importResult.failuresTitle": "Failed items ({count})",
+  "modal.importResult.failuresRetained":
+    "Failed items are kept pending so you can troubleshoot, retry, or discard them manually.",
+  "modal.importResult.parseFailuresNotRetained":
+    "Parse failures were not kept pending. Fix the source and import again.",
+  "modal.importResult.reviewPending": "Review pending failed items",
+  "modal.importResult.open": "Open",
+  "modal.importResult.openFailed": "Cannot open imported note: {error}",
+  "modal.importResult.undo": "Undo this import",
+  "modal.importResult.undoCreatedOnly":
+    "Only newly created notes are deleted. Merged content must be reverted in the target note.",
+  "modal.importResult.undoing": "Undoing…",
+  "modal.importResult.undone": "Undid {count} imported item(s)",
+  "modal.importPending.title": "Pending imports",
+  "modal.importPending.summary": "{total} pending; {selected} selected.",
+  "modal.importPending.empty": "No pending import items",
 
   // ---- AI result modal ----
   "modal.aiResult.title": "AI result",
@@ -158,12 +229,63 @@ export const en: Dict = {
   "modal.diagnostics.copy": "Copy to clipboard",
   "modal.diagnostics.copied": "Copied to clipboard",
 
+  // ---- job history modal ----
+  "modal.jobHistory.title": "Recent jobs",
+  "modal.jobHistory.empty": "No import or rebuild jobs recorded yet.",
+  "modal.jobHistory.kind.import-write": "Import write",
+  "modal.jobHistory.kind.rebuild": "Index rebuild",
+  "modal.jobHistory.kind.index-refresh": "Index change refresh",
+  "modal.jobHistory.status.done": "Done",
+  "modal.jobHistory.status.failed": "Failed",
+  "modal.jobHistory.status.cancelled": "Cancelled",
+  "modal.jobHistory.meta": "{started} · {duration}",
+  "modal.jobHistory.failuresTitle": "Failure summary ({count})",
+  "modal.jobHistory.failure": "Failed item",
+  "modal.jobHistory.copyJson": "Copy JSON",
+  "modal.jobHistory.copied": "Job history copied",
+
+  // ---- usage modal ----
+  "modal.usage.title": "This month's usage",
+  "modal.usage.total": "Total tokens",
+  "modal.usage.prompt": "Prompt",
+  "modal.usage.completion": "Completion",
+  "modal.usage.budgetUnset": "No monthly budget warning set",
+  "modal.usage.budget": "{used} / {budget} tokens used",
+  "modal.usage.budgetOver": "Monthly budget warning threshold reached",
+  "modal.usage.budgetUsed": "{pct}% used",
+  "modal.usage.budgetHint": "Set monthly token warn in Settings -> Advanced.",
+  "modal.usage.providerReported":
+    "Only provider-reported token usage is counted; reporting support varies by provider.",
+  "modal.usage.byFeature": "By feature",
+  "modal.usage.empty": "No AI token usage recorded this month.",
+  "modal.usage.feature.inbox_metadata": "Import metadata",
+  "modal.usage.feature.embedding": "Embedding / search",
+  "modal.usage.feature.summarize": "Summarize",
+  "modal.usage.feature.rewrite": "Rewrite",
+  "modal.usage.feature.extract": "Extract",
+  "modal.usage.feature.critique": "Critique",
+  "modal.usage.feature.answer": "Answer from search",
+  "modal.usage.feature.chat": "Custom chat",
+  "modal.usage.featureTotal": "{total} tokens",
+  "modal.usage.featureDetail": "Prompt {prompt} · Completion {completion}",
+  "modal.usage.copyJson": "Copy JSON",
+  "modal.usage.copied": "Usage JSON copied",
+
   // ---- commands ----
   "cmd.openHub": "Open Aether Hub",
   "cmd.import": "Import…",
+  "cmd.pendingImports": "Review pending imports",
   "cmd.rebuild": "Rebuild index",
+  "cmd.refreshIndex": "Refresh index changes",
   "cmd.diagnostics": "Diagnostics export",
+  "cmd.jobHistory": "View recent jobs",
+  "cmd.usage": "View this month's usage",
+  "cmd.runAiRole": "Run current AI role…",
   "cmd.aiRolePrefix": "Aether AI · ",
+
+  // ---- role suggest modal ----
+  "modal.roleSuggest.placeholder": "Choose an AI role to run",
+  "modal.roleSuggest.empty": "No runnable AI roles",
 
   // ---- editor menu ----
   "menu.aiRolePrefix": "Aether AI · ",
@@ -175,31 +297,114 @@ export const en: Dict = {
   "ai.activity.cancel": "Cancel",
   "ai.cancelled": "AI call cancelled",
   "ai.failed": "AI call failed: {error}",
+  "ai.roleUnavailable": "This AI role is disabled, hidden, or unbound. Check Settings -> AI Roles.",
+
+  // ---- jobs ----
+  "job.progress.count": "{done}/{total}",
+  "job.import.title": "Writing imported items",
+  "job.import.writing": "Writing {done}/{total} items",
+  "job.import.cancelled": "Import write cancelled: {done}/{total} completed",
+  "job.rebuild.title": "Rebuilding index",
+  "job.rebuild.scanning": "Scanning markdown files…",
+  "job.rebuild.indexing": "Indexing {done}/{total} files",
+  "job.rebuild.saving": "Saving index: {indexed}/{scanned} indexed, {failed} failed",
+  "job.rebuild.cancelled": "Rebuild cancelled: {indexed}/{scanned} files indexed",
+  "job.rebuild.alreadyRunning": "Index rebuild is already running",
+  "job.rebuild.uiRefreshFailed": "Index rebuilt, but the UI refresh failed: {error}",
+  "job.indexRefresh.title": "Refreshing index changes",
+  "job.indexRefresh.scanning": "Checking index state…",
+  "job.indexRefresh.refreshing": "Refreshing changed files…",
+  "job.indexRefresh.saving": "Saving index: {refreshed} refreshed, {removed} removed",
+  "job.indexRefresh.alreadyRunning": "Index refresh is already running",
+  "job.indexRefresh.cancelled": "Index refresh cancelled",
+  "job.indexRefresh.uiRefreshFailed": "Index refreshed, but the UI refresh failed: {error}",
 
   // ---- Hub ----
   "view.hub.name": "Aether Hub",
   "view.hub.searchPlaceholder": "Search notes, bookmarks…",
+  "view.hub.searchPrivacyHint":
+    "Search and answers may send queries or source excerpts to the bound model. For private notes, API keys, or passwords, prefer a local model instead of a third-party provider.",
   "view.hub.filter.all": "All",
   "view.hub.filter.note": "Notes",
   "view.hub.filter.bookmark": "Bookmarks",
   "view.hub.import": "📥 Import",
+  "view.hub.pendingImports": "⏳ Pending {count}",
+  "view.hub.jobs": "🧾 Recent jobs",
+  "view.hub.usage": "💸 Usage",
+  "view.hub.refreshIndex": "🔄 Refresh changes",
   "view.hub.openFolder": "📁 Open Inbox folder",
+  "view.hub.openExternalFailed": "Cannot open external link: {error}",
+  "view.hub.openVaultSourceFailed": "Cannot open source note: {error}",
   "view.hub.recent.title": "Recent",
   "view.hub.recent.empty": "Inbox folder is empty. Click 'Import' above to add something.",
   "view.hub.searching": "Searching…",
   "view.hub.noMatches": "No matches.",
   "view.hub.searchFailed": "Search failed: {error}",
+  "view.hub.answer.title": "Answer from results",
+  "view.hub.answer.button": "Answer",
+  "view.hub.answer.cancel": "Cancel",
+  "view.hub.answer.hint": "Generate an answer with citations from the current search results.",
+  "view.hub.answer.loading": "Synthesizing search results…",
+  "view.hub.answer.empty": "Not enough content to generate an answer.",
+  "view.hub.answer.notConfigured":
+    "The answer role has no Provider / Model binding. Check Settings -> AI Roles.",
+  "view.hub.answer.failed": "Answer failed: {error}",
+  "view.hub.answer.copyWithSources": "Copy answer + sources",
+  "view.hub.answer.copied": "Answer and sources copied",
+  "view.hub.answer.contextUsed": "Used about {tokens} context tokens.",
+  "view.hub.answer.contextTruncated":
+    "Used about {tokens} context tokens; some sources were trimmed to fit the budget.",
+  "view.hub.answer.noCitations": "The answer did not cite any source. Review it before using.",
+  "view.hub.answer.invalidCitations":
+    "The answer cited missing sources: {indexes}. Review it before using.",
+  "view.hub.answer.sourcePath": "Path",
+  "view.hub.answer.sourceHeading": "Heading",
+  "view.hub.answer.sourceUrl": "URL",
+  "view.hub.answer.sourceExcerpt": "Evidence excerpt",
+  "view.hub.answer.sourceTruncated": "This source was trimmed to fit the context budget.",
+  "view.hub.answer.openSource": "Open source",
+  "view.hub.searchMode.hybrid": "Hybrid",
+  "view.hub.searchMode.bm25": "BM25",
+  "view.hub.searchMode.stale-biased": "Stale-biased",
+  "view.hub.searchMode.hybridDetail": "BM25 + embedding search, text weight {alpha}",
+  "view.hub.searchMode.staleDetail":
+    "Some chunks are stale, text weight raised to {alpha}; stale ratio {stale}%",
+  "view.hub.searchFallback.embedding-role-missing":
+    "Embedding role is not configured; using BM25 text search",
+  "view.hub.searchFallback.provider-missing":
+    "Embedding provider is missing; using BM25 text search",
+  "view.hub.searchFallback.api-key-missing": "Embedding API key is missing; using BM25 text search",
+  "view.hub.searchFallback.provider-error":
+    "Embedding provider is unavailable; using BM25 text search",
   "view.hub.dimMismatch.title": "Switched embedding model?",
   "view.hub.dimMismatch.desc":
     "New model's vector dim doesn't match the existing index. Rebuild fixes it (won't touch your vault files).",
   "view.hub.dimMismatch.button": "Rebuild index now",
   "view.hub.dimMismatch.running": "Rebuilding…",
   "view.hub.statusReady": "Ready",
+  "view.hub.statusPartial": "Partially ready",
+  "view.hub.statusNeedsSetup": "Needs setup",
   "view.hub.statusNoProvider": "No AI provider",
   "view.hub.statusIndexed": "{count} indexed",
   "view.hub.onboard.title": "Configure AI service first",
   "view.hub.onboard.desc": "Click below to open Settings and set it up in one screen.",
   "view.hub.onboard.button": "Configure →",
+  "view.hub.health.title": "Configuration is incomplete",
+  "view.hub.health.desc":
+    "These issues affect import metadata, editor AI, or semantic search. Fix them before heavy use.",
+  "view.hub.health.button": "Open settings",
+  "view.hub.health.more": "{count} more item(s) need attention",
+  "view.hub.health.issue.noProvider": "No AI provider has been added",
+  "view.hub.health.issue.roleMissing": "{role} role is missing",
+  "view.hub.health.issue.roleDisabled": "{role} role is disabled",
+  "view.hub.health.issue.roleProviderMissing": "{role} has no provider binding",
+  "view.hub.health.issue.providerMissing": "{role}'s provider no longer exists",
+  "view.hub.health.issue.providerDisabled": "{role}'s provider is disabled",
+  "view.hub.health.issue.providerBaseUrlMissing": "{role}'s provider is missing Base URL",
+  "view.hub.health.issue.providerBaseUrlInvalid": "{role}'s provider has an invalid Base URL",
+  "view.hub.health.issue.apiKeyMissing": "{role}'s provider is missing an API key",
+  "view.hub.health.issue.modelMissing": "{role} has no model selected",
+  "view.hub.health.issue.modelIncompatible": "{role}'s model does not match its use",
   "view.hub.time.justNow": "just now",
   "view.hub.time.minutes": "{n} min ago",
   "view.hub.time.hours": "{n} hr ago",
@@ -212,8 +417,7 @@ export const en: Dict = {
   // ---- rebuild prompt modal ----
   "rebuild.title": "Index rebuild required",
   "rebuild.intro": "You just changed the embedding configuration.",
-  "rebuild.diff":
-    "Old model: {old}　·　New model: {next}　·　Affected chunks: {count}",
+  "rebuild.diff": "Old model: {old}　·　New model: {next}　·　Affected chunks: {count}",
   "rebuild.warn":
     "Without a rebuild, existing chunks were vectorized with the old model and may be unreachable or dimension-mismatched. Rebuild only touches the index, not your notes.",
   "rebuild.now": "Rebuild now",
@@ -223,8 +427,7 @@ export const en: Dict = {
 
   // ---- advanced ----
   "settings.advanced.inboxFolder": "Inbox folder",
-  "settings.advanced.inboxFolder.desc":
-    "Where imported notes are saved. Default: Aether Inbox.",
+  "settings.advanced.inboxFolder.desc": "Where imported notes are saved. Default: Aether Inbox.",
   "settings.advanced.inboxFolder.open": "Open folder",
   "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
   "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
@@ -234,11 +437,25 @@ export const en: Dict = {
   "settings.advanced.alpha": "Search weight α",
   "settings.advanced.alpha.desc":
     "0 = pure vector (semantic), 1 = pure text (keyword). 0.4 is a common balance.",
+  "settings.advanced.monthlyTokenWarn": "Monthly token budget warning",
+  "settings.advanced.monthlyTokenWarn.desc":
+    "The usage panel warns when this monthly token count is reached. Leave empty to disable.",
+  "settings.advanced.monthlyTokenWarn.placeholder": "e.g. 500000",
+  "settings.advanced.refresh": "Refresh index changes",
+  "settings.advanced.refresh.desc":
+    "Detect content changes or deleted files and refresh only changed index entries. Faster than a full rebuild for daily maintenance.",
+  "settings.advanced.refresh.button": "Refresh changes",
+  "settings.advanced.refresh.done": "Index refreshed: {refreshed} updated, {removed} removed",
+  "settings.advanced.refresh.doneWithFailures":
+    "Index refreshed: {refreshed} updated, {removed} removed, {failed} failed. See recent jobs for details.",
+  "settings.advanced.refresh.failed": "Index refresh failed: {error}",
   "settings.advanced.rebuild": "Rebuild index",
   "settings.advanced.rebuild.desc":
     "Re-scan and re-embed everything. Required after changing the embedding model.",
   "settings.advanced.rebuild.button": "Rebuild now",
   "settings.advanced.rebuild.done": "Rebuilt: {indexed}/{scanned} files",
+  "settings.advanced.rebuild.doneWithFailures":
+    "Rebuilt: {indexed}/{scanned} files indexed, {failed} failed. See console for details.",
 
   // ---- ribbon ----
   "ribbon.hub": "Aether Hub",

@@ -72,7 +72,15 @@ export interface InboxBatch {
 
 // ---- Provider / Feature -------------------------------------------------
 
-export type Feature = "chat" | "embedding" | "summarize" | "rewrite" | "extract" | "inbox_metadata";
+export type Feature =
+  | "chat"
+  | "embedding"
+  | "summarize"
+  | "rewrite"
+  | "extract"
+  | "critique"
+  | "answer"
+  | "inbox_metadata";
 
 export interface ProviderConfig {
   id: string;
@@ -162,6 +170,9 @@ export interface HitChunk {
   chunkId: string;
   headingPath: string;
   excerpt: string;
+  /** Full chunk content, available for downstream answer synthesis. */
+  content?: string;
+  tokenCount: number;
   score: number;
 }
 
@@ -175,6 +186,150 @@ export interface SearchHit {
   url: string | null;
   topChunks: HitChunk[];
   score: number;
+}
+
+export type SearchMode = "hybrid" | "stale-biased" | "bm25";
+export type SearchFallbackReason =
+  | "embedding-role-missing"
+  | "provider-missing"
+  | "api-key-missing"
+  | "provider-error";
+
+export interface SearchMeta {
+  mode: SearchMode;
+  alpha: number;
+  staleRatio: number;
+  fallbackReason: SearchFallbackReason | null;
+}
+
+export interface SearchResponse {
+  hits: SearchHit[];
+  meta: SearchMeta;
+}
+
+export interface SearchAnswerRequest {
+  query: string;
+  filters?: SearchFilters;
+  /** Existing search response to answer from; when omitted core performs a fresh search. */
+  search?: SearchResponse;
+  /** Number of search results to retrieve before selecting context chunks. Default 8. */
+  limit?: number;
+  /** Max chunks sent to the answer role. Default 6. */
+  maxContextChunks?: number;
+  /** Approximate max tokens sent as answer context. Default 1800. */
+  maxContextTokens?: number;
+  signal?: AbortSignal;
+}
+
+export interface SearchAnswerCitation {
+  index: number;
+  noteId: string;
+  vaultPath: string;
+  title: string;
+  chunkId: string;
+  headingPath: string;
+  excerpt: string;
+  url: string | null;
+  tokenCount: number;
+  truncated: boolean;
+}
+
+export interface SearchAnswerCitationCheck {
+  /** Citation indexes found in the answer text, e.g. [1], [2]. */
+  referencedIndexes: number[];
+  /** Referenced indexes that do not exist in citations. */
+  invalidIndexes: number[];
+  /** Available citation indexes that were not referenced by the answer. */
+  unusedIndexes: number[];
+  /** True when the answer contains at least one [n] reference. */
+  hasAnyReference: boolean;
+}
+
+export interface SearchAnswerResponse {
+  question: string;
+  answer: string;
+  citations: SearchAnswerCitation[];
+  citationCheck: SearchAnswerCitationCheck;
+  contextTokenCount: number;
+  contextTruncated: boolean;
+  search: SearchResponse;
+}
+
+// ---- Jobs / progress ----------------------------------------------------
+
+export type RebuildProgressPhase = "scanning" | "indexing" | "saving";
+
+export interface RebuildProgress {
+  phase: RebuildProgressPhase;
+  total: number;
+  scanned: number;
+  indexed: number;
+  failed: number;
+  currentPath?: string;
+}
+
+export interface RebuildFailure {
+  path: string;
+  message: string;
+}
+
+export interface IndexRefreshFailure {
+  path: string;
+  noteId?: string;
+  message: string;
+}
+
+export interface RebuildResult {
+  scanned: number;
+  indexed: number;
+  failed: number;
+  cancelled: boolean;
+  failures: RebuildFailure[];
+}
+
+export interface RebuildOptions {
+  onProgress?: (progress: RebuildProgress) => void;
+  signal?: AbortSignal;
+}
+
+// ---- Index health -------------------------------------------------------
+
+export interface IndexHealthNote {
+  noteId: string;
+  vaultPath: string;
+  title: string;
+  contentHash: string;
+  currentHash: string | null;
+  indexState: IndexState;
+  mtime: number | null;
+  size: number | null;
+}
+
+export interface IndexHealth {
+  scannedFiles: number;
+  indexedNotes: number;
+  indexedChunks: number;
+  freshNotes: IndexHealthNote[];
+  staleNotes: IndexHealthNote[];
+  missingFiles: IndexHealthNote[];
+  deletedNotes: IndexHealthNote[];
+  failures: IndexRefreshFailure[];
+}
+
+export interface IndexRefreshResult {
+  health: IndexHealth;
+  reindexedNotes: IndexHealthNote[];
+  deletedNotes: IndexHealthNote[];
+  failures: IndexRefreshFailure[];
+  indexedNotes: number;
+  indexedChunks: number;
+  staleNotes: number;
+  missingFiles: number;
+  freshNotes: number;
+}
+
+export interface IndexRefreshOptions {
+  signal?: AbortSignal;
 }
 
 // ---- AI / Provider transport --------------------------------------------

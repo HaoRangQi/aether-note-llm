@@ -1,6 +1,7 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal } from "obsidian";
 import type AetherPlugin from "../main.js";
 import { t } from "../i18n/index.js";
+import { runRebuildJob } from "../ui/job-tracker.js";
 
 /**
  * 改 embedding 配置后弹出，询问是否立即重建索引。
@@ -59,19 +60,24 @@ export class RebuildPromptModal extends Modal {
       now.disabled = true;
       later.disabled = true;
       now.setText(t("rebuild.running"));
-      try {
-        const r = await this.plugin.core.rebuildAll();
-        new Notice(
-          t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
-          5000,
-        );
-        this.close();
-      } catch (e) {
-        new Notice(t("rebuild.failed", { error: (e as Error).message }), 6000);
-        now.disabled = false;
-        later.disabled = false;
-        now.setText(t("rebuild.now"));
-      }
+      await runRebuildJob(this.plugin, {
+        onDone: () => this.close(),
+        onCancel: () => {
+          now.disabled = false;
+          later.disabled = false;
+          now.setText(t("rebuild.now"));
+        },
+        onError: () => {
+          now.disabled = false;
+          later.disabled = false;
+          now.setText(t("rebuild.now"));
+        },
+        onAlreadyRunning: () => {
+          now.disabled = false;
+          later.disabled = false;
+          now.setText(t("rebuild.now"));
+        },
+      });
     };
   }
 

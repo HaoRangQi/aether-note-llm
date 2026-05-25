@@ -39,7 +39,11 @@ export {
   type BuiltInRoleId,
   type BuiltInRoleSeed,
 } from "./roles/default-roles.js";
-export { renderPrompt, extractVariables } from "./roles/render-prompt.js";
+export {
+  renderPrompt,
+  extractVariables,
+  findMissingPromptVariables,
+} from "./roles/render-prompt.js";
 export { runRole, type RunRoleArgs, type RunRoleResult } from "./roles/run-role.js";
 export {
   OramaIndexStore,

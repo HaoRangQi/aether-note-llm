@@ -54,4 +54,32 @@ describe("BookmarksJsonConnector", () => {
     const r = await collect(c.parse(bad));
     expect(r).toEqual([]);
   });
+
+  it("skips browser-internal and local bookmark schemes", async () => {
+    const mixed: ImportSource = {
+      kind: "file",
+      label: "chrome.json",
+      payload: {
+        type: "bookmarks-json",
+        raw: JSON.stringify({
+          roots: {
+            bookmark_bar: {
+              type: "folder",
+              children: [
+                { type: "url", name: "HTTP", url: "http://example.com" },
+                { type: "url", name: "HTTPS", url: "https://example.com" },
+                { type: "url", name: "Script", url: "javascript:alert(1)" },
+                { type: "url", name: "Local", url: "file:///tmp/a.html" },
+                { type: "url", name: "Chrome", url: "chrome://settings" },
+              ],
+            },
+          },
+        }),
+      },
+    };
+
+    const r = await collect(c.parse(mixed));
+
+    expect(r.map((x) => x.url)).toEqual(["http://example.com", "https://example.com"]);
+  });
 });

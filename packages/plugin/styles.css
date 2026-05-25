@@ -51,11 +51,34 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+.aether-health-issues {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+.aether-health-issue {
+  color: var(--text-muted);
+}
+.aether-health-issue--error {
+  color: var(--text-error, #ef4444);
+}
+.aether-health-issue--warn {
+  color: var(--text-warning, #d97706);
+}
 
 .aether-search-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
+}
+.aether-search-privacy-hint {
+  margin: 0.35rem 0 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .aether-hub-filterbar {
@@ -123,6 +146,170 @@
   color: var(--text-muted);
   font-style: italic;
   padding: 0.5rem;
+}
+
+.aether-search-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.aether-search-meta-label {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+.aether-search-meta-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aether-search-meta--bm25 {
+  border-color: color-mix(in srgb, var(--text-warning, #d97706) 35%, transparent);
+}
+.aether-search-meta--stale-biased {
+  border-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+.aether-answer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+}
+.aether-answer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.aether-answer-title {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+.aether-answer-header button {
+  flex: 0 0 auto;
+  border-radius: 6px;
+  padding: 0.3rem 0.65rem;
+}
+.aether-answer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.aether-answer-hint,
+.aether-answer-empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.aether-answer-error {
+  color: var(--text-error, #ef4444);
+  font-size: 0.82rem;
+}
+.aether-answer-warning {
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--text-warning, #d97706) 30%, transparent);
+  background: color-mix(in srgb, var(--text-warning, #d97706) 10%, transparent);
+  color: var(--text-warning, #d97706);
+  font-size: 0.8rem;
+}
+.aether-answer-context {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.aether-answer-context.is-truncated {
+  color: var(--text-warning, #d97706);
+}
+.aether-answer-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.aether-answer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.aether-answer-copy,
+.aether-answer-source-open {
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+}
+.aether-answer-citations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.aether-answer-source {
+  max-width: 100%;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 62%, transparent);
+  background: color-mix(in srgb, var(--background-modifier-hover) 75%, transparent);
+}
+.aether-answer-source-summary {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aether-answer-source[open] .aether-answer-source-summary {
+  margin-bottom: 0.45rem;
+  color: var(--text-normal);
+}
+.aether-answer-source-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.aether-answer-source-meta-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+.aether-answer-source-label {
+  color: var(--text-faint);
+  font-weight: 700;
+}
+.aether-answer-source-value {
+  min-width: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.aether-answer-source-excerpt {
+  margin-top: 0.45rem;
+  font-size: 0.76rem;
+}
+.aether-answer-source-text {
+  margin-top: 0.2rem;
+  color: var(--text-normal);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aether-answer-source-note {
+  margin-top: 0.4rem;
+  color: var(--text-warning, #d97706);
+  font-size: 0.72rem;
+}
+.aether-answer-source-open {
+  margin-top: 0.5rem;
 }
 
 /* 复用旧 card / hit / tag 样式 */
@@ -201,6 +388,20 @@
 .aether-provider-card[open] {
   padding-bottom: 0.6rem;
 }
+.aether-provider-risk-note,
+.aether-provider-card-risk-note {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--text-warning, #d97706) 28%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-warning, #d97706) 9%, transparent);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.aether-provider-card-risk-note {
+  margin-top: 0.1rem;
+}
 .aether-provider-summary {
   display: flex;
   align-items: center;
@@ -210,7 +411,19 @@
   list-style: none;
   user-select: none;
 }
-.aether-provider-summary::-webkit-details-marker { display: none; }
+.aether-provider-summary::-webkit-details-marker {
+  display: none;
+}
+.aether-provider-toggle-icon {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  transition: transform 120ms ease;
+}
+.aether-provider-card[open] .aether-provider-toggle-icon {
+  transform: rotate(90deg);
+}
 .aether-provider-summary-name {
   font-weight: 600;
   flex: 1;
@@ -222,9 +435,15 @@
   font-size: 0.8rem;
   color: var(--text-muted);
 }
-.aether-provider-key-dot.set   { color: var(--text-success, #16a34a); }
-.aether-provider-key-dot.unset { color: var(--text-faint); }
-.aether-provider-model-hint { font-size: 0.75rem; }
+.aether-provider-key-dot.set {
+  color: var(--text-success, #16a34a);
+}
+.aether-provider-key-dot.unset {
+  color: var(--text-faint);
+}
+.aether-provider-model-hint {
+  font-size: 0.75rem;
+}
 .aether-provider-dup-btn,
 .aether-provider-del-btn {
   font-size: 0.75rem;
@@ -235,7 +454,9 @@
   cursor: pointer;
   color: var(--text-muted);
 }
-.aether-provider-del-btn:hover { color: var(--text-error); }
+.aether-provider-del-btn:hover {
+  color: var(--text-error);
+}
 
 /* ============================================================
  * 毛玻璃共用变量 & 噪点纹理
@@ -244,7 +465,11 @@
 /* SVG 噪点纹理（fractalNoise，opacity=0.05 保持半透明，不堵死 backdrop-filter） */
 .aether-ai-activity,
 .aether-result-modal,
-.aether-import-modal {
+.aether-import-modal,
+.aether-import-preview-modal,
+.aether-import-result-modal,
+.aether-job-history-modal,
+.aether-usage-modal {
   --aether-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
@@ -253,7 +478,7 @@
  * ============================================================ */
 
 @property --aether-glow-angle {
-  syntax: '<angle>';
+  syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
 }
@@ -307,7 +532,8 @@
 }
 
 .aether-ai-activity.is-done,
-.aether-ai-activity.is-error {
+.aether-ai-activity.is-error,
+.aether-ai-activity.is-cancelled {
   animation: aether-activity-out 0.32s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
 .aether-ai-activity.is-error {
@@ -327,7 +553,9 @@
 }
 /* 保留旋转动画 keyframe（进度条等仍在用） */
 @keyframes aether-activity-rotate {
-  to { --aether-glow-angle: 360deg; }
+  to {
+    --aether-glow-angle: 360deg;
+  }
 }
 
 .aether-ai-activity-header {
@@ -351,8 +579,15 @@
   height: 1.2rem;
 }
 @keyframes aether-icon-pulse {
-  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-  50%      { transform: scale(1.18) rotate(-6deg); opacity: 0.78; }
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18) rotate(-6deg);
+    opacity: 0.78;
+  }
 }
 
 .aether-ai-activity-namewrap {
@@ -383,8 +618,12 @@
   text-overflow: ellipsis;
 }
 @keyframes aether-text-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 .aether-ai-activity-meta {
   font-size: 0.74rem;
@@ -439,8 +678,12 @@
   animation: aether-bar-slide 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 @keyframes aether-bar-slide {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(310%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
 }
 .aether-ai-activity.is-done .aether-ai-activity-bar::before {
   animation-play-state: paused;
@@ -451,7 +694,11 @@
  * 然后 modal 自己加 backdrop-filter + 半透明背景，窗口本身就是毛玻璃。
  * 用 box-shadow 代替 container 背景来制造遮罩感。 */
 .modal-container:has(.aether-result-modal),
-.modal-container:has(.aether-import-modal) {
+.modal-container:has(.aether-import-modal),
+.modal-container:has(.aether-import-preview-modal),
+.modal-container:has(.aether-import-result-modal),
+.modal-container:has(.aether-job-history-modal),
+.modal-container:has(.aether-usage-modal) {
   background: transparent !important;
 }
 .aether-result-modal {
@@ -499,7 +746,10 @@
   filter: drop-shadow(0 0 6px var(--interactive-accent));
   animation: aether-icon-pulse 2s ease-in-out infinite;
 }
-.aether-result-header-icon svg { width: 1.2rem; height: 1.2rem; }
+.aether-result-header-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
 .aether-result-header-title {
   font-size: 1.05rem;
   font-weight: 700;
@@ -579,7 +829,10 @@
   background: var(--background-modifier-hover);
   border-color: var(--background-modifier-border);
 }
-.aether-result-btn svg { width: 0.85rem; height: 0.85rem; }
+.aether-result-btn svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
 .aether-result-btn--cta {
   background: var(--interactive-accent) !important;
   color: var(--text-on-accent) !important;
@@ -592,7 +845,11 @@
 }
 
 /* 导入 Modal（毛玻璃版） */
-.aether-import-modal {
+.aether-import-modal,
+.aether-import-preview-modal,
+.aether-import-result-modal,
+.aether-job-history-modal,
+.aether-usage-modal {
   background-color: color-mix(in srgb, var(--background-primary) 60%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
@@ -648,7 +905,10 @@
   display: grid;
   place-items: center;
 }
-.aether-import-tab-icon svg { width: 0.9rem; height: 0.9rem; }
+.aether-import-tab-icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
 
 /* 内容区 */
 .aether-import-body {
@@ -668,7 +928,9 @@
   font-size: 0.9rem;
   line-height: 1.6;
   resize: vertical;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .aether-import-textarea:focus {
   outline: none;
@@ -715,7 +977,9 @@
   display: grid;
   place-items: center;
   color: var(--text-muted);
-  transition: color 0.18s ease, transform 0.18s ease;
+  transition:
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 .aether-import-dropzone:hover .aether-import-dropzone-icon,
 .aether-import-dropzone.drag-over .aether-import-dropzone-icon {
@@ -726,7 +990,10 @@
   color: var(--interactive-accent);
   filter: drop-shadow(0 0 6px var(--interactive-accent));
 }
-.aether-import-dropzone-icon svg { width: 2rem; height: 2rem; }
+.aether-import-dropzone-icon svg {
+  width: 2rem;
+  height: 2rem;
+}
 .aether-import-dropzone-label {
   font-size: 0.88rem;
   color: var(--text-muted);
@@ -735,6 +1002,407 @@
 .aether-import-dropzone.has-file .aether-import-dropzone-label {
   color: var(--text-normal);
   font-weight: 500;
+}
+
+.aether-import-result-summary {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.aether-import-preview-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.aether-import-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.aether-import-preview-row {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 50%, transparent);
+}
+.aether-import-preview-row.is-selected {
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
+}
+.aether-import-preview-checkbox {
+  margin: 0.2rem 0 0;
+}
+.aether-import-preview-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.4rem;
+}
+.aether-import-preview-field:first-child {
+  margin-top: 0;
+}
+.aether-import-preview-field-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+.aether-import-preview-title-input,
+.aether-import-preview-summary-input,
+.aether-import-preview-tags-input {
+  width: 100%;
+  min-width: 0;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: color-mix(in srgb, var(--background-primary) 75%, transparent);
+  color: var(--text-normal);
+  font-size: 0.82rem;
+}
+.aether-import-preview-title-input,
+.aether-import-preview-tags-input {
+  height: 1.85rem;
+  padding: 0.2rem 0.45rem;
+}
+.aether-import-preview-summary-input {
+  min-height: 3.4rem;
+  max-height: 7rem;
+  padding: 0.35rem 0.45rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+.aether-import-preview-title-input:focus,
+.aether-import-preview-summary-input:focus,
+.aether-import-preview-tags-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+.aether-import-preview-summary {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.aether-import-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+.aether-import-preview-meta span {
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background-modifier-hover) 70%, transparent);
+}
+.aether-import-preview-meta .aether-import-preview-duplicate {
+  color: var(--text-warning, #d97706);
+  background: color-mix(in srgb, var(--text-warning, #d97706) 12%, transparent);
+}
+.aether-import-duplicate-panel {
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--text-warning, #d97706) 24%, transparent);
+  background: color-mix(in srgb, var(--text-warning, #d97706) 8%, transparent);
+}
+.aether-import-duplicate-target {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+.aether-import-duplicate-path {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.aether-import-duplicate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+.aether-import-decision-btn {
+  min-height: 1.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 75%, transparent);
+  background: color-mix(in srgb, var(--background-primary) 72%, transparent);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.aether-import-decision-btn.is-active {
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  color: var(--text-normal);
+}
+.aether-import-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.aether-import-result-failure-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.aether-import-result-section-title {
+  margin: 0.85rem 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.aether-import-result-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 55%, transparent);
+}
+.aether-import-result-row--failed {
+  grid-template-columns: minmax(0, 1fr);
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 25%, transparent);
+}
+.aether-import-result-main {
+  min-width: 0;
+}
+.aether-import-result-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aether-import-result-path {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aether-import-result-error {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--text-error, #ef4444);
+  overflow-wrap: anywhere;
+}
+.aether-result-btn--danger {
+  color: var(--text-error, #ef4444);
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 25%, transparent);
+}
+.aether-result-btn--danger:hover {
+  background: color-mix(in srgb, var(--text-error, #ef4444) 12%, transparent);
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 45%, transparent);
+}
+
+.aether-job-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 28rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.aether-job-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 55%, transparent);
+}
+.aether-job-history-card.is-failed {
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 30%, transparent);
+}
+.aether-job-history-card.is-cancelled {
+  border-color: color-mix(in srgb, var(--text-warning, #d97706) 35%, transparent);
+}
+.aether-job-history-card-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.aether-job-history-card-main {
+  min-width: 0;
+}
+.aether-job-history-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+.aether-job-history-meta {
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.aether-job-history-status {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-success, #16a34a) 12%, transparent);
+  color: var(--text-success, #16a34a);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.aether-job-history-status.is-failed {
+  background: color-mix(in srgb, var(--text-error, #ef4444) 12%, transparent);
+  color: var(--text-error, #ef4444);
+}
+.aether-job-history-status.is-cancelled {
+  background: color-mix(in srgb, var(--text-warning, #d97706) 12%, transparent);
+  color: var(--text-warning, #d97706);
+}
+.aether-job-history-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.aether-job-history-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background-modifier-hover) 70%, transparent);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.aether-job-history-pill-key {
+  color: var(--text-faint);
+}
+.aether-job-history-pill-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+
+.aether-usage-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.aether-usage-metric {
+  min-width: 0;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 55%, transparent);
+}
+.aether-usage-metric-value {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aether-usage-metric-label {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.aether-usage-budget {
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 55%, transparent);
+}
+.aether-usage-budget.is-over {
+  border-color: color-mix(in srgb, var(--text-warning, #d97706) 40%, transparent);
+}
+.aether-usage-budget-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.aether-usage-budget-note {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.aether-usage-budget-bar {
+  height: 0.45rem;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  overflow: hidden;
+}
+.aether-usage-budget-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--interactive-accent);
+}
+.aether-usage-budget.is-over .aether-usage-budget-fill {
+  background: var(--text-warning, #d97706);
+}
+.aether-usage-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.aether-usage-feature-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 55%, transparent);
+}
+.aether-usage-feature-name {
+  min-width: 0;
+  font-weight: 700;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aether-usage-feature-total {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-normal);
+  white-space: nowrap;
+}
+.aether-usage-feature-detail {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 /* AI 角色编辑器 Modal */
@@ -756,6 +1424,24 @@
   margin-right: 0.25rem;
   cursor: pointer;
 }
+.aether-role-prompt-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.aether-role-prompt-diagnostic {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.aether-role-prompt-diagnostic--ok {
+  color: var(--text-success, #16a34a);
+}
+.aether-role-prompt-diagnostic--warning {
+  color: var(--text-warning, #d97706);
+}
 .aether-role-test-result {
   margin-top: 0.75rem;
   background: var(--background-primary);
@@ -764,6 +1450,43 @@
   font-size: 0.85rem;
   white-space: pre-wrap;
   border: 1px solid var(--background-modifier-border);
+}
+
+/* AI 角色命令选择器 */
+.aether-role-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.aether-role-suggestion-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+}
+.aether-role-suggestion-main {
+  min-width: 0;
+}
+.aether-role-suggestion-name {
+  font-weight: 600;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aether-role-suggestion-desc {
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* AI 角色列表行 */

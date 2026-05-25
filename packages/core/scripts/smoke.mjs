@@ -17,8 +17,10 @@
  */
 import {
   AetherCore,
+  BUILTIN_ROLE_SEEDS,
   InMemoryHostAdapter,
   MockProvider,
+  seedToRole,
 } from "../dist/index.js";
 
 const STEP = (s) => console.log(`\n▶ ${s}`);
@@ -47,8 +49,8 @@ async function main() {
   const mock = new MockProvider({
     embedDim: 8,
     chatChunks: (req) => {
-      const sys = req.messages[0]?.content ?? "";
-      if (sys.includes("metadata")) {
+      const prompt = req.messages[0]?.content ?? "";
+      if (prompt.includes('"title"') && prompt.includes('"summary"')) {
         return [
           {
             delta: '{"title":"SwiftUI 状态调试笔记","tags":["swiftui","debug"],"summary":"记录 @State 丢失的排查思路"}',
@@ -56,19 +58,25 @@ async function main() {
           },
         ];
       }
-      if (sys.includes("summarise")) {
+      if (prompt.includes("压缩为不超过")) {
         return [{ delta: "总结：使用 @StateObject 替代 @State 解决持有问题。", finishReason: "stop" }];
       }
-      if (sys.includes("rewrite")) {
+      if (prompt.includes("请改写下文")) {
         return [{ delta: "改写后的段落:更简洁地描述同一问题。", finishReason: "stop" }];
       }
-      if (sys.includes("extract")) {
+      if (prompt.includes("提取至多")) {
         return [{ delta: "- 使用 @StateObject\n- 避免在 init 中读 @State\n- 注意 view 重建", finishReason: "stop" }];
       }
       return [{ delta: "{}", finishReason: "stop" }];
     },
   });
   core.registry.registerFactory({ kind: "openai-compatible", create: () => mock });
+  const roles = BUILTIN_ROLE_SEEDS.map((seed) => {
+    const role = seedToRole(seed, host.now());
+    role.providerId = "p-mock";
+    role.modelName = seed.id === "embedding" ? "mock-embed" : "mock-chat";
+    return role;
+  });
   await core.settings.save({
     ...core.settings.current,
     providers: [
@@ -82,17 +90,12 @@ async function main() {
         createdAt: host.now(),
       },
     ],
-    bindings: [
-      { feature: "embedding", providerId: "p-mock", modelName: "mock-embed", params: {} },
-      { feature: "inbox_metadata", providerId: "p-mock", modelName: "mock-chat", params: {} },
-      { feature: "summarize", providerId: "p-mock", modelName: "mock-chat", params: {} },
-      { feature: "rewrite", providerId: "p-mock", modelName: "mock-chat", params: {} },
-      { feature: "extract", providerId: "p-mock", modelName: "mock-chat", params: {} },
-    ],
+    bindings: [],
+    roles,
     apiKeys: { "k-mock": "secret" },
   });
   core.applySettings(core.settings.current);
-  OK("Provider + 5 个 Feature Binding 已生效");
+  OK("Provider + 内置 AI Roles 已生效");
 
   STEP("3. 测试 Provider 连接");
   const r = await core.testProvider("p-mock");

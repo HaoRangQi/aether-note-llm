@@ -27,16 +27,25 @@ back to filename-stem title.
 
 A single JSON object with these keys:
 
-| Key                      | Type                                      | Description                                          |
-| ------------------------ | ----------------------------------------- | ---------------------------------------------------- |
-| `settings.json`          | string (JSON-encoded `PersistedSettings`) | Provider configs, bindings, UI preferences, API keys |
-| `inbox.json`             | string (JSON-encoded `PersistedInbox`)    | Inbox items + batches                                |
-| `index.json`             | string (JSON-encoded `PersistedIndex`)    | Notes + chunks + embedding metadata                  |
-| `settings.json.bak.<ts>` | string                                    | Backup written when settings are corrupt             |
+| Key                      | Type                                      | Description                                           |
+| ------------------------ | ----------------------------------------- | ----------------------------------------------------- |
+| `settings.json`          | string (JSON-encoded `PersistedSettings`) | Provider configs, bindings, UI preferences, API keys  |
+| `inbox.json`             | string (JSON-encoded `PersistedInbox`)    | Inbox items + batches                                 |
+| `index.json`             | string (JSON-encoded `PersistedIndex`)    | Notes + chunks + embedding metadata                   |
+| `usage.json`             | string (JSON-encoded usage entries)       | Token usage ledger used by the monthly usage panel    |
+| `jobHistory`             | array                                     | Recent import / index refresh / rebuild job summaries |
+| `settings.json.bak.<ts>` | string                                    | Backup written when settings are corrupt              |
 
 Both `inbox.json` and `index.json` are versioned (`schemaVersion: 1`). The plugin
 migrates forward on load; a future version will preserve old payloads under
 backup keys before mutating.
+
+Plugin UI and core persistence share the same Obsidian `data.json` object. All
+plugin-side reads and writes must go through `PluginDataStore`, which serializes
+load-modify-save cycles so keys such as `usage.json` and `jobHistory` cannot
+overwrite each other during concurrent long-running jobs. `jobHistory.kind`
+currently includes `import-write`, `index-refresh`, and `rebuild`; each entry
+stores a small numeric summary plus redacted failure snippets for diagnostics.
 
 ## On-disk vault layout
 

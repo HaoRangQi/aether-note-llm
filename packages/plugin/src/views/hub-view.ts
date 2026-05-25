@@ -1,11 +1,30 @@
 import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 import type AetherPlugin from "../main.js";
-import { ImportModal } from "../modals/import-modal.js";
+import {
+  getPendingImportItems,
+  ImportModal,
+  openPendingImportItems,
+} from "../modals/import-modal.js";
+import { JobHistoryModal } from "../modals/job-history-modal.js";
+import { UsageModal } from "../modals/usage-modal.js";
 import { escapeHtml, highlight } from "../ui/render.js";
+import { formatAnswerWithSources } from "../ui/answer-sources.js";
+import { copyToClipboard } from "../ui/clipboard.js";
 import { t } from "../i18n/index.js";
-import { isAetherError, type NoteKind, type SearchHit, type VaultFileMeta } from "@aether/core";
+import { getConfigHealth, type HealthIssue } from "../ui/config-health.js";
+import { runRebuildJob, runRefreshIndexJob } from "../ui/job-tracker.js";
+import {
+  isAetherError,
+  type NoteKind,
+  type SearchAnswerResponse,
+  type SearchHit,
+  type SearchMeta,
+  type SearchResponse,
+  type VaultFileMeta,
+} from "@aether/core";
 
 export const HUB_VIEW_TYPE = "aether-hub-view";
+export const HUB_ICON = "bot-message-square";
 
 type Mode = "recent" | "search";
 type Filter = "all" | "note" | "bookmark";
@@ -15,7 +34,7 @@ type Filter = "all" | "note" | "bookmark";
  *
  * 区块（自顶向下）：
  *   1. 状态条：索引数量 + 配置健康
- *   2. Onboarding 横幅（当无 Provider 配置时）
+ *   2. 配置健康横幅（当 Provider / Role 未完整配置时）
  *   3. 搜索框 + 过滤 chip
  *   4. 快速操作（导入）
  *   5. 主区：搜索结果 / 最近 7 天（互斥）
@@ -25,10 +44,13 @@ export class HubView extends ItemView {
   private filter: Filter = "all";
   private query = "";
   private debounce?: number;
+  private resultsRequestId = 0;
 
   // 缓存渲染 root 子区块，避免每次状态变化都重建整个 DOM
   private resultsEl?: HTMLElement;
   private statusEl?: HTMLElement;
+  private onboardingEl?: HTMLElement;
+  private pendingImportsBtn?: HTMLButtonElement;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -44,7 +66,7 @@ export class HubView extends ItemView {
     return t("view.hub.name");
   }
   getIcon(): string {
-    return "layers";
+    return HUB_ICON;
   }
 
   async onOpen(): Promise<void> {
@@ -59,6 +81,8 @@ export class HubView extends ItemView {
   async refresh(): Promise<void> {
     if (!this.statusEl) return;
     this.renderStatus(this.statusEl);
+    if (this.onboardingEl) this.renderOnboarding(this.onboardingEl);
+    this.renderPendingImportButtonState();
     await this.refreshResults();
   }
 
@@ -72,8 +96,9 @@ export class HubView extends ItemView {
     this.statusEl = root.createDiv({ cls: "aether-hub-statusbar" });
     this.renderStatus(this.statusEl);
 
-    // 2. Onboarding 横幅（条件渲染）
-    this.renderOnboarding(root);
+    // 2. 配置健康横幅（条件渲染）
+    this.onboardingEl = root.createDiv({ cls: "aether-hub-onboarding" });
+    this.renderOnboarding(this.onboardingEl);
 
     // 3. 搜索框
     const input = root.createEl("input", {
@@ -81,6 +106,10 @@ export class HubView extends ItemView {
       placeholder: t("view.hub.searchPlaceholder"),
     });
     input.addClass("aether-search-input");
+    root.createDiv({
+      cls: "aether-search-privacy-hint",
+      text: t("view.hub.searchPrivacyHint"),
+    });
     input.addEventListener("input", () => {
       this.query = input.value;
       window.clearTimeout(this.debounce);
@@ -112,18 +141,48 @@ export class HubView extends ItemView {
     const actions = root.createDiv({ cls: "aether-hub-quickactions" });
     const importBtn = actions.createEl("button", { text: t("view.hub.import") });
     importBtn.onclick = () => new ImportModal(this.plugin.app, this.plugin).open();
-    const folderBtn = actions.createEl("button", { text: t("view.hub.openFolder") });
-    folderBtn.onclick = async () => {
-      const folder = this.plugin.core.settings.current.ui.aetherInboxFolder;
-      try {
-        await this.plugin.core.host.openFolder(folder);
-      } catch (e) {
-        new Notice(
-          t("settings.advanced.inboxFolder.openFailed", { error: (e as Error).message }),
-          5000,
-        );
+    const pendingBtn = actions.createEl("button");
+    this.pendingImportsBtn = pendingBtn;
+    this.renderPendingImportButtonState();
+    pendingBtn.onclick = () => {
+      if (openPendingImportItems(this.plugin.app, this.plugin)) {
+        this.renderPendingImportButtonState();
       }
     };
+    const jobsBtn = actions.createEl("button", { text: t("view.hub.jobs") });
+    jobsBtn.onclick = () => new JobHistoryModal(this.plugin.app, this.plugin).open();
+    const usageBtn = actions.createEl("button", { text: t("view.hub.usage") });
+    usageBtn.onclick = () => new UsageModal(this.plugin.app, this.plugin).open();
+    const refreshBtn = actions.createEl("button", { text: t("view.hub.refreshIndex") });
+    refreshBtn.onclick = async () => {
+      refreshBtn.disabled = true;
+      await runRefreshIndexJob(this.plugin, {
+        onDone: () => this.refresh(),
+        onCancel: () => {
+          refreshBtn.disabled = false;
+        },
+        onError: () => {
+          refreshBtn.disabled = false;
+        },
+        onAlreadyRunning: () => {
+          refreshBtn.disabled = false;
+        },
+      });
+      refreshBtn.disabled = false;
+    };
+    if (this.plugin.core.canOpenImportFolder()) {
+      const folderBtn = actions.createEl("button", { text: t("view.hub.openFolder") });
+      folderBtn.onclick = async () => {
+        try {
+          await this.plugin.core.openImportFolder();
+        } catch (e) {
+          new Notice(
+            t("settings.advanced.inboxFolder.openFailed", { error: (e as Error).message }),
+            5000,
+          );
+        }
+      };
+    }
 
     // 6. 结果区
     this.resultsEl = root.createDiv({ cls: "aether-hub-results" });
@@ -132,54 +191,91 @@ export class HubView extends ItemView {
   private renderStatus(el: HTMLElement): void {
     el.empty();
     const total = this.plugin.core.store.allChunks().length;
-    const providers = this.plugin.core.settings.current.providers;
-    const ok = providers.length > 0;
+    const health = getConfigHealth(this.plugin.core.settings.current);
     const left = el.createSpan({ cls: "aether-status-pill" });
     const dot = left.createSpan({ cls: "aether-status-dot" });
-    if (!ok) dot.addClass("warn");
-    left.createSpan({ text: ok ? t("view.hub.statusReady") : t("view.hub.statusNoProvider") });
+    if (health.status !== "ready") dot.addClass(health.status === "error" ? "error" : "warn");
+    const labelKey =
+      health.status === "ready"
+        ? "view.hub.statusReady"
+        : health.status === "error"
+          ? "view.hub.statusNeedsSetup"
+          : "view.hub.statusPartial";
+    left.createSpan({ text: t(labelKey) });
     el.createSpan({ text: t("view.hub.statusIndexed", { count: total }) });
   }
 
+  private renderPendingImportButtonState(): void {
+    if (!this.pendingImportsBtn) return;
+    const pendingCount = getPendingImportItems(this.plugin).length;
+    this.pendingImportsBtn.setText(t("view.hub.pendingImports", { count: pendingCount }));
+    this.pendingImportsBtn.disabled = pendingCount === 0;
+  }
+
   private renderOnboarding(root: HTMLElement): void {
-    const providers = this.plugin.core.settings.current.providers;
-    if (providers.length > 0) return;
+    root.empty();
+    const health = getConfigHealth(this.plugin.core.settings.current);
+    if (health.status === "ready") {
+      root.style.display = "none";
+      return;
+    }
+    root.style.display = "";
     const card = root.createDiv({ cls: "aether-onboard-card" });
-    card.createDiv({ cls: "aether-onboard-title", text: t("view.hub.onboard.title") });
-    card.createDiv({ cls: "aether-onboard-desc", text: t("view.hub.onboard.desc") });
-    const btn = card.createEl("button", { text: t("view.hub.onboard.button") });
+    card.createDiv({ cls: "aether-onboard-title", text: t("view.hub.health.title") });
+    card.createDiv({ cls: "aether-onboard-desc", text: t("view.hub.health.desc") });
+    const list = card.createEl("ul", { cls: "aether-health-issues" });
+    const visibleIssues = health.issues.slice(0, 5);
+    for (const issue of visibleIssues) {
+      list.createEl("li", {
+        cls: `aether-health-issue aether-health-issue--${issue.severity}`,
+        text: issueText(issue),
+      });
+    }
+    const hiddenCount = health.issues.length - visibleIssues.length;
+    if (hiddenCount > 0) {
+      list.createEl("li", {
+        cls: "aether-health-issue",
+        text: t("view.hub.health.more", { count: hiddenCount }),
+      });
+    }
+    const btn = card.createEl("button", { text: t("view.hub.health.button") });
     btn.addClass("mod-cta");
     btn.onclick = () => {
-      // 借 Obsidian 自带 API 打开本插件设置页
-      const setting = (
-        this.app as unknown as { setting: { open(): void; openTabById(id: string): void } }
-      ).setting;
-      setting.open();
-      setting.openTabById("aether-note-llm");
+      this.openSettings();
     };
+  }
+
+  private openSettings(): void {
+    // 借 Obsidian 自带 API 打开本插件设置页
+    const setting = (
+      this.app as unknown as { setting: { open(): void; openTabById(id: string): void } }
+    ).setting;
+    setting.open();
+    setting.openTabById("aether-note-llm");
   }
 
   // ---- 数据 -------------------------------------------------------------
   private async refreshResults(): Promise<void> {
     if (!this.resultsEl) return;
+    const requestId = ++this.resultsRequestId;
     if (this.mode === "search") {
-      await this.renderSearch(this.resultsEl);
+      await this.renderSearch(this.resultsEl, requestId);
     } else {
-      await this.renderRecent(this.resultsEl);
+      await this.renderRecent(this.resultsEl, requestId);
     }
   }
 
-  private async renderRecent(root: HTMLElement): Promise<void> {
+  private async renderRecent(root: HTMLElement, requestId: number): Promise<void> {
     root.empty();
-    const folder = this.plugin.core.settings.current.ui.aetherInboxFolder;
     const title = root.createDiv({ cls: "aether-hub-section-title" });
     title.createSpan({ text: t("view.hub.recent.title") });
     let files: VaultFileMeta[] = [];
     try {
-      files = await this.plugin.core.host.listMarkdown(folder);
+      files = await this.plugin.core.listRecentImportedMarkdown();
     } catch {
       // 文件夹不存在等情况
     }
+    if (!this.isCurrentResultsRequest(requestId)) return;
     files = files.sort((a, b) => b.mtime - a.mtime).slice(0, 10);
     if (files.length === 0) {
       root.createDiv({ cls: "aether-hub-empty", text: t("view.hub.recent.empty") });
@@ -188,28 +284,36 @@ export class HubView extends ItemView {
     for (const f of files) {
       const card = root.createDiv({ cls: "aether-recent-card" });
       const fileName = f.path.split("/").pop()?.replace(/\.md$/i, "") ?? f.path;
-      const titleEl = card.createEl("div", { cls: "aether-card-title aether-clickable", text: fileName });
+      const titleEl = card.createEl("div", {
+        cls: "aether-card-title aether-clickable",
+        text: fileName,
+      });
       titleEl.onClickEvent(() => {
-        this.app.workspace.openLinkText(f.path, "", false);
+        void this.openVaultSource(f.path);
       });
       const meta = card.createEl("div", { cls: "aether-card-meta" });
       meta.createSpan({ text: f.path });
-      meta.createSpan({ text: relativeTime(f.mtime, this.plugin.core.host.now()) });
+      meta.createSpan({ text: relativeTime(f.mtime, this.plugin.core.now()) });
     }
   }
 
-  private async renderSearch(root: HTMLElement): Promise<void> {
+  private async renderSearch(root: HTMLElement, requestId: number): Promise<void> {
     root.empty();
     const q = this.query.trim();
     if (!q) return;
     const status = root.createDiv({ cls: "aether-hub-loading", text: t("view.hub.searching") });
     let hits: SearchHit[];
+    let meta: SearchMeta;
     try {
       const filterArg = this.filter === "all" ? undefined : (this.filter as NoteKind);
-      const req: Parameters<typeof this.plugin.core.search>[0] = { query: q, limit: 20 };
+      const req: Parameters<typeof this.plugin.core.searchWithMeta>[0] = { query: q, limit: 20 };
       if (filterArg) req.filters = { kind: filterArg };
-      hits = await this.plugin.core.search(req);
+      const result = await this.plugin.core.searchWithMeta(req);
+      if (!this.isCurrentResultsRequest(requestId)) return;
+      hits = result.hits;
+      meta = result.meta;
     } catch (e) {
+      if (!this.isCurrentResultsRequest(requestId)) return;
       status.empty();
       // 维度不匹配是切换 embedding 模型后没重建索引的典型坑，给出可执行提示
       if (isAetherError(e) && e.code === "EMBED_DIM_MISMATCH") {
@@ -227,18 +331,21 @@ export class HubView extends ItemView {
         btn.onclick = async () => {
           btn.disabled = true;
           btn.setText(t("view.hub.dimMismatch.running"));
-          try {
-            const r = await this.plugin.core.rebuildAll();
-            new Notice(
-              t("settings.advanced.rebuild.done", { indexed: r.indexed, scanned: r.scanned }),
-              5000,
-            );
-            void this.refreshResults();
-          } catch (err) {
-            new Notice(t("view.hub.searchFailed", { error: (err as Error).message }), 6000);
-          } finally {
-            btn.disabled = false;
-          }
+          await runRebuildJob(this.plugin, {
+            onDone: () => this.refreshResults(),
+            onCancel: () => {
+              btn.disabled = false;
+              btn.setText(t("view.hub.dimMismatch.button"));
+            },
+            onError: () => {
+              btn.disabled = false;
+              btn.setText(t("view.hub.dimMismatch.button"));
+            },
+            onAlreadyRunning: () => {
+              btn.disabled = false;
+              btn.setText(t("view.hub.dimMismatch.button"));
+            },
+          });
         };
         return;
       }
@@ -246,19 +353,21 @@ export class HubView extends ItemView {
       return;
     }
     status.remove();
+    this.renderSearchMeta(root, meta);
     if (hits.length === 0) {
       root.createEl("p", { cls: "aether-hub-empty", text: t("view.hub.noMatches") });
       return;
     }
+    this.renderAnswerPanel(root, q, { hits, meta });
     for (const h of hits) {
       const card = root.createDiv({ cls: "aether-search-card" });
       const titleEl = card.createEl("div", { cls: "aether-card-title aether-clickable" });
       titleEl.innerHTML = highlight(h.title, q);
       titleEl.onClickEvent(() => {
         if (h.kind === "bookmark" && h.url) {
-          window.open(h.url, "_blank");
+          void this.openExternal(h.url);
         } else {
-          this.app.workspace.openLinkText(h.vaultPath, "", false);
+          void this.openVaultSource(h.vaultPath);
         }
       });
       if (h.summary) {
@@ -270,6 +379,192 @@ export class HubView extends ItemView {
       }
       const meta = card.createEl("div", { cls: "aether-card-meta" });
       meta.innerHTML = `<span>${escapeHtml(h.kind)}</span><span>${escapeHtml(h.vaultPath)}</span>`;
+    }
+  }
+
+  private isCurrentResultsRequest(requestId: number): boolean {
+    return requestId === this.resultsRequestId;
+  }
+
+  private renderSearchMeta(root: HTMLElement, meta: SearchMeta): void {
+    const bar = root.createDiv({ cls: `aether-search-meta aether-search-meta--${meta.mode}` });
+    const label = bar.createSpan({ cls: "aether-search-meta-label" });
+    label.setText(t(`view.hub.searchMode.${meta.mode}`));
+    const detailKey =
+      meta.fallbackReason === null
+        ? meta.mode === "stale-biased"
+          ? "view.hub.searchMode.staleDetail"
+          : "view.hub.searchMode.hybridDetail"
+        : `view.hub.searchFallback.${meta.fallbackReason}`;
+    bar.createSpan({
+      cls: "aether-search-meta-detail",
+      text: t(detailKey, {
+        alpha: meta.alpha.toFixed(2),
+        stale: Math.round(meta.staleRatio * 100),
+      }),
+    });
+  }
+
+  private renderAnswerPanel(root: HTMLElement, query: string, search: SearchResponse): void {
+    const panel = root.createDiv({ cls: "aether-answer-panel" });
+    const header = panel.createDiv({ cls: "aether-answer-header" });
+    header.createDiv({ cls: "aether-answer-title", text: t("view.hub.answer.title") });
+    const button = header.createEl("button", { text: t("view.hub.answer.button") });
+    const body = panel.createDiv({ cls: "aether-answer-body" });
+    body.createDiv({ cls: "aether-answer-hint", text: t("view.hub.answer.hint") });
+    let controller: AbortController | null = null;
+
+    button.onclick = async () => {
+      if (controller) {
+        controller.abort();
+        return;
+      }
+      const ac = new AbortController();
+      controller = ac;
+      button.setText(t("view.hub.answer.cancel"));
+      body.empty();
+      body.createDiv({ cls: "aether-hub-loading", text: t("view.hub.answer.loading") });
+      try {
+        const filterArg = this.filter === "all" ? undefined : (this.filter as NoteKind);
+        const req: Parameters<typeof this.plugin.core.answerSearch>[0] = {
+          query,
+          search,
+          limit: 8,
+          maxContextChunks: 6,
+          signal: ac.signal,
+        };
+        if (filterArg) req.filters = { kind: filterArg };
+        const answer = await this.plugin.core.answerSearch(req);
+        if (ac.signal.aborted) {
+          body.empty();
+          body.createDiv({ cls: "aether-answer-error", text: t("ai.cancelled") });
+          return;
+        }
+        this.renderAnswerBody(body, answer);
+      } catch (e) {
+        body.empty();
+        if (ac.signal.aborted) {
+          body.createDiv({ cls: "aether-answer-error", text: t("ai.cancelled") });
+        } else if (isAetherError(e) && e.code === "BINDING_NOT_FOUND") {
+          body.createDiv({ cls: "aether-answer-error", text: t("view.hub.answer.notConfigured") });
+        } else {
+          body.createDiv({
+            cls: "aether-answer-error",
+            text: t("view.hub.answer.failed", { error: (e as Error).message }),
+          });
+        }
+      } finally {
+        if (controller === ac) controller = null;
+        button.setText(t("view.hub.answer.button"));
+      }
+    };
+  }
+
+  private renderAnswerBody(root: HTMLElement, answer: SearchAnswerResponse): void {
+    root.empty();
+    if (!answer.answer.trim()) {
+      root.createDiv({ cls: "aether-answer-empty", text: t("view.hub.answer.empty") });
+      return;
+    }
+    root.createEl("div", {
+      cls: "aether-answer-text",
+      text: answer.answer,
+    });
+    const toolbar = root.createDiv({ cls: "aether-answer-toolbar" });
+    const copyBtn = toolbar.createEl("button", {
+      cls: "aether-answer-copy",
+      text: t("view.hub.answer.copyWithSources"),
+    });
+    copyBtn.onclick = async () => {
+      await copyToClipboard(formatAnswerWithSources(answer), {
+        successMessage: t("view.hub.answer.copied"),
+        notify: (message, timeoutMs) => new Notice(message, timeoutMs),
+      });
+    };
+    root.createDiv({
+      cls: `aether-answer-context${answer.contextTruncated ? " is-truncated" : ""}`,
+      text: answer.contextTruncated
+        ? t("view.hub.answer.contextTruncated", { tokens: answer.contextTokenCount })
+        : t("view.hub.answer.contextUsed", { tokens: answer.contextTokenCount }),
+    });
+    this.renderCitationCheck(root, answer);
+    const refs = root.createDiv({ cls: "aether-answer-citations" });
+    for (const citation of answer.citations) {
+      const details = refs.createEl("details", { cls: "aether-answer-source" });
+      details.createEl("summary", {
+        cls: "aether-answer-source-summary",
+        text: `[${citation.index}] ${citation.title}`,
+      });
+      const meta = details.createDiv({ cls: "aether-answer-source-meta" });
+      this.renderSourceMeta(meta, t("view.hub.answer.sourcePath"), citation.vaultPath);
+      this.renderSourceMeta(meta, t("view.hub.answer.sourceHeading"), citation.headingPath || "-");
+      if (citation.url) {
+        this.renderSourceMeta(meta, t("view.hub.answer.sourceUrl"), citation.url);
+      }
+      const excerpt = details.createDiv({ cls: "aether-answer-source-excerpt" });
+      excerpt.createDiv({
+        cls: "aether-answer-source-label",
+        text: t("view.hub.answer.sourceExcerpt"),
+      });
+      excerpt.createDiv({ cls: "aether-answer-source-text", text: citation.excerpt });
+      if (citation.truncated) {
+        details.createDiv({
+          cls: "aether-answer-source-note",
+          text: t("view.hub.answer.sourceTruncated"),
+        });
+      }
+      const openBtn = details.createEl("button", {
+        cls: "aether-answer-source-open",
+        text: t("view.hub.answer.openSource"),
+      });
+      openBtn.onclick = () => {
+        if (citation.url) {
+          void this.openExternal(citation.url);
+        } else {
+          void this.openVaultSource(citation.vaultPath);
+        }
+      };
+    }
+  }
+
+  private renderSourceMeta(root: HTMLElement, label: string, value: string): void {
+    const row = root.createDiv({ cls: "aether-answer-source-meta-row" });
+    row.createSpan({ cls: "aether-answer-source-label", text: label });
+    row.createSpan({ cls: "aether-answer-source-value", text: value });
+  }
+
+  private async openExternal(url: string): Promise<void> {
+    try {
+      await this.plugin.hostAdapter.openExternal(url);
+    } catch (e) {
+      new Notice(t("view.hub.openExternalFailed", { error: (e as Error).message }), 5000);
+    }
+  }
+
+  private async openVaultSource(path: string): Promise<void> {
+    try {
+      await this.app.workspace.openLinkText(path, "", false);
+    } catch (e) {
+      new Notice(t("view.hub.openVaultSourceFailed", { error: (e as Error).message }), 5000);
+    }
+  }
+
+  private renderCitationCheck(root: HTMLElement, answer: SearchAnswerResponse): void {
+    const check = answer.citationCheck;
+    if (check.invalidIndexes.length > 0) {
+      root.createDiv({
+        cls: "aether-answer-warning",
+        text: t("view.hub.answer.invalidCitations", {
+          indexes: check.invalidIndexes.map((index) => `[${index}]`).join(", "),
+        }),
+      });
+      return;
+    }
+    if (!check.hasAnyReference && answer.citations.length > 0) {
+      root.createDiv({
+        cls: "aether-answer-warning",
+        text: t("view.hub.answer.noCitations"),
+      });
     }
   }
 }
@@ -285,4 +580,8 @@ function relativeTime(then: number, now: number): string {
   if (d < 30) return t("view.hub.time.days", { n: d });
   const mo = Math.floor(d / 30);
   return t("view.hub.time.months", { n: mo });
+}
+
+function issueText(issue: HealthIssue): string {
+  return t(`view.hub.health.issue.${issue.code}`, { role: issue.roleName ?? "" });
 }

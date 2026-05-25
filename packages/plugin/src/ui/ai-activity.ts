@@ -24,10 +24,13 @@ export class AiActivityIndicator {
   private removed = false;
   private timeEl: HTMLSpanElement;
   private timer: number | undefined;
+  private readonly onCancel?: () => void;
+  private cancelled = false;
 
   constructor(opts: AiActivityOptions) {
-    if (active) active.hide("error");
+    if (active) active.cancelAndHide();
     active = this;
+    this.onCancel = opts.onCancel;
     this.startedAt = Date.now();
 
     this.el = document.body.createDiv({ cls: "aether-ai-activity" });
@@ -54,8 +57,7 @@ export class AiActivityIndicator {
         text: t("ai.activity.cancel"),
       });
       cancel.onclick = () => {
-        opts.onCancel?.();
-        this.hide("error");
+        this.cancelAndHide();
       };
     }
 
@@ -83,7 +85,7 @@ export class AiActivityIndicator {
     }
   }
 
-  hide(state: "done" | "error" = "done"): void {
+  hide(state: "done" | "error" | "cancelled" = "done"): void {
     if (this.removed) return;
     this.removed = true;
     if (active === this) active = null;
@@ -91,5 +93,13 @@ export class AiActivityIndicator {
     this.el.addClass(`is-${state}`);
     // 等动画结束再移除
     window.setTimeout(() => this.el.remove(), 350);
+  }
+
+  private cancelAndHide(): void {
+    if (!this.cancelled) {
+      this.cancelled = true;
+      this.onCancel?.();
+    }
+    this.hide("cancelled");
   }
 }

@@ -71,6 +71,17 @@ export class InboxStore {
     return next;
   }
 
+  updateDraft(
+    itemId: string,
+    patch: Partial<Pick<InboxItem, "proposedTitle" | "proposedSummary" | "proposedTags">>,
+  ): InboxItem | undefined {
+    const item = this.items.get(itemId);
+    if (!item || item.status !== "pending") return undefined;
+    const next: InboxItem = { ...item, ...patch };
+    this.items.set(itemId, next);
+    return next;
+  }
+
   /** Mark a batch archived once all items are decided. Idempotent. */
   maybeArchive(batchId: string): void {
     const batch = this.batches.get(batchId);

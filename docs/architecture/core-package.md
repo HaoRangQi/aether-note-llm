@@ -23,9 +23,9 @@ src/
 │
 ├── provider/
 │   ├── types.ts              Provider, ProviderFactory
-│   ├── registry.ts           lazy instantiation, key/binding indirection
+│   ├── registry.ts           lazy instantiation, API key indirection
 │   ├── retry.ts              backoff, retriable classification
-│   ├── openai-compatible.ts  the only concrete provider in v0.1
+│   ├── openai-compatible.ts  default OpenAI-compatible provider adapter + usage sanitation
 │   └── mock-provider.ts      test fixture
 │
 ├── index-store/
@@ -41,24 +41,31 @@ src/
 │   ├── plain-text-connector.ts
 │   ├── notion-zip-connector.ts
 │   ├── bookmarks-json-connector.ts
+│   ├── itab-connector.ts
 │   └── url-list-connector.ts
 │
 ├── import/
 │   ├── inbox-store.ts        pending/approved/discarded/merged state
 │   ├── duplicate-detector.ts vector-cosine duplicate probe
-│   └── pipeline.ts           Connector → AI metadata → Inbox
+│   └── pipeline.ts           Connector → AI metadata/URL fast path → Inbox
+│
+├── roles/
+│   ├── default-roles.ts      built-in AI roles
+│   ├── render-prompt.ts      prompt variable diagnostics + rendering
+│   ├── role-registry.ts      role lookup and editor-role filtering
+│   └── run-role.ts           single AI execution entry by outputKind
 │
 ├── ai/
-│   ├── metadata.ts           inbox_metadata feature (JSON-parsing tolerant)
-│   ├── rewrite.ts            rewrite feature + shared runFeature
-│   ├── summarize.ts          summarize feature
-│   └── extract.ts            extract feature (bullet parsing)
+│   ├── metadata.ts           inbox_metadata role wrapper
+│   ├── rewrite.ts            rewrite role wrapper
+│   ├── summarize.ts          summarize role wrapper
+│   └── extract.ts            extract role wrapper
 │
 ├── budget/
-│   └── token-usage.ts        append-only + monthly aggregate
+│   └── token-usage.ts        append-only + monthly aggregate + token count sanitation
 │
 ├── persistence/
-│   ├── migrate.ts            forward-only settings migration
+│   ├── migrate.ts            forward-only settings migration + numeric bounds / role params sanitation
 │   └── settings-store.ts     IHostAdapter-backed K-V
 │
 ├── app.ts                    AetherCore — wiring + use-case methods
@@ -75,10 +82,10 @@ src/
 
 ## Adding a new feature
 
-| Feature kind             | Where to put it                                                                                                |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| New AI capability        | `src/ai/<feature>.ts` + a `Feature` union member                                                               |
-| New import source        | `src/connectors/<source>-connector.ts` + register in `app.ts`                                                  |
-| New provider SDK         | `src/provider/<sdk>-provider.ts` + ProviderFactory + register in `app.ts`                                      |
-| New persistence slot     | `src/persistence/<slot>-store.ts` + key constant                                                               |
-| Anything calling outside | Goes through `IHostAdapter`. If a method doesn't exist, add it to the interface and InMemoryHostAdapter first. |
+| Feature kind             | Where to put it                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| New AI capability        | Add an `AiRole` seed when it should be built in; add a thin `src/ai/<name>.ts` wrapper only when callers need a typed convenience method |
+| New import source        | `src/connectors/<source>-connector.ts` + register in `app.ts`                                                                            |
+| New provider SDK         | `src/provider/<sdk>-provider.ts` + ProviderFactory + register in `app.ts`                                                                |
+| New persistence slot     | `src/persistence/<slot>-store.ts` + key constant                                                                                         |
+| Anything calling outside | Goes through `IHostAdapter`. If a method doesn't exist, add it to the interface and InMemoryHostAdapter first.                           |

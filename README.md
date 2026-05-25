@@ -6,16 +6,16 @@
 
 <p>
   <a href="#-状态">
-    <img alt="status" src="https://img.shields.io/badge/状态-v0.1%20代码完成-blue" />
+    <img alt="status" src="https://img.shields.io/badge/状态-v0.3%20P0%20hardening-blue" />
   </a>
   <a href="#-用什么-ai-服务">
     <img alt="provider" src="https://img.shields.io/badge/AI-OpenAI%20兼容-orange" />
   </a>
   <a href="./docs/testing/strategy.md">
-    <img alt="tests" src="https://img.shields.io/badge/tests-153%20passed-brightgreen" />
+    <img alt="tests" src="https://img.shields.io/badge/tests-374%20passed-brightgreen" />
   </a>
   <a href="./docs/architecture/core-package.md">
-    <img alt="coverage" src="https://img.shields.io/badge/coverage-89%25-brightgreen" />
+    <img alt="coverage" src="https://img.shields.io/badge/coverage-90.5%25-brightgreen" />
   </a>
   <a href="./LICENSE">
     <img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey" />
@@ -30,8 +30,8 @@
 
 Aether 装到 Obsidian 后，你可以：
 
-- **吸纳**：把散落的 markdown / 网页正文 / Chrome 书签 / Notion 导出 ZIP 一键塞进 vault
-- **沉淀**：AI 自动起标题、打标签、写摘要，你只负责按"接受 / 丢弃 / 合并"
+- **吸纳**：把散落的 markdown、粘贴文本、Chrome 书签和 URL 列表一键塞进 vault（URL 列表保存链接，不自动抓取网页正文）
+- **沉淀**：AI 自动起标题、打标签、写摘要，预览确认后写入 `Aether Inbox/`
 - **召回**：自然语言搜索 → 跨笔记 / 跨书签 / 命中片段高亮 + 一键跳转原文
 - **重写**：编辑器里选中任意段落 → 右键 AI 改写 / 总结 / 提要点
 
@@ -41,18 +41,20 @@ Aether 装到 Obsidian 后，你可以：
 
 ## ✨ 30 秒看核心能力
 
-| 能力                 | 关键词                                                                      |
-| -------------------- | --------------------------------------------------------------------------- |
-| 🪄 智能导入          | markdown / 粘贴文本 / Notion ZIP / Chrome 书签 JSON / URL 列表              |
-| 🧠 AI 自动元数据     | 标题 / 标签 / 摘要 / 重复检测（向量 cosine ≥ 0.92）                         |
-| 📥 Inbox 待审        | 卡片式审核：approve / discard / merge into existing                         |
-| 🔍 混合检索          | BM25 文本 + 向量语义；α 可调；stale 状态自动偏 BM25                         |
-| ✏️ 段落级 AI 辅助    | 选中段 → 右键 → rewrite / summarize / extract                               |
-| 🔗 书签搜得到 + 点开 | 书签和笔记同搜索框；命中点击打开默认浏览器                                  |
-| 🔌 多 Provider 接入  | 任何 OpenAI 兼容端点：DeepSeek / Kimi / 智谱 / OpenRouter / Ollama / 自托管 |
-| 🎚 每功能独选模型    | 6 个 feature 分别绑定 Provider + 模型名                                     |
-| 💸 token 用量统计    | 月度聚合 + 预算告警                                                         |
-| 🩺 诊断包导出        | 一键脱敏报告，含版本 / 索引 / 用量                                          |
+| 能力                 | 关键词                                                                         |
+| -------------------- | ------------------------------------------------------------------------------ |
+| 🪄 智能导入          | markdown 文件 / 粘贴文本 / Chrome 书签 JSON / iTab / URL 列表                  |
+| 🧠 AI 自动元数据     | 标题 / 标签 / 摘要 / 重复检测（向量 cosine ≥ 0.92）                            |
+| 🧭 Hub 主面板        | 搜索 / 最近导入 / 快速导入 / Provider 状态集中到一个入口                       |
+| 🔍 混合检索          | BM25 文本 + 向量语义；Hub 显示 Hybrid / BM25 / Stale-biased 与降级原因         |
+| 💬 综合回答          | 基于当前搜索结果生成带引用回答，引用可打开笔记或书签                           |
+| ✏️ 段落级 AI 辅助    | 选中段 → 右键 → rewrite / summarize / extract                                  |
+| 🔗 书签搜得到 + 点开 | 书签和笔记同搜索框；命中点击打开默认浏览器                                     |
+| 🔌 多 Provider 接入  | 任何 OpenAI 兼容端点：DeepSeek / Kimi / 智谱 / OpenRouter / Ollama / 自托管    |
+| 🎭 AI 角色           | 内置 / 自定义 Role 可分别绑定 Provider、模型、提示词和参数，提示词变量会被诊断 |
+| 💸 token 用量统计    | 月度聚合 + 预算告警                                                            |
+| 🧾 最近任务          | 导入 / 刷新变更 / 重建任务状态、耗时、数量摘要和失败明细                       |
+| 🩺 诊断包导出        | 一键脱敏报告，含版本 / 索引 / 最近任务 / 用量                                  |
 
 ---
 
@@ -62,13 +64,15 @@ Aether 装到 Obsidian 后，你可以：
 <tr>
 <td valign="top" width="50%">
 
-**v0.1 — 代码完成，未发布**
+**v0.3 — P0 hardening，未发布**
 
-- 30 个 commit，46 个源文件，30 个测试文件
-- 153 / 153 测试通过
-- 核心覆盖率：lines 89%、branches 80%、funcs 91%
-- 插件 bundle 256 KB
-- **未在真实 vault 长期使用过** —— 接手者首推手测
+- Hub 主面板已取代旧 Search / Inbox 双视图
+- AI Role 已取代旧 Feature Binding，支持自定义编辑器角色
+- 导入当前走预览确认：生成 metadata 后先展示清单，写入用户勾选的条目
+- 写入失败的导入项可从结果页、Hub 待处理入口或命令面板继续处理
+- 搜索在 embedding 缺失或 Provider 短暂失败时降级到 BM25，并在 Hub 展示当前模式与原因
+- 搜索结果页已支持基于当前命中的综合回答和引用跳转
+- **仍需真实 vault 长期使用验证** —— 发布前首推 UAT
 
 </td>
 <td valign="top" width="50%">
@@ -76,8 +80,8 @@ Aether 装到 Obsidian 后，你可以：
 **接下来**
 
 - 在真实 vault 用一周
-- 攒下来的痛点 → v0.2 plan
-- 路线图候选：RAG 综合回答 / 长文智能拆分 / 浏览器扩展 / Tauri 独立桌面应用
+- 强化综合回答的引用质量校验与长上下文压缩
+- 长文智能拆分 / 浏览器扩展 / Tauri 独立桌面应用
 
 详见 [📦 阶段性归档（2026-05-17）](docs/snapshots/2026-05-17-v0.1-complete.md)
 
@@ -176,7 +180,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css"    "$VAULT/.obsidian/plugins/aether-n
 
 ## 🤖 用什么 AI 服务
 
-任何 OpenAI 兼容端点都行。**API key 不出本机**，仅存于 Obsidian 插件数据目录（重命名为 `data.json`）。
+任何 OpenAI 兼容端点都行。Aether **不托管、不上传你的 API key 到 Aether 服务器**；key 仅存于 Obsidian 插件数据目录（重命名为 `data.json`），并只在调用你配置的 Provider 时发送给该 Provider。
 
 | 服务          | Base URL                               | 适合什么                                        |
 | ------------- | -------------------------------------- | ----------------------------------------------- |
@@ -189,7 +193,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css"    "$VAULT/.obsidian/plugins/aether-n
 | Ollama        | `http://localhost:11434/v1`            | 完全本地，无需 key                              |
 | LM Studio     | `http://localhost:1234/v1`             | 完全本地，无需 key                              |
 
-> **典型组合**：`embedding → SiliconFlow + bge-m3`，其余功能 → `DeepSeek + deepseek-chat`。月度成本通常个位数人民币。
+> **典型组合**：`embedding → SiliconFlow + bge-m3`，其余功能 → `DeepSeek + deepseek-chat`。Aether 会展示服务商上报的 token 用量并支持月度 token 阈值提醒；解析服务商上报、记录和恢复用量时都会把异常负数 / 小数 token 归一化为非负整数；实际费用以各服务商账单为准。
 
 ---
 
@@ -215,9 +219,9 @@ docs/
 
 <table>
 <tr><th width="40%" align="left">先看这些</th><th width="60%" align="left">说明</th></tr>
-<tr><td>📦 <a href="docs/snapshots/2026-05-17-v0.1-complete.md">阶段性归档：v0.1 完成</a></td><td>项目当前的横切面快照，含决策与权衡</td></tr>
+<tr><td>📦 <a href="docs/snapshots/2026-05-17-v0.1-complete.md">阶段性归档：v0.1 完成</a></td><td>历史横切面快照，含 v0.1 决策与权衡</td></tr>
 <tr><td>🚀 <a href="docs/contributing/getting-started.md">启动与接入指南</a></td><td>60 秒健康检查 → 装到 Obsidian → 开发循环</td></tr>
-<tr><td>📘 <a href="docs/user-guide.md">日常使用指南</a></td><td>7 个真实场景 + 8 个常见坑</td></tr>
+<tr><td>📘 <a href="docs/user-guide.md">日常使用指南</a></td><td>7 个真实场景 + 9 个常见坑</td></tr>
 <tr><td>🧪 <a href="docs/testing/uat-checklist.md">UAT 验收清单</a></td><td>手测打勾清单，发布前必跑</td></tr>
 </table>
 
@@ -233,7 +237,7 @@ docs/
 <tr><th width="40%" align="left">贡献 / 维护</th><th width="60%" align="left">说明</th></tr>
 <tr><td>⚙️ <a href="docs/contributing/development-setup.md">开发环境</a></td><td>软链脚本 + dev 循环</td></tr>
 <tr><td>🎨 <a href="docs/contributing/coding-standards.md">代码规范</a></td><td>TypeScript / 架构 / 测试 / 提交</td></tr>
-<tr><td>🚢 <a href="docs/contributing/release-checklist.md">发布清单</a></td><td>8 步发布流程 + 社区插件首次提交</td></tr>
+<tr><td>🚢 <a href="docs/contributing/release-checklist.md">发布清单</a></td><td>发布验证、远程提交准备 + 社区插件首次提交</td></tr>
 <tr><td>🧬 <a href="docs/testing/strategy.md">测试策略</a></td><td>三层测试理念</td></tr>
 </table>
 
@@ -248,9 +252,9 @@ docs/
 ## 🔐 隐私
 
 - **数据**：所有笔记是 vault 里的普通 markdown。卸载插件后笔记原封不动。
-- **API key**：仅本机存储于 Obsidian 插件数据目录（混淆，不上 keychain；**移动端 Obsidian 没 keychain**，所以 v0.1 不依赖它）。
-- **AI 调用**：你 paste 进来的文本会经过你**自己配置的** Provider。Aether 不收数据、不打点、不外发。
-- **诊断包**：`⌘P → Diagnostics export` 出 JSON 报告时**自动脱敏 API key**。
+- **API key**：仅本机存储于 Obsidian 插件数据目录（混淆，不上 keychain；**移动端 Obsidian 没 keychain**，所以当前版本不依赖它）。调用模型时会按需发送给你配置的 Provider。
+- **AI 调用**：你 paste 进来的文本会经过你**自己配置的** Provider。Aether 不收数据、不打点、不发送到 Aether 服务器；如果内容包含私密文件、密钥或密码，优先使用本地模型或可信自部署服务。
+- **最近任务 / 诊断包**：`⌘P → View recent jobs` 可先看导入 / 刷新索引 / 重建失败摘要；任务历史写入和读取都会忽略畸形、倒序时间戳与非有限数值摘要，并把负数 / 小数数量摘要归一化为非负整数；`⌘P → Diagnostics export` 出 JSON 报告时**自动脱敏 API key**，并把异常数值和非 JSON 值归一化为 JSON-safe 值。
 
 ---
 

@@ -99,6 +99,45 @@ describe("ProviderRegistry", () => {
     }
   });
 
+  it("allows no-key local presets", () => {
+    reg.setConfigs([
+      {
+        id: "local",
+        name: "Ollama",
+        baseUrl: "http://localhost:11434/v1",
+        apiKeyRef: "key:local",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+        kind: "ollama",
+      },
+    ]);
+    reg.setApiKeys({});
+
+    const provider = reg.getProvider("local");
+
+    expect(provider.id).toBe("local");
+    expect(captured.args?.apiKey).toBe("");
+  });
+
+  it("still requires keys for hosted presets", () => {
+    reg.setConfigs([
+      {
+        id: "hosted",
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKeyRef: "key:hosted",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+        kind: "deepseek",
+      },
+    ]);
+    reg.setApiKeys({});
+
+    expect(() => reg.getProvider("hosted")).toThrow(AetherError);
+  });
+
   it("throws PROVIDER_NOT_FOUND when id unknown", () => {
     try {
       reg.getProvider("missing");
@@ -106,6 +145,28 @@ describe("ProviderRegistry", () => {
     } catch (e) {
       expect((e as AetherError).code).toBe("PROVIDER_NOT_FOUND");
     }
+  });
+
+  it("throws PROVIDER_CONFIG_INVALID when baseUrl is not http(s)", () => {
+    reg.setConfigs([
+      {
+        id: "p1",
+        name: "Test",
+        baseUrl: "not-a-url",
+        apiKeyRef: "k1",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
+
+    try {
+      reg.getProvider("p1");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect((e as AetherError).code).toBe("PROVIDER_CONFIG_INVALID");
+    }
+    expect(captured.args).toBeUndefined();
   });
 
   it("threads fetch + headers + baseUrl into factory", () => {

@@ -2,6 +2,15 @@ import { normalizeUrl } from "../url-normalize.js";
 import type { ImportSource, RawCandidate } from "../types.js";
 import type { SourceConnector } from "./connector.js";
 
+function isSupportedWebUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export class UrlListConnector implements SourceConnector {
   readonly id = "url-list";
   readonly name = "URL list (paste)";
@@ -16,6 +25,7 @@ export class UrlListConnector implements SourceConnector {
     for (const raw of source.payload.urls) {
       const trimmed = raw.trim();
       if (!trimmed) continue;
+      if (!isSupportedWebUrl(trimmed)) continue;
       const normalized = normalizeUrl(trimmed);
       if (seen.has(normalized)) continue;
       seen.add(normalized);

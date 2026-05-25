@@ -4,9 +4,12 @@ import {
   type AiRole,
   type ProviderConfig,
   type RoleOutputKind,
+  findPresetById,
   findSeed,
 } from "@aether/core";
 import { t } from "../i18n/index.js";
+import { chooseModelForUse, mergeModels } from "../ui/model-selection.js";
+import { analyzePromptVariables } from "../ui/prompt-diagnostics.js";
 
 const OUTPUT_KINDS: RoleOutputKind[] = ["text", "list", "metadata", "embedding"];
 
@@ -22,6 +25,7 @@ const OUTPUT_KINDS: RoleOutputKind[] = ["text", "list", "metadata", "embedding"]
 export class RoleEditorModal extends Modal {
   private editing: AiRole;
   private modelCache: Map<string, string[]>;
+  private refreshingModels = new Set<string>();
 
   constructor(
     app: App,
@@ -58,12 +62,10 @@ export class RoleEditorModal extends Modal {
     });
 
     // ---- 元信息 ----
-    new Setting(root)
-      .setName(t("role.field.name"))
-      .addText((tx) => {
-        tx.setValue(r.name).onChange((v) => (r.name = v));
-        tx.inputEl.disabled = r.builtIn;
-      });
+    new Setting(root).setName(t("role.field.name")).addText((tx) => {
+      tx.setValue(r.name).onChange((v) => (r.name = v));
+      tx.inputEl.disabled = r.builtIn;
+    });
     new Setting(root)
       .setName(t("role.field.icon"))
       .setDesc(t("role.field.icon.desc"))
@@ -71,12 +73,10 @@ export class RoleEditorModal extends Modal {
         tx.setValue(r.icon).onChange((v) => (r.icon = v));
         tx.inputEl.disabled = r.builtIn;
       });
-    new Setting(root)
-      .setName(t("role.field.description"))
-      .addText((tx) => {
-        tx.setValue(r.description).onChange((v) => (r.description = v));
-        tx.inputEl.disabled = r.builtIn;
-      });
+    new Setting(root).setName(t("role.field.description")).addText((tx) => {
+      tx.setValue(r.description).onChange((v) => (r.description = v));
+      tx.inputEl.disabled = r.builtIn;
+    });
 
     // ---- outputKind（仅自定义可改） ----
     new Setting(root)
@@ -105,23 +105,33 @@ export class RoleEditorModal extends Modal {
       });
     });
 
-    new Setting(root).setName(t("role.field.model")).addDropdown((d) => {
-      const cached = this.modelCache.get(r.providerId);
-      if (!r.providerId) {
-        d.addOption("", t("settings.bindings.model.pickProvider"));
-        d.setDisabled(true);
-        return;
-      }
-      if (!cached || cached.length === 0) {
-        d.addOption(r.modelName || "", r.modelName || t("settings.bindings.model.noModels"));
-        d.setDisabled(true);
-        return;
-      }
-      d.addOption("", t("settings.bindings.model.placeholder"));
-      for (const m of cached) d.addOption(m, m);
-      d.setValue(r.modelName);
-      d.onChange((v) => (r.modelName = v));
-    });
+    new Setting(root)
+      .setName(t("role.field.model"))
+      .addDropdown((d) => {
+        const cached = this.modelCache.get(r.providerId);
+        if (!r.providerId) {
+          d.addOption("", t("settings.bindings.model.pickProvider"));
+          d.setDisabled(true);
+          return;
+        }
+        if (!cached || cached.length === 0) {
+          d.addOption(r.modelName || "", r.modelName || t("settings.bindings.model.noModels"));
+          d.setDisabled(true);
+          return;
+        }
+        d.addOption("", t("settings.bindings.model.placeholder"));
+        for (const m of cached) d.addOption(m, m);
+        d.setValue(r.modelName);
+        d.onChange((v) => (r.modelName = v));
+      })
+      .addButton((b) => {
+        const refreshing = r.providerId ? this.refreshingModels.has(r.providerId) : false;
+        b.setButtonText(
+          refreshing ? t("settings.providers.testing") : t("settings.providers.refreshModels"),
+        );
+        b.setDisabled(!r.providerId || refreshing);
+        b.onClick(() => this.refreshModels(r.providerId));
+      });
 
     // ---- 提示词模板（embedding 不需要） ----
     if (r.outputKind !== "embedding") {
@@ -131,10 +141,12 @@ export class RoleEditorModal extends Modal {
       ta.value = r.promptTemplate;
       ta.addEventListener("input", () => {
         r.promptTemplate = ta.value;
+        renderPromptDiagnostics();
       });
       const varsLine = promptSection.createDiv({ cls: "aether-role-vars" });
       varsLine.createSpan({ text: t("role.field.prompt.vars") + " " });
-      for (const v of r.variables.length > 0 ? r.variables : seed?.variables ?? []) {
+      const availableVars = r.variables.length > 0 ? r.variables : (seed?.variables ?? []);
+      for (const v of availableVars) {
         const code = varsLine.createEl("code", { text: `{{${v}}}` });
         code.title = t("role.field.prompt.insertVar");
         code.onclick = () => {
@@ -145,8 +157,48 @@ export class RoleEditorModal extends Modal {
           ta.selectionStart = ta.selectionEnd = start + insertText.length;
           ta.focus();
           r.promptTemplate = ta.value;
+          renderPromptDiagnostics();
         };
       }
+      const diagnosticEl = promptSection.createDiv({ cls: "aether-role-prompt-diagnostics" });
+      const renderPromptDiagnostics = () => {
+        diagnosticEl.empty();
+        const diagnostics = analyzePromptVariables(
+          r.promptTemplate,
+          availableVars,
+          Object.keys(r.params),
+        );
+        if (diagnostics.used.length > 0) {
+          diagnosticEl.createDiv({
+            cls: "aether-role-prompt-diagnostic",
+            text: t("role.field.prompt.usedVars", {
+              vars: diagnostics.used.map((v) => `{{${v}}}`).join(", "),
+            }),
+          });
+        }
+        if (diagnostics.missing.length > 0) {
+          diagnosticEl.createDiv({
+            cls: "aether-role-prompt-diagnostic aether-role-prompt-diagnostic--warning",
+            text: t("role.field.prompt.missingVars", {
+              vars: diagnostics.missing.map((v) => `{{${v}}}`).join(", "),
+            }),
+          });
+        } else {
+          diagnosticEl.createDiv({
+            cls: "aether-role-prompt-diagnostic aether-role-prompt-diagnostic--ok",
+            text: t("role.field.prompt.varsOk"),
+          });
+        }
+        if (diagnostics.unusedAvailable.length > 0) {
+          diagnosticEl.createDiv({
+            cls: "aether-role-prompt-diagnostic",
+            text: t("role.field.prompt.unusedVars", {
+              vars: diagnostics.unusedAvailable.map((v) => `{{${v}}}`).join(", "),
+            }),
+          });
+        }
+      };
+      renderPromptDiagnostics();
     }
 
     // ---- 高级参数（折叠） ----
@@ -252,6 +304,45 @@ export class RoleEditorModal extends Modal {
     const sel = view?.editor?.getSelection();
     if (sel && sel.length > 0) return sel;
     return t("role.test.sampleFallback");
+  }
+
+  private async refreshModels(providerId: string): Promise<void> {
+    if (!providerId || this.refreshingModels.has(providerId)) return;
+    this.refreshingModels.add(providerId);
+    this.render();
+    try {
+      const result = await this.plugin.core.testProvider(providerId);
+      if (!result.ok) {
+        new Notice(
+          t("settings.providers.test.fail", {
+            error: result.error ?? t("settings.providers.test.unknown"),
+          }),
+          6000,
+        );
+        return;
+      }
+      const config = this.plugin.core.settings.current.providers.find((p) => p.id === providerId);
+      const preset = config?.kind ? findPresetById(config.kind) : undefined;
+      const models = mergeModels(result.models ?? [], preset?.fallbackModels);
+      this.modelCache.set(providerId, models);
+      if (!this.editing.modelName && models.length > 0) {
+        this.editing.modelName = chooseModelForUse(
+          models,
+          undefined,
+          this.editing.outputKind === "embedding" ? "embedding" : "chat",
+          {
+            allowUnclassifiedEmbedding:
+              this.editing.outputKind === "embedding" && (!preset || preset.id === "custom"),
+          },
+        );
+      }
+      new Notice(t("settings.providers.test.ok", { count: models.length }), 4000);
+    } catch (e) {
+      new Notice(t("settings.providers.test.fail", { error: (e as Error).message }), 6000);
+    } finally {
+      this.refreshingModels.delete(providerId);
+      this.render();
+    }
   }
 }
 

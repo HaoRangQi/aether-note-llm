@@ -26,6 +26,7 @@ export interface VectorSearchHit {
   vaultPath: string;
   headingPath: string;
   content: string;
+  tokenCount: number;
   score: number;
   kind: NoteKind;
   tags: string[];
@@ -83,11 +84,25 @@ export class OramaIndexStore {
     await this.init();
   }
 
+  async clearChunks(): Promise<void> {
+    const ids = [...this.chunkRows.keys()];
+    if (ids.length > 0) await removeMultiple(this.orama, ids);
+    this.chunkRows.clear();
+  }
+
   // ---- Notes ----
   upsertNote(note: Note): void {
     this.notes.set(note.id, note);
   }
-  removeNote(noteId: string): void {
+  async removeNote(noteId: string): Promise<void> {
+    const toRemove: string[] = [];
+    for (const [id, row] of this.chunkRows) {
+      if (row.noteId === noteId) toRemove.push(id);
+    }
+    if (toRemove.length > 0) {
+      await removeMultiple(this.orama, toRemove);
+      for (const id of toRemove) this.chunkRows.delete(id);
+    }
     this.notes.delete(noteId);
   }
   getNote(noteId: string): Note | undefined {
@@ -148,6 +163,22 @@ export class OramaIndexStore {
     }));
   }
 
+  chunksForNote(noteId: string): Chunk[] {
+    return [...this.chunkRows.values()]
+      .filter((r) => r.noteId === noteId)
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((r) => ({
+        id: r.id,
+        noteId: r.noteId,
+        ordinal: r.ordinal,
+        headingPath: r.headingPath,
+        content: r.content,
+        tokenCount: r.tokenCount,
+        embeddingModel: null,
+        embedding: r.embedding,
+      }));
+  }
+
   // ---- Search ----
   async searchHybrid(args: {
     query: string;
@@ -169,25 +200,36 @@ export class OramaIndexStore {
       vector: { value: args.vector, property: "embedding" },
       similarity: 0.0,
       hybridWeights: { text: args.alpha, vector: 1 - args.alpha },
-      limit: args.limit,
+      limit: rawLimit(args.limit, args.filters),
     };
     if (where) searchParams["where"] = where;
     const result = (await search(this.orama, searchParams as Parameters<typeof search>[1])) as {
       hits: Array<{ document: OramaRow; score: number }>;
     };
-    return result.hits.map((h) => {
-      const row = this.chunkRows.get(h.document.id) ?? h.document;
-      return {
-        chunkId: row.id,
-        noteId: row.noteId,
-        vaultPath: row.vaultPath,
-        headingPath: row.headingPath,
-        content: row.content,
-        score: h.score,
-        kind: row.kind as NoteKind,
-        tags: row.tags,
-      };
-    });
+    return result.hits
+      .map((h) => rowToHit(this.chunkRows.get(h.document.id) ?? h.document, h.score))
+      .filter((hit) => matchesPathPrefix(hit.vaultPath, args.filters?.pathPrefix))
+      .slice(0, args.limit);
+  }
+
+  async searchText(args: {
+    query: string;
+    filters?: SearchFilters;
+    limit: number;
+  }): Promise<VectorSearchHit[]> {
+    const where = buildWhere(args.filters);
+    const searchParams: Record<string, unknown> = {
+      term: args.query,
+      limit: rawLimit(args.limit, args.filters),
+    };
+    if (where) searchParams["where"] = where;
+    const result = (await search(this.orama, searchParams as Parameters<typeof search>[1])) as {
+      hits: Array<{ document: OramaRow; score: number }>;
+    };
+    return result.hits
+      .map((h) => rowToHit(this.chunkRows.get(h.document.id) ?? h.document, h.score))
+      .filter((hit) => matchesPathPrefix(hit.vaultPath, args.filters?.pathPrefix))
+      .slice(0, args.limit);
   }
 }
 
@@ -205,4 +247,28 @@ function buildWhere(f: SearchFilters | undefined): Record<string, unknown> | und
     w["createdAt"] = range;
   }
   return Object.keys(w).length > 0 ? w : undefined;
+}
+
+function rawLimit(limit: number, filters: SearchFilters | undefined): number {
+  return filters?.pathPrefix ? limit * 10 : limit;
+}
+
+function matchesPathPrefix(vaultPath: string, pathPrefix: string | undefined): boolean {
+  if (!pathPrefix) return true;
+  const prefix = pathPrefix.replace(/\/+$/, "");
+  return vaultPath === prefix || vaultPath.startsWith(`${prefix}/`);
+}
+
+function rowToHit(row: ChunkRow | OramaRow, score: number): VectorSearchHit {
+  return {
+    chunkId: row.id,
+    noteId: row.noteId,
+    vaultPath: row.vaultPath,
+    headingPath: row.headingPath,
+    content: row.content,
+    tokenCount: row.tokenCount,
+    score,
+    kind: row.kind as NoteKind,
+    tags: row.tags,
+  };
 }

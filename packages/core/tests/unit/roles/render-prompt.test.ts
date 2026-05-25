@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { renderPrompt, extractVariables } from "../../../src/roles/render-prompt.js";
+import {
+  renderPrompt,
+  extractVariables,
+  findMissingPromptVariables,
+} from "../../../src/roles/render-prompt.js";
 
 describe("renderPrompt", () => {
   it("substitutes simple {{var}}", () => {
@@ -30,5 +34,28 @@ describe("extractVariables", () => {
 
   it("returns empty for no variables", () => {
     expect(extractVariables("nothing here")).toEqual([]);
+  });
+});
+
+describe("findMissingPromptVariables", () => {
+  it("deduplicates repeated missing variables", () => {
+    expect(findMissingPromptVariables("{{topic}} {{topic}} {{summary}}", {})).toEqual([
+      "topic",
+      "summary",
+    ]);
+  });
+
+  it("does not return provided variables", () => {
+    expect(findMissingPromptVariables("{{name}} {{task}}", { name: "Ada" })).toEqual(["task"]);
+  });
+
+  it("supports underscores and numbers in variable names", () => {
+    expect(findMissingPromptVariables("{{role_1}} {{_context2}}", { role_1: "writer" })).toEqual([
+      "_context2",
+    ]);
+  });
+
+  it("returns empty when no variables are missing", () => {
+    expect(findMissingPromptVariables("{{name}} {{count}}", { name: "Ada", count: 2 })).toEqual([]);
   });
 });

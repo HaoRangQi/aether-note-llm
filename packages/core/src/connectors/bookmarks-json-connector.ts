@@ -43,6 +43,7 @@ async function* walk(
   seen: Set<string>,
 ): AsyncIterable<RawCandidate> {
   if (node.type === "url" && node.url) {
+    if (!isSupportedWebUrl(node.url)) return;
     const normalized = normalizeUrl(node.url);
     if (seen.has(normalized)) return;
     seen.add(normalized);
@@ -66,5 +67,14 @@ async function* walk(
     for (const child of node.children) {
       yield* walk(child, nextPath, seen);
     }
+  }
+}
+
+function isSupportedWebUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
   }
 }

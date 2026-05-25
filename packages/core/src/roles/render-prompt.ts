@@ -25,3 +25,13 @@ export function extractVariables(template: string): string[] {
   }
   return out;
 }
+
+/** 找出模板中引用但 vars 未提供的变量名（去重，保持出现顺序）。 */
+export function findMissingPromptVariables(
+  template: string,
+  vars: Record<string, string | number>,
+): string[] {
+  return extractVariables(template).filter(
+    (name) => vars[name] === undefined || vars[name] === null,
+  );
+}

@@ -71,6 +71,20 @@ describe("OramaIndexStore", () => {
     expect(chunks.find((c) => c.ordinal === 0)?.content).toBe("new0");
   });
 
+  it("removeNote removes note and indexed chunks", async () => {
+    store.upsertNote(fakeNote("n1", "a.md"));
+    await store.setChunks("n1", [fakeChunk("n1", 0, "alpha keyword", vec(1))]);
+    await store.removeNote("n1");
+    expect(store.getNote("n1")).toBeUndefined();
+    expect(store.allChunks()).toEqual([]);
+    const hits = await store.searchText({ query: "alpha", limit: 5 });
+    expect(hits).toEqual([]);
+  });
+
+  it("removeNote is idempotent for missing notes", async () => {
+    await expect(store.removeNote("missing")).resolves.toBeUndefined();
+  });
+
   it("EMBED_DIM_MISMATCH when chunk dim wrong", async () => {
     store.upsertNote(fakeNote("n1", "a.md"));
     await expect(store.setChunks("n1", [fakeChunk("n1", 0, "x", [0, 0, 0])])).rejects.toMatchObject(

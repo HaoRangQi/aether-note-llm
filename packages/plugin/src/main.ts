@@ -2,17 +2,23 @@ import { Plugin } from "obsidian";
 import { AetherCore } from "@aether/core";
 import { ObsidianHostAdapter } from "./host-adapter.js";
 import { AetherSettingsTab } from "./settings-tab.js";
-import { HubView, HUB_VIEW_TYPE } from "./views/hub-view.js";
+import { HubView, HUB_ICON, HUB_VIEW_TYPE } from "./views/hub-view.js";
 import { registerCommands } from "./commands.js";
 import { setLocale, t } from "./i18n/index.js";
+import { PluginDataStore } from "./plugin-data-store.js";
+
+const HUB_ONBOARDING_OPENED_KEY = "hasOpenedHubOnboarding";
 
 export default class AetherPlugin extends Plugin {
   core!: AetherCore;
+  dataStore!: PluginDataStore;
+  hostAdapter!: ObsidianHostAdapter;
   private hubLeafActivating = false;
 
   async onload(): Promise<void> {
-    const adapter = new ObsidianHostAdapter(this.app, this);
-    this.core = new AetherCore(adapter);
+    this.dataStore = new PluginDataStore(this);
+    this.hostAdapter = new ObsidianHostAdapter(this.app, this.dataStore);
+    this.core = new AetherCore(this.hostAdapter);
     await this.core.init();
 
     setLocale(this.core.settings.current.ui.language);
@@ -21,7 +27,7 @@ export default class AetherPlugin extends Plugin {
 
     this.addSettingTab(new AetherSettingsTab(this.app, this));
 
-    this.addRibbonIcon("layers", t("ribbon.hub"), async () => {
+    this.addRibbonIcon(HUB_ICON, t("ribbon.hub"), async () => {
       await this.activateView(HUB_VIEW_TYPE);
     });
 
@@ -36,10 +42,9 @@ export default class AetherPlugin extends Plugin {
 
     registerCommands(this);
 
-    // 首次安装：自动打开 Hub
+    // 首次安装：自动打开 Hub。后续即使用户关闭 Hub，也不再强制重开。
     this.app.workspace.onLayoutReady(() => {
-      const existing = this.app.workspace.getLeavesOfType(HUB_VIEW_TYPE);
-      if (existing.length === 0) void this.activateView(HUB_VIEW_TYPE);
+      void this.openHubOnFirstInstall();
     });
   }
 
@@ -64,6 +69,15 @@ export default class AetherPlugin extends Plugin {
     } finally {
       this.hubLeafActivating = false;
     }
+  }
+
+  private async openHubOnFirstInstall(): Promise<void> {
+    const opened = await this.dataStore.getBoolean(HUB_ONBOARDING_OPENED_KEY);
+    if (opened) return;
+
+    await this.dataStore.setBoolean(HUB_ONBOARDING_OPENED_KEY, true);
+    const existing = this.app.workspace.getLeavesOfType(HUB_VIEW_TYPE);
+    if (existing.length === 0) await this.activateView(HUB_VIEW_TYPE);
   }
 
   /** 命令调用方使用：打开 Hub 并刷新数据。 */

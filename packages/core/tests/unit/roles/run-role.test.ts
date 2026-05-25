@@ -65,6 +65,38 @@ describe("runRole", () => {
     expect(provider.calls.chat.length).toBe(0);
   });
 
+  it("normalizes runtime provider params before chat calls", async () => {
+    const provider = new MockProvider({
+      chatChunks: () => [{ delta: "ok", finishReason: "stop" }],
+    });
+    const { registry, roles } = makeAiRig(provider);
+    await runRole({
+      registry,
+      roles,
+      roleId: "summarize",
+      vars: { selection: "ABC", maxSentences: 3 },
+      overrideParams: {
+        temperature: Number.POSITIVE_INFINITY,
+        maxTokens: 1200.8,
+      },
+    });
+    expect(provider.calls.chat[0]?.temperature).toBe(0.4);
+    expect(provider.calls.chat[0]?.maxTokens).toBe(1200);
+
+    await runRole({
+      registry,
+      roles,
+      roleId: "summarize",
+      vars: { selection: "DEF", maxSentences: 3 },
+      overrideParams: {
+        temperature: 2,
+        maxTokens: 0,
+      },
+    });
+    expect(provider.calls.chat[1]?.temperature).toBe(2);
+    expect(provider.calls.chat[1]).not.toHaveProperty("maxTokens");
+  });
+
   it("throws when role disabled", async () => {
     const provider = new MockProvider({ chatChunks: () => [{ delta: "x", finishReason: "stop" }] });
     const { registry, roles } = makeAiRig(provider);
@@ -79,5 +111,35 @@ describe("runRole", () => {
         vars: { selection: "x", maxSentences: 3 },
       }),
     ).rejects.toMatchObject({ code: "BINDING_NOT_FOUND" });
+  });
+
+  it("throws before calling the provider when prompt variables are missing", async () => {
+    const provider = new MockProvider({ chatChunks: () => [{ delta: "x", finishReason: "stop" }] });
+    const { registry, roles } = makeAiRig(provider);
+    roles.setRoles(
+      roles.list().map((role) =>
+        role.id === "summarize"
+          ? {
+              ...role,
+              params: {},
+              promptTemplate: "Summarize {{selection}} for {{audience}}",
+              variables: ["selection", "audience"],
+            }
+          : role,
+      ),
+    );
+
+    await expect(
+      runRole({
+        registry,
+        roles,
+        roleId: "summarize",
+        vars: { selection: "ABC" },
+      }),
+    ).rejects.toMatchObject({
+      code: "PARSE_ERROR",
+      message: expect.stringContaining("audience"),
+    });
+    expect(provider.calls.chat.length).toBe(0);
   });
 });

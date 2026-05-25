@@ -30,14 +30,12 @@ export function makeAiRig(
   registry.setApiKeys({ k: "s" });
 
   const roles = new RoleRegistry();
-  const list: AiRole[] = BUILTIN_ROLE_SEEDS
-    .filter((s) => roleIds.includes(s.id))
-    .map((s) => {
-      const r = seedToRole(s, 0);
-      r.providerId = "p";
-      r.modelName = "m";
-      return r;
-    });
+  const list: AiRole[] = BUILTIN_ROLE_SEEDS.filter((s) => roleIds.includes(s.id)).map((s) => {
+    const r = seedToRole(s, 0);
+    r.providerId = "p";
+    r.modelName = "m";
+    return r;
+  });
   roles.setRoles(list);
 
   return { registry, roles };

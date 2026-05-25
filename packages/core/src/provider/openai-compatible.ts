@@ -43,7 +43,7 @@ export class OpenAICompatibleProvider implements Provider {
   private headers(extra: Record<string, string> = {}): Record<string, string> {
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${this.apiKey}`,
+      ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
       ...this.defaultHeaders,
       ...extra,
     };
@@ -69,31 +69,29 @@ export class OpenAICompatibleProvider implements Provider {
   }
 
   async embed(req: EmbedRequest): Promise<EmbedResponse> {
-    return withRetry(async () => {
-      const init: RequestInit = {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify({ model: req.model, input: req.inputs }),
-      };
-      if (req.signal) init.signal = req.signal;
-      const res = await this.fetchImpl(`${this.baseUrl}/embeddings`, init);
-      if (!res.ok) throw httpError(res.status, await safeText(res));
-      const json = (await res.json()) as {
-        data: Array<{ embedding: number[] }>;
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
-      };
-      const vectors = json.data.map((d) => d.embedding);
-      const dim = vectors[0]?.length ?? 0;
-      const usage: TokenUsage | undefined = json.usage
-        ? {
-            promptTokens: json.usage.prompt_tokens ?? 0,
-            completionTokens: json.usage.completion_tokens ?? 0,
-          }
-        : undefined;
-      const resp: EmbedResponse = { vectors, model: req.model, dim };
-      if (usage) resp.usage = usage;
-      return resp;
-    });
+    return withRetry(
+      async () => {
+        const init: RequestInit = {
+          method: "POST",
+          headers: this.headers(),
+          body: JSON.stringify({ model: req.model, input: req.inputs }),
+        };
+        if (req.signal) init.signal = req.signal;
+        const res = await this.fetchImpl(`${this.baseUrl}/embeddings`, init);
+        if (!res.ok) throw httpError(res.status, await safeText(res));
+        const json = (await res.json()) as {
+          data: Array<{ embedding: number[] }>;
+          usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
+        };
+        const vectors = json.data.map((d) => d.embedding);
+        const dim = vectors[0]?.length ?? 0;
+        const usage = normalizeProviderUsage(json.usage);
+        const resp: EmbedResponse = { vectors, model: req.model, dim };
+        if (usage) resp.usage = usage;
+        return resp;
+      },
+      { signal: req.signal },
+    );
   }
 
   async *chat(req: ChatRequest): AsyncIterable<ChatChunk> {
@@ -106,6 +104,7 @@ export class OpenAICompatibleProvider implements Provider {
         temperature: req.temperature,
         max_tokens: req.maxTokens,
         stream: req.stream ?? true,
+        stream_options: req.stream === false ? undefined : { include_usage: true },
       }),
     };
     if (req.signal) init.signal = req.signal;
@@ -117,19 +116,15 @@ export class OpenAICompatibleProvider implements Provider {
     if (!contentType.includes("text/event-stream")) {
       const json = (await res.json()) as {
         choices: Array<{ message: { content: string }; finish_reason: string | null }>;
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
       };
       const choice = json.choices[0];
       const out: ChatChunk = {
         delta: choice?.message.content ?? "",
         finishReason: (choice?.finish_reason as "stop" | null) ?? "stop",
       };
-      if (json.usage) {
-        out.usage = {
-          promptTokens: json.usage.prompt_tokens ?? 0,
-          completionTokens: json.usage.completion_tokens ?? 0,
-        };
-      }
+      const usage = normalizeProviderUsage(json.usage);
+      if (usage) out.usage = usage;
       yield out;
       return;
     }
@@ -156,25 +151,35 @@ async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncIterable<
       try {
         const j = JSON.parse(data) as {
           choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>;
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
+          usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
         };
         const choice = j.choices?.[0];
         const out: ChatChunk = {
           delta: choice?.delta?.content ?? "",
           finishReason: (choice?.finish_reason as ChatChunk["finishReason"]) ?? null,
         };
-        if (j.usage) {
-          out.usage = {
-            promptTokens: j.usage.prompt_tokens ?? 0,
-            completionTokens: j.usage.completion_tokens ?? 0,
-          };
-        }
+        const usage = normalizeProviderUsage(j.usage);
+        if (usage) out.usage = usage;
         yield out;
       } catch {
         // ignore malformed line
       }
     }
   }
+}
+
+function normalizeProviderUsage(
+  usage: { prompt_tokens?: unknown; completion_tokens?: unknown } | undefined,
+): TokenUsage | undefined {
+  if (!usage) return undefined;
+  return {
+    promptTokens: normalizeTokenCount(usage.prompt_tokens),
+    completionTokens: normalizeTokenCount(usage.completion_tokens),
+  };
+}
+
+function normalizeTokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
 function httpError(status: number, text: string): AetherError {

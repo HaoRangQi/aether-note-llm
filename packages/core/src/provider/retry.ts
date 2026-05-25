@@ -43,13 +43,38 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions = {}
     } catch (err) {
       lastErr = err;
       attempt += 1;
+      if (opts.signal?.aborted) throw new AetherError("ABORTED", "Aborted");
       if (attempt >= maxAttempts || !shouldRetry(err, attempt)) {
         throw err;
       }
       const delay = base * 2 ** (attempt - 1);
       const j = 1 + (Math.random() * 2 - 1) * jitter;
-      await sleep(Math.round(delay * j));
+      await sleepWithAbort(Math.round(delay * j), sleep, opts.signal);
     }
   }
   throw lastErr;
+}
+
+async function sleepWithAbort(
+  ms: number,
+  sleep: (ms: number) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!signal) {
+    await sleep(ms);
+    return;
+  }
+  if (signal.aborted) throw new AetherError("ABORTED", "Aborted");
+  let onAbort: (() => void) | null = null;
+  try {
+    await Promise.race([
+      sleep(ms),
+      new Promise<never>((_, reject) => {
+        onAbort = () => reject(new AetherError("ABORTED", "Aborted"));
+        signal.addEventListener("abort", onAbort, { once: true });
+      }),
+    ]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
 }
