@@ -22,7 +22,7 @@ import { openAICompatibleFactory } from "./provider/openai-compatible.js";
 import { ProviderRegistry } from "./provider/registry.js";
 import { RoleRegistry } from "./roles/role-registry.js";
 import { runRole } from "./roles/run-role.js";
-import { SearchEngine } from "./search/search-engine.js";
+import { SearchEngine, type SearchRunOptions } from "./search/search-engine.js";
 import { SettingsStore } from "./persistence/settings-store.js";
 import type {
   AiRole,
@@ -45,6 +45,7 @@ import type {
   SearchAnswerRequest,
   SearchAnswerResponse,
   SearchHit,
+  PrivacyScope,
   SearchRequest,
   SearchResponse,
   TestConnectionResult,
@@ -54,6 +55,20 @@ import type {
 const INDEX_KEY = "index.json";
 const USAGE_KEY = "usage.json";
 const DEFAULT_ANSWER_CONTEXT_TOKENS = 1800;
+const SEARCH_SCOPE_OVERSCAN_MULTIPLIER = 6;
+
+type RouteFeature = "embedding" | "inbox_metadata" | "answer" | "chat";
+
+interface ProviderModelRoute {
+  providerId: string;
+  modelName: string;
+}
+
+interface RoleBindingRoute extends ProviderModelRoute {
+  outputKind?: string;
+  privateProviderId?: string;
+  privateModelName?: string;
+}
 
 export class AetherCore {
   readonly registry: ProviderRegistry;
@@ -104,6 +119,7 @@ export class AetherCore {
       store: this.store,
       inbox: this.inbox,
       onUsage: (args) => this.recordUsage(args),
+      resolvePrivateRoute: (feature) => this.resolvePrivateRoute(feature),
       connectors: [
         new MarkdownConnector(),
         new PlainTextConnector(),
@@ -151,14 +167,25 @@ export class AetherCore {
     source: ImportSource,
     options: ImportPipelineRunOptions = {},
   ): AsyncIterable<ImportEvent> {
+    if (options.privacyTarget) {
+      void this.rememberImportTarget(options.privacyTarget).catch(() => undefined);
+    }
     return this.pipeline.run(source, options);
   }
 
-  async approveInboxItem(itemId: string): Promise<Note> {
+  async approveInboxItem(
+    itemId: string,
+    options: { target?: "public" | "private" } = {},
+  ): Promise<Note> {
     const item = this.inbox.getItem(itemId);
     if (!item) throw new AetherError("PARSE_ERROR", `Inbox item not found: ${itemId}`);
     const settings = this.settings.current;
-    const folder = settings.ui.aetherInboxFolder.replace(/\/+$/, "");
+    const target = options.target ?? "public";
+    await this.rememberImportTarget(target);
+    const folder =
+      target === "private"
+        ? settings.privacy.privateInboxFolder.replace(/\/+$/, "")
+        : settings.ui.aetherInboxFolder.replace(/\/+$/, "");
     const d = new Date(this.host.now());
     const year = d.getUTCFullYear();
     const month = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -293,28 +320,54 @@ export class AetherCore {
   }
 
   // ---- Search ----
-  search(req: SearchRequest): Promise<SearchHit[]> {
-    return this.searchEngine.search(this.withCurrentScanScope(req));
+  async search(req: SearchRequest): Promise<SearchHit[]> {
+    return (await this.searchWithMeta(req)).hits;
   }
 
-  searchWithMeta(req: SearchRequest): Promise<SearchResponse> {
-    return this.searchEngine.searchWithMeta(this.withCurrentScanScope(req));
+  async searchWithMeta(req: SearchRequest): Promise<SearchResponse> {
+    const scopedReq = this.withCurrentScanScope(req);
+    const privacyScope = this.resolvePrivacyScope(req.privacyScope);
+    const requestedLimit = scopedReq.limit ?? 20;
+    const overscanLimit =
+      privacyScope === "all"
+        ? requestedLimit
+        : Math.max(requestedLimit * SEARCH_SCOPE_OVERSCAN_MULTIPLIER, requestedLimit);
+    const result = await this.searchEngine.searchWithMeta(
+      {
+        ...scopedReq,
+        limit: overscanLimit,
+      },
+      this.searchOptionsForScope(privacyScope),
+    );
+    return {
+      ...result,
+      hits: this.filterSearchHitsByPrivacyScope(result.hits, privacyScope).slice(0, requestedLimit),
+    };
   }
 
   async answerSearch(req: SearchAnswerRequest): Promise<SearchAnswerResponse> {
+    const privacyScope = this.resolvePrivacyScope(req.privacyScope);
     const search =
-      (req.search ? this.filterSearchResponseToCurrentScanScope(req.search) : undefined) ??
+      (req.search
+        ? this.filterSearchResponseByPrivacyScope(
+            this.filterSearchResponseToCurrentScanScope(req.search),
+            privacyScope,
+          )
+        : undefined) ??
       (await this.searchWithMeta({
         query: req.query,
         filters: req.filters,
         limit: req.limit ?? 8,
+        privacyScope,
       }));
+    const isolatedHits = this.isolateAnswerHitsByDomain(search.hits, privacyScope);
+    const scopedSearch: SearchResponse = { ...search, hits: isolatedHits };
     const contextBudget = Math.max(
       1,
       Math.floor(req.maxContextTokens ?? DEFAULT_ANSWER_CONTEXT_TOKENS),
     );
     const contextChunks = selectAnswerContext(
-      search.hits,
+      isolatedHits,
       req.maxContextChunks ?? 6,
       contextBudget,
     );
@@ -333,7 +386,7 @@ export class AetherCore {
     const contextTokenCount = contextChunks.reduce((sum, item) => sum + item.tokenCount, 0);
     const contextTruncated =
       contextChunks.some((item) => item.truncated) ||
-      hasMoreAnswerContext(search.hits, contextChunks);
+      hasMoreAnswerContext(isolatedHits, contextChunks);
     if (contextChunks.length === 0) {
       return {
         question: req.query,
@@ -342,13 +395,18 @@ export class AetherCore {
         citationCheck: checkAnswerCitations("", citations),
         contextTokenCount,
         contextTruncated,
-        search,
+        search: scopedSearch,
       };
     }
     const context = contextChunks
       .map((item, idx) => formatAnswerContextItem(idx + 1, item))
       .join("\n\n");
-    const output = await this.runRole("answer", { question: req.query, context }, req.signal);
+    const output = await this.runRole(
+      "answer",
+      { question: req.query, context },
+      req.signal,
+      contextChunks[0]?.hit.vaultPath,
+    );
     return {
       question: req.query,
       answer: String(output ?? "").trim(),
@@ -356,7 +414,7 @@ export class AetherCore {
       citationCheck: checkAnswerCitations(String(output ?? ""), citations),
       contextTokenCount,
       contextTruncated,
-      search,
+      search: scopedSearch,
     };
   }
 
@@ -396,7 +454,9 @@ export class AetherCore {
     roleId: string,
     vars: Record<string, string | number>,
     signal?: AbortSignal,
+    sourcePath?: string,
   ): Promise<unknown> {
+    const roleBinding = this.resolveRoleBinding(roleId);
     const opts: Parameters<typeof runRole>[0] = {
       registry: this.registry,
       roles: this.roles,
@@ -404,6 +464,17 @@ export class AetherCore {
       vars,
     };
     if (signal) opts.signal = signal;
+    if (sourcePath && this.isPrivatePath(sourcePath)) {
+      const routeFeature = roleBinding?.outputKind === "embedding" ? "embedding" : "chat";
+      const route = this.resolvePrivateRoute(routeFeature, roleBinding ?? undefined);
+      if (!route) {
+        throw new AetherError(
+          "BINDING_NOT_FOUND",
+          "Private content requires a trusted provider. Configure private role bindings or use a trusted provider fallback.",
+        );
+      }
+      opts.providerOverride = route;
+    }
     const r = await runRole(opts);
     if (r.usage) {
       await this.recordUsage({
@@ -754,14 +825,24 @@ export class AetherCore {
   ): Promise<void> {
     throwIfAborted(options.signal);
     const chunks = chunkMarkdown(body);
+    const isPrivate = this.isPrivatePath(note.vaultPath);
+    const privateRoute = isPrivate ? this.resolvePrivateRoute("embedding") : null;
     let resolvedEmbeddings: number[][] = chunks.map(() =>
       new Array<number>(this.embeddingDim).fill(0),
     );
+    let chunkEmbeddingModel: string | null = null;
     try {
-      const role = this.roles.resolve("embedding");
-      const provider = this.registry.getProvider(role.providerId);
-      const model = role.modelName;
       if (chunks.length > 0) {
+        if (isPrivate && !privateRoute) {
+          throw new AetherError(
+            "BINDING_NOT_FOUND",
+            "Private content has no embedding route; indexing with BM25 text only.",
+          );
+        }
+        const role = this.roles.resolve("embedding");
+        const providerId = privateRoute?.providerId ?? role.providerId;
+        const model = privateRoute?.modelName ?? role.modelName;
+        const provider = this.registry.getProvider(providerId);
         throwIfAborted(options.signal);
         const inputs = chunks.map((c) => c.content);
         const embed = await provider.embed({ inputs, model, signal: options.signal });
@@ -782,6 +863,7 @@ export class AetherCore {
           await this.store.setEmbeddingDim(embed.dim);
         }
         this.embeddingModel = model;
+        chunkEmbeddingModel = model;
         resolvedEmbeddings = embed.vectors;
         if (embed.usage) {
           await this.recordUsage({
@@ -809,7 +891,7 @@ export class AetherCore {
       headingPath: c.headingPath,
       content: c.content,
       tokenCount: c.approxTokens,
-      embeddingModel: this.embeddingModel,
+      embeddingModel: chunkEmbeddingModel,
       embedding: resolvedEmbeddings[i] ?? new Array<number>(this.embeddingDim).fill(0),
     }));
     await this.store.setChunks(note.id, chunkRows);
@@ -933,6 +1015,123 @@ export class AetherCore {
 
   private currentScanPathPrefix(): string {
     return this.settings.current.ui.aetherInboxFolder.replace(/\/+$/, "");
+  }
+
+  private resolvePrivacyScope(scope: PrivacyScope | undefined): PrivacyScope {
+    return scope === "public" || scope === "private" || scope === "all" ? scope : "all";
+  }
+
+  private filterSearchResponseByPrivacyScope(
+    response: SearchResponse,
+    scope: PrivacyScope,
+  ): SearchResponse {
+    return { ...response, hits: this.filterSearchHitsByPrivacyScope(response.hits, scope) };
+  }
+
+  private filterSearchHitsByPrivacyScope(hits: SearchHit[], scope: PrivacyScope): SearchHit[] {
+    if (scope === "all") return hits;
+    return hits.filter((hit) => this.isPrivatePath(hit.vaultPath) === (scope === "private"));
+  }
+
+  private isolateAnswerHitsByDomain(hits: SearchHit[], scope: PrivacyScope): SearchHit[] {
+    if (scope !== "all" || hits.length <= 1) return hits;
+    const firstIsPrivate = this.isPrivatePath(hits[0]!.vaultPath);
+    return hits.filter((hit) => this.isPrivatePath(hit.vaultPath) === firstIsPrivate);
+  }
+
+  private searchOptionsForScope(scope: PrivacyScope): SearchRunOptions {
+    if (scope !== "private") return {};
+    const route = this.resolvePrivateRoute("embedding");
+    if (route) return { embeddingOverride: route };
+    return {
+      forceText: true,
+      textFallbackReason: "provider-error",
+    };
+  }
+
+  private isPrivatePath(vaultPath: string): boolean {
+    const normalizedPath = vaultPath.replace(/\/+$/, "");
+    for (const folder of this.privatePathPrefixes()) {
+      if (this.isPathUnderFolder(normalizedPath, folder)) return true;
+    }
+    return false;
+  }
+
+  private privatePathPrefixes(): string[] {
+    const folders = [
+      ...this.settings.current.privacy.privateFolders,
+      this.settings.current.privacy.privateInboxFolder,
+    ];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const folder of folders) {
+      const normalized = folder.trim().replace(/\/+$/, "");
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(normalized);
+    }
+    return out;
+  }
+
+  private isPathUnderFolder(vaultPath: string, folder: string): boolean {
+    return vaultPath === folder || vaultPath.startsWith(`${folder}/`);
+  }
+
+  private resolvePrivateRoute(
+    feature: RouteFeature,
+    roleBinding?: RoleBindingRoute,
+  ): ProviderModelRoute | null {
+    const fallback = roleBinding ?? this.roleBindingForFeature(feature);
+    if (!fallback) return null;
+    const privateRoute = this.privateRouteFromRoleBinding(fallback);
+    if (privateRoute && this.isProviderTrustedForPrivate(privateRoute.providerId)) {
+      return privateRoute;
+    }
+    if (fallback.providerId && fallback.modelName && this.isProviderTrustedForPrivate(fallback.providerId)) {
+      return { providerId: fallback.providerId, modelName: fallback.modelName };
+    }
+    return null;
+  }
+
+  private privateRouteFromRoleBinding(binding: RoleBindingRoute): ProviderModelRoute | null {
+    const providerId = binding.privateProviderId?.trim() ?? "";
+    const modelName = binding.privateModelName?.trim() ?? "";
+    if (!providerId || !modelName) return null;
+    return { providerId, modelName };
+  }
+
+  private roleBindingForFeature(
+    feature: RouteFeature,
+  ): RoleBindingRoute | null {
+    const roleId = feature === "embedding" ? "embedding" : feature === "inbox_metadata" ? "inbox_metadata" : "answer";
+    return this.resolveRoleBinding(roleId);
+  }
+
+  private resolveRoleBinding(roleId: string): RoleBindingRoute | null {
+    try {
+      const role = this.roles.resolve(roleId);
+      return {
+        providerId: role.providerId,
+        modelName: role.modelName,
+        outputKind: role.outputKind,
+        privateProviderId: role.privateProviderId,
+        privateModelName: role.privateModelName,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private isProviderTrustedForPrivate(providerId: string): boolean {
+    const provider = this.settings.current.providers.find((item) => item.id === providerId);
+    return provider?.trustedForPrivate === true;
+  }
+
+  private async rememberImportTarget(target: "public" | "private"): Promise<void> {
+    if (this.settings.current.privacy.importLastTarget === target) return;
+    const next = structuredClone(this.settings.current);
+    next.privacy.importLastTarget = target;
+    await this.settings.save(next);
   }
 
   private recalculateStaleCount(notes: IndexHealthNote[]): void {

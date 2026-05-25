@@ -99,6 +99,29 @@
   color: var(--text-on-accent);
 }
 
+.aether-hub-privacy-scope {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  width: fit-content;
+}
+.aether-hub-privacy-scope button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.aether-hub-privacy-scope button.active {
+  border-color: color-mix(in srgb, var(--interactive-accent) 38%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+  color: var(--text-normal);
+}
+
 .aether-hub-quickactions {
   display: flex;
   gap: 0.5rem;
@@ -915,6 +938,40 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.aether-import-target-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.aether-import-target-title {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.aether-import-target-switch {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+.aether-import-target-btn {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.aether-import-target-btn.active {
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  color: var(--text-normal);
+}
+.aether-import-target-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* 文本域 */

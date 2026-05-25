@@ -94,6 +94,7 @@ export class RoleEditorModal extends Modal {
 
     // ---- Provider/Model ----
     const providers = this.plugin.core.settings.current.providers;
+    const trustedProviders = providers.filter((p) => p.trustedForPrivate === true);
     new Setting(root).setName(t("role.field.provider")).addDropdown((d) => {
       d.addOption("", t("common.none"));
       for (const p of providers) d.addOption(p.id, displayProviderName(p));
@@ -131,6 +132,72 @@ export class RoleEditorModal extends Modal {
         );
         b.setDisabled(!r.providerId || refreshing);
         b.onClick(() => this.refreshModels(r.providerId));
+      });
+
+    const privateProviderSetting = new Setting(root)
+      .setName(t("role.field.privateProvider"))
+      .setDesc(
+        trustedProviders.length > 0
+          ? t("role.field.privateProvider.desc")
+          : t("role.field.privateProvider.noneTrusted"),
+      );
+    privateProviderSetting.addDropdown((d) => {
+      const privateCandidates = [...trustedProviders];
+      const selectedProvider = providers.find((p) => p.id === r.privateProviderId);
+      if (
+        selectedProvider &&
+        !privateCandidates.some((provider) => provider.id === selectedProvider.id)
+      ) {
+        privateCandidates.unshift(selectedProvider);
+      }
+      d.addOption("", t("common.none"));
+      for (const p of privateCandidates) {
+        const untrustedSuffix =
+          p.trustedForPrivate === true ? "" : ` (${t("role.field.privateProvider.untrusted")})`;
+        d.addOption(p.id, `${displayProviderName(p)}${untrustedSuffix}`);
+      }
+      d.setValue(r.privateProviderId ?? "");
+      d.onChange((v) => {
+        r.privateProviderId = v;
+        r.privateModelName = "";
+        this.render();
+      });
+    });
+
+    new Setting(root)
+      .setName(t("role.field.privateModel"))
+      .setDesc(t("role.field.privateModel.desc"))
+      .addDropdown((d) => {
+        const privateProviderId = r.privateProviderId ?? "";
+        const cached = this.modelCache.get(privateProviderId);
+        if (!privateProviderId) {
+          d.addOption("", t("settings.bindings.model.pickProvider"));
+          d.setDisabled(true);
+          return;
+        }
+        if (!cached || cached.length === 0) {
+          d.addOption(
+            r.privateModelName || "",
+            r.privateModelName || t("settings.bindings.model.noModels"),
+          );
+          d.setDisabled(true);
+          return;
+        }
+        d.addOption("", t("settings.bindings.model.placeholder"));
+        for (const m of cached) d.addOption(m, m);
+        d.setValue(r.privateModelName ?? "");
+        d.onChange((v) => (r.privateModelName = v));
+      })
+      .addButton((b) => {
+        const privateProviderId = r.privateProviderId ?? "";
+        const refreshing = privateProviderId
+          ? this.refreshingModels.has(privateProviderId)
+          : false;
+        b.setButtonText(
+          refreshing ? t("settings.providers.testing") : t("settings.providers.refreshModels"),
+        );
+        b.setDisabled(!privateProviderId || refreshing);
+        b.onClick(() => this.refreshModels(privateProviderId));
       });
 
     // ---- 提示词模板（embedding 不需要） ----

@@ -10,7 +10,7 @@
 
 | 日期       | 范围                        | 环境 / 分支 | 结论                                                                                                     |
 | ---------- | --------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-05-25 | 自动化回归 + 提交前文档治理 | `main`      | PASS：`pnpm test` 374 tests、`pnpm typecheck`、`pnpm --filter aether-note-llm build`、`git diff --check` |
+| 2026-05-25 | 自动化回归 + 提交前文档治理 | `main`      | PASS：`pnpm test` 384 tests、`pnpm typecheck`、`pnpm --filter aether-note-llm build`、`git diff --check` |
 | 2026-05-25 | 手工 Obsidian UAT           | `main`      | 待执行：提交前至少复核阶段 1、2、3.1、4、7 的用户可见路径                                                |
 
 ---
@@ -30,7 +30,7 @@
 - [ ] **T0.1** `pnpm install` 成功
 - [ ] **T0.2** `pnpm --filter @aether/core build` 成功
 - [ ] **T0.3** `pnpm typecheck` 全绿
-- [ ] **T0.4** `pnpm test` 全绿，当前应为 374 tests（core 240 + plugin 134）
+- [ ] **T0.4** `pnpm test` 全绿，当前应为 384 tests（core 247 + plugin 137）
 - [ ] **T0.5** `pnpm --filter @aether/core test:coverage` 达到阈值
 - [ ] **T0.6** `pnpm --filter @aether/core smoke` 输出 `=== 冒烟测试全部通过 ✓ ===`
 - [ ] **T0.7** `pnpm --filter aether-note-llm build` 产出 `packages/plugin/main.js`
@@ -59,6 +59,7 @@
 - [ ] **T2.3a** AI Providers 中点击服务商申请 Key 链接；若浏览器拦截或 URL 无效，会显示失败提示，不影响当前 Provider 表单内容
 - [ ] **T2.3b** AI Providers 中服务商卡片左侧有明确展开 / 收起图标；点击「添加服务商」或从 Quick Start 添加预设后，新服务商卡片自动展开到可填写状态
 - [ ] **T2.3c** AI Providers 区块顶部和新建服务商展开表单中都显示风险提示：私密文件、密钥或密码应优先使用本地模型或可信自部署服务，避免发送给第三方模型
+- [ ] **T2.3d** 每个 Provider 卡片都可设置「可信赖的供应商，可访问私密文件」开关；开启后可用于私密角色，关闭后仅可用于公开角色
 - [ ] **T2.4** 故意填错 key，Test 显示明确失败信息；恢复正确 key
 - [ ] **T2.5** Quick Start 中选择 chat Provider 和 embedding Provider
 - [ ] **T2.6** 点应用绑定，AI Roles 中 `summarize` / `rewrite` / `extract` / `critique` / `answer` / `inbox_metadata` / `embedding` 已绑定 Provider / Model
@@ -66,6 +67,7 @@
 - [ ] **T2.7** 新建一个自定义 AI Role，设置 `showInEditor = true`
 - [ ] **T2.8** Advanced 中能看到 Inbox folder、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
 - [ ] **T2.8a** 若旧设置中的 AI Role provider 参数包含 `temperature = NaN / Infinity / > 2` 或无效 `maxTokens`，迁移层会在运行 Role 前删除、回落到内置安全默认值或取整这些参数，同时保留自定义 prompt 变量参数
+- [ ] **T2.8b** Advanced 中可配置隐私路由：私密目录列表、私密导入目录；AI Roles 中每个角色可分别配置公开模型与私密模型
 - [ ] **T2.9** 无 Provider 或缺 API key / model 时，Hub 顶部显示 `需要配置`，健康卡片列出具体缺项并可打开 Settings
 - [ ] **T2.10** 仅清空 embedding Role Provider 时，Hub 顶部显示 `部分可用`，健康卡片提示 embedding 缺项，搜索仍可降级到 BM25
 - [ ] **T2.11** 自定义 Provider 的 Base URL 为空或不是 `http(s)` URL 时，Hub 健康卡片显示 Base URL 缺失 / 无效
@@ -77,6 +79,8 @@
 ### 3.1 粘贴文本
 
 - [ ] **T3.1.1** Hub → `Import` → 粘贴短文本 → `Import`
+- [ ] **T3.1.1a** 导入弹窗默认目标为私密导入（首次）；后续默认记忆上次选择
+- [ ] **T3.1.1b** 从私密切到公开导入时，必须出现风险确认；取消确认后保持私密导入
 - [ ] **T3.1.2** 进度提示显示解析状态，解析完成后弹出预览清单
 - [ ] **T3.1.2a** 预览清单显示标题、来源、摘要、标签，并可编辑标题 / 摘要 / 标签、全选 / 全不选 / 单条勾选
 - [ ] **T3.1.2b** 取消并丢弃后不写入 vault，Diagnostics 中 pending inbox 不增加
@@ -88,6 +92,7 @@
 - [ ] **T3.1.3e** 从待处理入口只写入部分 pending import 时，未选条目仍保持 pending，可再次从待处理入口继续处理
 - [ ] **T3.1.3f** 从待处理入口写入时点击任务进度 Cancel，已写入条目保持完成，剩余未处理条目仍为 pending，最近任务记录为 cancelled
 - [ ] **T3.1.4** vault 出现 `Aether Inbox/notes/<yyyy>/<mm>/...md`
+- [ ] **T3.1.4a** 公开导入写入 `Aether Inbox/...`；私密导入写入 `Aether Private Inbox/...`
 - [ ] **T3.1.5** 生成文件 frontmatter 包含 `aether_id`、`aether_kind`、`title`、`tags`、`aether_summary`
 - [ ] **T3.1.5a** 在预览清单修改标题、摘要、标签后写入，生成文件 frontmatter 和搜索结果使用修改后的 metadata
 - [ ] **T3.1.6** Hub 最近列表显示新导入文件，点击能打开笔记
@@ -129,6 +134,7 @@
 - [ ] **T4.3a** note 搜索结果或 Hub 最近导入卡片打开失败时显示失败提示，当前结果 / 最近列表仍保留可见
 - [ ] **T4.4** 点击 bookmark 结果打开默认浏览器 URL
 - [ ] **T4.5** `全部` / `笔记` / `书签` 过滤有效
+- [ ] **T4.5a** Hub `公开 / 私密 / 全部` 范围切换有效：`公开` 不显示私密目录命中，`私密` 不显示公开目录命中
 - [ ] **T4.6** 搜索不存在的字符串，显示空结果，不崩溃
 - [ ] **T4.7** 搜索结果上方显示当前模式：`Hybrid`、`BM25` 或 `Stale-biased`
 - [ ] **T4.8** 有搜索结果时点击 `综合回答`，生成基于当前结果的回答，并显示 `[1]` 等引用入口
@@ -142,6 +148,7 @@
 - [ ] **T4.13** 取消或清空 `answer` Role 绑定后点击 `综合回答`，显示配置提示，不影响基础搜索结果，也不显示 `复制回答 + 来源` 或来源打开按钮
 - [ ] **T4.13a** `answer` Role 的 Provider 调用失败时显示失败原因，按钮恢复为 `综合回答`，不显示 `复制回答 + 来源` 或来源打开按钮
 - [ ] **T4.14** `综合回答` 运行中点击 Cancel，回答区域显示已取消，按钮恢复为 `综合回答`，不显示失败样式；若底层 Provider 在取消后才返回结果，不渲染过期回答
+- [ ] **T4.15** 私密范围未配置私密路由且没有 trusted 回退时：搜索可降级 BM25，综合回答阻断并给出可配置提示，私密正文不应外发给第三方模型
 
 ### 4.1 BM25 降级
 

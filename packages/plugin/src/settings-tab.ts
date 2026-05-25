@@ -320,6 +320,7 @@ export class AetherSettingsTab extends PluginSettingTab {
         name: p.name ? `${p.name} (副本)` : "",
         apiKeyRef,
         createdAt: Date.now(),
+        trustedForPrivate: p.trustedForPrivate === true,
       });
       if (oldKey) s.apiKeys[apiKeyRef] = oldKey;
     });
@@ -338,6 +339,7 @@ export class AetherSettingsTab extends PluginSettingTab {
       enabled: true,
       createdAt: Date.now(),
       kind: ps.id,
+      trustedForPrivate: false,
     };
     await this.patch((s) => {
       s.providers.push(config);
@@ -380,6 +382,7 @@ export class AetherSettingsTab extends PluginSettingTab {
               enabled: true,
               createdAt: Date.now(),
               kind: "",
+              trustedForPrivate: false,
             });
           });
         }),
@@ -445,6 +448,21 @@ export class AetherSettingsTab extends PluginSettingTab {
       cls: "aether-provider-card-risk-note",
       text: t("settings.providers.riskHint"),
     });
+    new Setting(card)
+      .setName(t("settings.providers.trustedPrivate"))
+      .setDesc(t("settings.providers.trustedPrivate.desc"))
+      .addDropdown((d) => {
+        d.addOption("false", t("settings.providers.trustedPrivate.off"));
+        d.addOption("true", t("settings.providers.trustedPrivate.on"));
+        d.setValue(p.trustedForPrivate === true ? "true" : "false");
+        d.onChange((v) =>
+          this.patch((s) => {
+            const found = s.providers.find((x) => x.id === p.id);
+            if (!found) return;
+            found.trustedForPrivate = v === "true";
+          }),
+        );
+      });
 
     // —— 行 0：名称 ——
     new Setting(card)
@@ -597,19 +615,31 @@ export class AetherSettingsTab extends PluginSettingTab {
     const name = row.createDiv({ cls: "aether-role-name" });
     name.setText(r.name);
     const binding = row.createDiv({ cls: "aether-role-binding" });
+    const privateBinding = this.describeRolePrivateBinding(r);
     if (r.providerId) {
       const provider = this.plugin.core.settings.current.providers.find(
         (x) => x.id === r.providerId,
       );
       const providerLabel = provider ? provider.name || provider.kind || provider.id : r.providerId;
+      const publicText = t("settings.roles.row.bound", {
+        provider: providerLabel,
+        model: r.modelName || "—",
+      });
       binding.setText(
         t("settings.roles.row.bound", {
           provider: providerLabel,
           model: r.modelName || "—",
         }),
       );
+      if (privateBinding) {
+        binding.setText(`${publicText} · ${privateBinding}`);
+      }
     } else {
-      binding.setText(t("settings.roles.row.unbound"));
+      binding.setText(
+        privateBinding
+          ? `${t("settings.roles.row.unbound")} · ${privateBinding}`
+          : t("settings.roles.row.unbound"),
+      );
     }
 
     row.onclick = () => {
@@ -685,6 +715,15 @@ export class AetherSettingsTab extends PluginSettingTab {
     }).open();
   }
 
+  private describeRolePrivateBinding(role: AiRole): string {
+    const privateProviderId = role.privateProviderId?.trim() ?? "";
+    const privateModelName = role.privateModelName?.trim() ?? "";
+    if (!privateProviderId || !privateModelName) return "";
+    const provider = this.plugin.core.settings.current.providers.find((p) => p.id === privateProviderId);
+    const providerLabel = provider ? provider.name || provider.kind || provider.id : privateProviderId;
+    return t("settings.roles.row.privateBound", { provider: providerLabel, model: privateModelName });
+  }
+
   // ---- Advanced ---------------------------------------------------------
   private renderAdvanced(root: HTMLElement): void {
     const folderSetting = new Setting(root)
@@ -720,6 +759,40 @@ export class AetherSettingsTab extends PluginSettingTab {
           }),
       );
     }
+
+    root.createEl("h3", { text: t("settings.privacy.title") });
+    root.createEl("p", {
+      cls: "setting-item-description",
+      text: t("settings.privacy.desc"),
+    });
+    new Setting(root)
+      .setName(t("settings.privacy.privateFolders"))
+      .setDesc(t("settings.privacy.privateFolders.desc"))
+      .addText((tx) =>
+        tx
+          .setPlaceholder("Private, Aether Private Inbox")
+          .setValue(this.plugin.core.settings.current.privacy.privateFolders.join(", "))
+          .onChange((v) =>
+            this.patchSilent((s) => {
+              s.privacy.privateFolders = parsePrivateFolders(v);
+            }),
+          ),
+      );
+
+    new Setting(root)
+      .setName(t("settings.privacy.privateInboxFolder"))
+      .setDesc(t("settings.privacy.privateInboxFolder.desc"))
+      .addText((tx) =>
+        tx
+          .setPlaceholder("Aether Private Inbox")
+          .setValue(this.plugin.core.settings.current.privacy.privateInboxFolder)
+          .onChange((v) =>
+            this.patchSilent((s) => {
+              const next = v.trim();
+              if (next.length > 0) s.privacy.privateInboxFolder = next;
+            }),
+          ),
+      );
 
     new Setting(root).setName(t("settings.advanced.scope")).addDropdown((d) =>
       d
@@ -837,4 +910,17 @@ function providerSupportsUse(provider: ProviderConfig, use: ModelUse): boolean {
   const preset = provider.kind ? findPresetById(provider.kind) : undefined;
   if (!preset || preset.id === "custom") return true;
   return Boolean(preset.recommendedFor[use]);
+}
+
+function parsePrivateFolders(raw: string): string[] {
+  const defaults = ["Private", "Aether Private Inbox"];
+  const seen = new Set<string>();
+  const folders: string[] = [];
+  for (const part of raw.split(/[,，\n]+/)) {
+    const normalized = part.trim().replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    folders.push(normalized);
+  }
+  return folders.length > 0 ? folders : defaults;
 }

@@ -14,6 +14,10 @@ export async function proposeMetadata(args: {
   roles: RoleRegistry;
   candidate: RawCandidate;
   fallbackTitle: string;
+  providerOverride?: {
+    providerId: string;
+    modelName: string;
+  };
   signal?: AbortSignal;
   onUsage?: (args: {
     providerId: string;
@@ -34,6 +38,7 @@ export async function proposeMetadata(args: {
       content: candidate.content.slice(0, 4000),
     },
   };
+  if (args.providerOverride) opts.providerOverride = args.providerOverride;
   if (args.signal) opts.signal = args.signal;
   try {
     const r = await runRole(opts);

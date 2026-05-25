@@ -277,4 +277,23 @@ describe("ImportPipeline", () => {
     expect(provider.calls.chat[0]?.signal).toBe(ac.signal);
     expect(provider.calls.embed[0]?.signal).toBe(ac.signal);
   });
+
+  it("keeps private import local when no private route is available", async () => {
+    const { pipeline, inbox, provider } = await makeRig();
+    const src: ImportSource = {
+      kind: "file",
+      label: "Private/secret.md",
+      payload: { type: "markdown-file", path: "Private/secret.md", content: "top secret" },
+    };
+
+    await collect(pipeline.run(src, { privacyTarget: "private" }));
+
+    expect(provider.calls.chat).toHaveLength(0);
+    expect(provider.calls.embed).toHaveLength(0);
+    expect(inbox.listItems()[0]).toMatchObject({
+      proposedTitle: "secret",
+      duplicateOf: null,
+      status: "pending",
+    });
+  });
 });

@@ -63,6 +63,101 @@ describe("Hub answer cancellation", () => {
     );
   });
 
+  it("forwards default public privacyScope for Hub search and answer requests", async () => {
+    const meta: SearchMeta = {
+      mode: "hybrid",
+      alpha: 0.4,
+      staleRatio: 0,
+      fallbackReason: null,
+    };
+    const hit: SearchHit = {
+      noteId: "n1",
+      vaultPath: "Aether Inbox/notes/a.md",
+      kind: "note",
+      title: "A",
+      summary: null,
+      tags: [],
+      url: null,
+      score: 1,
+      topChunks: [
+        {
+          chunkId: "c1",
+          headingPath: "",
+          excerpt: "excerpt",
+          tokenCount: 3,
+          score: 1,
+        },
+      ],
+    };
+    const plugin = {
+      app: {},
+      core: {
+        settings: { current: migrateSettings({}) },
+        store: { allChunks: () => [] },
+        inbox: { listItems: () => [] },
+        canOpenImportFolder: () => false,
+        listRecentImportedMarkdown: vi.fn(async () => []),
+        searchWithMeta: vi.fn().mockResolvedValue({ hits: [hit], meta }),
+        answerSearch: vi.fn().mockResolvedValue({
+          answer: "ok [1]",
+          citations: [
+            {
+              index: 1,
+              noteId: "n1",
+              vaultPath: hit.vaultPath,
+              title: hit.title,
+              chunkId: "c1",
+              headingPath: "",
+              excerpt: "excerpt",
+              url: null,
+              tokenCount: 3,
+              truncated: false,
+            },
+          ],
+          contextTokenCount: 3,
+          contextTruncated: false,
+          citationCheck: {
+            referencedIndexes: [1],
+            invalidIndexes: [],
+            unusedIndexes: [],
+            hasAnyReference: true,
+          },
+          search: { hits: [hit], meta },
+          question: "scope",
+        }),
+      },
+    };
+    const view = new HubView(
+      {
+        app: {
+          setting: {
+            open: vi.fn(),
+            openTabById: vi.fn(),
+          },
+        },
+      } as never,
+      plugin as never,
+    );
+
+    await view.onOpen();
+    (view as unknown as { query: string; mode: "recent" | "search" }).query = "scope";
+    (view as unknown as { query: string; mode: "recent" | "search" }).mode = "search";
+    await (
+      view as unknown as {
+        refreshResults(): Promise<void>;
+      }
+    ).refreshResults();
+
+    expect(plugin.core.searchWithMeta).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "scope", privacyScope: "public" }),
+    );
+    const answerBtn = findButton(view.containerEl.children[1] as FakeElement, "综合回答");
+    await answerBtn?.onclick?.();
+    expect(plugin.core.answerSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "scope", privacyScope: "public" }),
+    );
+  });
+
   it("does not render a stale answer when the cancelled request resolves", async () => {
     const answer = deferred<unknown>();
     const plugin = {

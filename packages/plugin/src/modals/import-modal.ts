@@ -18,6 +18,7 @@ import {
 } from "../ui/import-source.js";
 
 type Mode = "paste" | "file";
+type ImportTarget = "public" | "private";
 
 interface ImportedNoteSummary {
   noteId: string;
@@ -64,12 +65,14 @@ export function openPendingImportItems(app: App, plugin: AetherPlugin): boolean 
 export class ImportModal extends Modal {
   private text = "";
   private mode: Mode = "paste";
+  private privacyTarget: ImportTarget;
 
   constructor(
     app: App,
     private readonly plugin: AetherPlugin,
   ) {
     super(app);
+    this.privacyTarget = defaultImportTarget(plugin);
   }
 
   onOpen(): void {
@@ -101,6 +104,7 @@ export class ImportModal extends Modal {
     };
     mkTab("paste", "clipboard-paste", t("modal.import.tab.paste"));
     mkTab("file", "file-up", t("modal.import.tab.file"));
+    this.renderTargetSwitch(el);
 
     // —— 内容区 ——
     const body = el.createDiv({ cls: "aether-import-body" });
@@ -109,6 +113,54 @@ export class ImportModal extends Modal {
     } else {
       this.renderFile(body);
     }
+  }
+
+  private renderTargetSwitch(root: HTMLElement): void {
+    const wrap = root.createDiv({ cls: "aether-import-target-wrap" });
+    wrap.createDiv({
+      cls: "aether-import-target-title",
+      text: t("modal.import.target.title"),
+    });
+    const bar = wrap.createDiv({ cls: "aether-import-target-switch" });
+    const mk = (target: ImportTarget, label: string): void => {
+      const btn = bar.createEl("button", {
+        cls: `aether-import-target-btn${this.privacyTarget === target ? " active" : ""}`,
+        text: label,
+      });
+      btn.onclick = () => {
+        void this.switchTarget(target);
+      };
+    };
+    mk("private", t("modal.import.target.private"));
+    mk("public", t("modal.import.target.public"));
+    wrap.createDiv({
+      cls: "aether-import-target-hint",
+      text:
+        this.privacyTarget === "private"
+          ? t("modal.import.target.privateHint")
+          : t("modal.import.target.publicHint"),
+    });
+  }
+
+  private async switchTarget(target: ImportTarget): Promise<void> {
+    if (target === this.privacyTarget) return;
+    if (target === "public") {
+      const confirmFn =
+        typeof window.confirm === "function" ? window.confirm.bind(window) : () => true;
+      const confirmed = confirmFn(t("modal.import.target.publicConfirm"));
+      if (!confirmed) return;
+    }
+    this.privacyTarget = target;
+    await this.persistImportTarget(target);
+    this.render();
+  }
+
+  private async persistImportTarget(target: ImportTarget): Promise<void> {
+    if (this.plugin.core.settings.current.privacy.importLastTarget === target) return;
+    const next = structuredClone(this.plugin.core.settings.current);
+    next.privacy.importLastTarget = target;
+    await this.plugin.core.settings.save(next);
+    this.plugin.core.applySettings(next);
   }
 
   // ---- 粘贴文本 ----
@@ -231,7 +283,10 @@ export class ImportModal extends Modal {
     let hasError = false;
     let errorMsg = "";
     try {
-      for await (const e of this.plugin.core.importSource(source, { signal: job.signal })) {
+      for await (const e of this.plugin.core.importSource(source, {
+        signal: job.signal,
+        privacyTarget: this.privacyTarget,
+      })) {
         if (job.cancelled) break;
         if (e.type === "item-added") {
           items.push(e.item);
@@ -271,7 +326,15 @@ export class ImportModal extends Modal {
         return;
       }
       job.finish("done");
-      new ImportPreviewModal(this.app, this.plugin, items, failures).open();
+      new ImportPreviewModal(
+        this.app,
+        this.plugin,
+        items,
+        failures,
+        NEW_IMPORT_PREVIEW_POLICY,
+        {},
+        this.privacyTarget,
+      ).open();
     } catch (e) {
       job.finish("error");
       const msg = e instanceof Error ? e.message : String(e);
@@ -308,6 +371,7 @@ class ImportPreviewModal extends Modal {
       title?: string;
       summaryKey?: string;
     } = {},
+    private readonly privacyTarget: ImportTarget = "public",
   ) {
     super(app);
     for (const item of items) {
@@ -531,7 +595,9 @@ class ImportPreviewModal extends Modal {
             sourceTitle: this.getDraft(item).proposedTitle || item.proposedTitle || item.sourceRef,
           });
         } else {
-          const note = await this.plugin.core.approveInboxItem(item.id);
+          const note = await this.plugin.core.approveInboxItem(item.id, {
+            target: this.privacyTarget,
+          });
           imported.push({
             noteId: note.id,
             vaultPath: note.vaultPath,
@@ -948,4 +1014,8 @@ function parseTags(value: string): string[] {
     .map((tag) => tag.trim().replace(/^#/, ""))
     .filter((tag, idx, arr) => tag.length > 0 && arr.indexOf(tag) === idx)
     .slice(0, 12);
+}
+
+function defaultImportTarget(plugin: AetherPlugin): ImportTarget {
+  return plugin.core.settings.current.privacy.importLastTarget ?? "private";
 }

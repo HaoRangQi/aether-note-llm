@@ -194,6 +194,7 @@ describe("AI role command cancellation", () => {
       "rewrite",
       { selection: "selected text" },
       expect.any(AbortSignal),
+      undefined,
     );
     expect(editor.replaceSelection).not.toHaveBeenCalled();
     const result = openedModals.at(-1);

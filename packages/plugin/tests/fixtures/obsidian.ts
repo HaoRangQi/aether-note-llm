@@ -53,6 +53,10 @@ export class FakeElement {
     // no-op test double
   }
 
+  focus(): void {
+    // no-op test double
+  }
+
   onClickEvent(cb: () => void | Promise<void>): void {
     this.onclick = cb;
   }

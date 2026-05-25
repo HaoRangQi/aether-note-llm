@@ -27,14 +27,23 @@ export interface SearchEngineDeps {
   }) => void | Promise<void>;
 }
 
+export interface SearchRunOptions {
+  forceText?: boolean;
+  textFallbackReason?: SearchFallbackReason;
+  embeddingOverride?: {
+    providerId: string;
+    modelName: string;
+  };
+}
+
 export class SearchEngine {
   constructor(private readonly deps: SearchEngineDeps) {}
 
-  async search(req: SearchRequest): Promise<SearchHit[]> {
-    return (await this.searchWithMeta(req)).hits;
+  async search(req: SearchRequest, options: SearchRunOptions = {}): Promise<SearchHit[]> {
+    return (await this.searchWithMeta(req, options)).hits;
   }
 
-  async searchWithMeta(req: SearchRequest): Promise<SearchResponse> {
+  async searchWithMeta(req: SearchRequest, options: SearchRunOptions = {}): Promise<SearchResponse> {
     const limit = req.limit ?? 20;
     const baseAlpha = req.alpha ?? 0.4;
     const staleRatio = this.deps.getStaleRatio?.() ?? 0;
@@ -50,6 +59,7 @@ export class SearchEngine {
       filters: req.filters,
       limit: limit * 2,
       alpha,
+      ...options,
     });
     const meta: SearchMeta = {
       mode: fallbackReason ? "bm25" : staleRatio > 0.3 ? "stale-biased" : "hybrid",
@@ -102,19 +112,38 @@ export class SearchEngine {
     filters: SearchRequest["filters"];
     limit: number;
     alpha: number;
+    forceText?: boolean;
+    textFallbackReason?: SearchFallbackReason;
+    embeddingOverride?: {
+      providerId: string;
+      modelName: string;
+    };
   }): Promise<{
     rawHits: Awaited<ReturnType<OramaIndexStore["searchHybrid"]>>;
     fallbackReason: SearchFallbackReason | null;
   }> {
+    if (args.forceText) {
+      const searchArgs: Parameters<typeof this.deps.store.searchText>[0] = {
+        query: args.query,
+        limit: args.limit,
+      };
+      if (args.filters) searchArgs.filters = args.filters;
+      return {
+        rawHits: await this.deps.store.searchText(searchArgs),
+        fallbackReason: args.textFallbackReason ?? "provider-error",
+      };
+    }
     try {
       const role = this.deps.roles.resolve("embedding");
-      const provider = this.deps.registry.getProvider(role.providerId);
-      const embed = await provider.embed({ inputs: [args.query], model: role.modelName });
+      const providerId = args.embeddingOverride?.providerId ?? role.providerId;
+      const modelName = args.embeddingOverride?.modelName ?? role.modelName;
+      const provider = this.deps.registry.getProvider(providerId);
+      const embed = await provider.embed({ inputs: [args.query], model: modelName });
       if (embed.usage) {
         await this.deps.onUsage?.({
           providerId: provider.id,
           feature: "embedding",
-          model: role.modelName,
+          model: modelName,
           usage: embed.usage,
         });
       }

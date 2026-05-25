@@ -14,6 +14,11 @@ describe("migrateSettings", () => {
     expect(s.ui.scanScope).toBe("vault");
     expect(s.ui.language).toBe("zh-CN");
     expect(s.flags.aiTrace).toBe(false);
+    expect(s.privacy).toEqual({
+      privateFolders: ["Private", "Aether Private Inbox"],
+      privateInboxFolder: "Aether Private Inbox",
+      importLastTarget: null,
+    });
   });
 
   it("v1 → v2 migrates bindings into role provider/model", () => {
@@ -225,6 +230,7 @@ describe("migrateSettings", () => {
       ],
     });
     expect(s.providers[0]?.kind).toBe("deepseek");
+    expect(s.providers[0]?.trustedForPrivate).toBe(false);
   });
 
   it("backfills kind = 'custom' for unknown baseUrl", () => {
@@ -262,6 +268,38 @@ describe("migrateSettings", () => {
       ],
     });
     expect(s.providers[0]?.kind).toBe("custom");
+    expect(s.providers[0]?.trustedForPrivate).toBe(false);
+  });
+
+  it("normalizes privacy folders and import target", () => {
+    const s = migrateSettings({
+      schemaVersion: 2,
+      privacy: {
+        privateFolders: [" Private/ ", "", "Private", "Secure"],
+        privateInboxFolder: "  Vault Private  ",
+        importLastTarget: "private",
+      },
+    });
+    expect(s.privacy.privateFolders).toEqual(["Private", "Secure"]);
+    expect(s.privacy.privateInboxFolder).toBe("Vault Private");
+    expect(s.privacy.importLastTarget).toBe("private");
+  });
+
+  it("migrates legacy private provider/model settings into role-level private bindings", () => {
+    const s = migrateSettings({
+      schemaVersion: 2,
+      privacy: {
+        privateProviderId: "legacy-private",
+        privateChatModel: "legacy-chat",
+        privateEmbeddingModel: "legacy-embed",
+      } as never,
+    });
+    const summarize = s.roles.find((r) => r.id === "summarize");
+    expect(summarize?.privateProviderId).toBe("legacy-private");
+    expect(summarize?.privateModelName).toBe("legacy-chat");
+    const embedding = s.roles.find((r) => r.id === "embedding");
+    expect(embedding?.privateProviderId).toBe("legacy-private");
+    expect(embedding?.privateModelName).toBe("legacy-embed");
   });
 
   it("throws on unknown schemaVersion", () => {

@@ -14,6 +14,8 @@ export const en: Dict = {
   "common.copy": "Copy",
   "common.copyFailed": "Copy failed. Check clipboard permissions and try again.",
   "common.close": "Close",
+  "common.yes": "Yes",
+  "common.no": "No",
 
   // ---- settings: section titles ----
   "settings.title": "Aether Note LLM",
@@ -85,6 +87,11 @@ export const en: Dict = {
   "settings.providers.refreshModels": "Refresh model list",
   "settings.providers.modelsCached": "{count} models cached",
   "settings.providers.modelsNotCached": "Not queried yet — click 'Test connection' to fetch.",
+  "settings.providers.trustedPrivate": "Trusted provider can access private files",
+  "settings.providers.trustedPrivate.desc":
+    "When enabled, this provider can be used by private-role routes. When disabled, it is public-role only.",
+  "settings.providers.trustedPrivate.on": "Allow private-file access",
+  "settings.providers.trustedPrivate.off": "Block private-file access",
 
   // ---- legacy bindings strings still used by applyRecommended ----
   "settings.bindings.empty": "Add and configure a provider first.",
@@ -100,6 +107,7 @@ export const en: Dict = {
   "settings.roles.add": "+ New custom role",
   "settings.roles.row.unbound": "no provider bound",
   "settings.roles.row.bound": "{provider} · {model}",
+  "settings.roles.row.privateBound": "private: {provider} · {model}",
   "settings.roles.newName": "New role",
 
   // ---- role editor ----
@@ -118,6 +126,15 @@ export const en: Dict = {
   "role.outputKind.embedding": "Embedding (no prompt)",
   "role.field.provider": "Provider",
   "role.field.model": "Model",
+  "role.field.privateProvider": "Private role provider",
+  "role.field.privateProvider.desc":
+    "Only providers marked as trusted for private-file access can be selected here.",
+  "role.field.privateProvider.noneTrusted":
+    "No trusted provider available for private roles yet. Enable trust on a provider first.",
+  "role.field.privateProvider.untrusted": "not trusted",
+  "role.field.privateModel": "Private role model",
+  "role.field.privateModel.desc":
+    "Used for private-folder calls of this role; empty means fallback to the public model.",
   "role.field.prompt": "Prompt template",
   "role.field.prompt.vars": "Click to insert variable:",
   "role.field.prompt.insertVar": "Click to insert at cursor",
@@ -171,6 +188,15 @@ export const en: Dict = {
   "modal.import.file.ready": "Selected: {name} — click Import to start",
   "modal.import.file.unknown":
     "Unrecognised file content. Choose .md/.markdown, .txt/.url URL lists, .itabdata, or Chrome/Edge bookmarks JSON.",
+  "modal.import.target.title": "Import target",
+  "modal.import.target.private": "Private import",
+  "modal.import.target.public": "Public import",
+  "modal.import.target.privateHint":
+    "Private import keeps content in private folders and prefers private/trusted model routing.",
+  "modal.import.target.publicHint":
+    "Public import may route content to third-party models according to current role/provider bindings.",
+  "modal.import.target.publicConfirm":
+    "Switch to public import? Private notes, API keys, and passwords should not be sent to third-party models.",
   "modal.importPreview.title": "Preview import",
   "modal.importPreview.summary": "{selected} / {total} selected; {failed} parse failure(s).",
   "modal.importPreview.selectAll": "Select all",
@@ -327,6 +353,9 @@ export const en: Dict = {
   "view.hub.filter.all": "All",
   "view.hub.filter.note": "Notes",
   "view.hub.filter.bookmark": "Bookmarks",
+  "view.hub.privacyScope.public": "Public",
+  "view.hub.privacyScope.private": "Private",
+  "view.hub.privacyScope.all": "All",
   "view.hub.import": "📥 Import",
   "view.hub.pendingImports": "⏳ Pending {count}",
   "view.hub.jobs": "🧾 Recent jobs",
@@ -431,6 +460,15 @@ export const en: Dict = {
   "settings.advanced.inboxFolder.open": "Open folder",
   "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
   "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
+  "settings.privacy.title": "Privacy Routing",
+  "settings.privacy.desc":
+    "Private folders are isolated by directory. Configure public/private models in AI Roles.",
+  "settings.privacy.privateFolders": "Private folders",
+  "settings.privacy.privateFolders.desc":
+    "Comma-separated relative vault folders, e.g. Private, Aether Private Inbox.",
+  "settings.privacy.privateInboxFolder": "Private import folder",
+  "settings.privacy.privateInboxFolder.desc":
+    "Approved private imports are saved under this folder.",
   "settings.advanced.scope": "Scan scope",
   "settings.advanced.scope.vault": "Entire vault",
   "settings.advanced.scope.inbox": "Aether Inbox only",

@@ -14,6 +14,8 @@ export const zhCN: Dict = {
   "common.copy": "复制",
   "common.copyFailed": "复制失败，请检查剪贴板权限后重试。",
   "common.close": "关闭",
+  "common.yes": "是",
+  "common.no": "否",
 
   // ---- 设置页：标题与分组 ----
   "settings.title": "Aether Note LLM",
@@ -81,6 +83,11 @@ export const zhCN: Dict = {
   "settings.providers.refreshModels": "刷新模型列表",
   "settings.providers.modelsCached": "已缓存 {count} 个模型",
   "settings.providers.modelsNotCached": "尚未查询模型 — 点「测试连接」获取列表",
+  "settings.providers.trustedPrivate": "可信赖的供应商，可访问私密文件",
+  "settings.providers.trustedPrivate.desc":
+    "开启后，此供应商可用于私密角色读取私密目录内容；关闭后仅可用于公开角色。",
+  "settings.providers.trustedPrivate.on": "允许访问私密文件",
+  "settings.providers.trustedPrivate.off": "禁止访问私密文件",
 
   // ---- 兼容旧的 bindings 文案（applyRecommended 仍在用）----
   "settings.bindings.empty": "先添加并配置一个服务商，才能绑定功能。",
@@ -95,6 +102,7 @@ export const zhCN: Dict = {
   "settings.roles.add": "+ 新建自定义角色",
   "settings.roles.row.unbound": "未绑定服务商",
   "settings.roles.row.bound": "{provider} · {model}",
+  "settings.roles.row.privateBound": "私密：{provider} · {model}",
   "settings.roles.newName": "新角色",
 
   // ---- 角色编辑器 ----
@@ -112,6 +120,13 @@ export const zhCN: Dict = {
   "role.outputKind.embedding": "向量（无提示词）",
   "role.field.provider": "AI 服务商",
   "role.field.model": "模型",
+  "role.field.privateProvider": "私密角色服务商",
+  "role.field.privateProvider.desc": "仅可选择已标记为「可信赖，可访问私密文件」的服务商。",
+  "role.field.privateProvider.noneTrusted":
+    "还没有可用于私密角色的服务商。先到服务商设置里开启「可信赖，可访问私密文件」。",
+  "role.field.privateProvider.untrusted": "未标记可信赖",
+  "role.field.privateModel": "私密角色模型",
+  "role.field.privateModel.desc": "私密目录调用此角色时优先使用该模型；留空则回退到公开模型。",
   "role.field.prompt": "提示词模板",
   "role.field.prompt.vars": "可点击插入变量：",
   "role.field.prompt.insertVar": "点击插入到光标位置",
@@ -163,6 +178,13 @@ export const zhCN: Dict = {
   "modal.import.file.ready": "已选择：{name}，点「导入」开始",
   "modal.import.file.unknown":
     "无法识别文件内容，请选择 .md/.markdown、.txt/.url URL 列表、.itabdata 或 Chrome/Edge 书签 JSON",
+  "modal.import.target.title": "导入目标",
+  "modal.import.target.private": "私密导入",
+  "modal.import.target.public": "公开导入",
+  "modal.import.target.privateHint": "私密导入会写入私密目录，并优先走私密/可信模型路由。",
+  "modal.import.target.publicHint": "公开导入会按当前角色绑定调用模型，可能包含第三方模型出站。",
+  "modal.import.target.publicConfirm":
+    "确认切换到公开导入？私密笔记、API Key、密码不应发送给第三方模型。",
   "modal.importPreview.title": "预览导入",
   "modal.importPreview.summary": "已选择 {selected} / {total} 条；解析失败 {failed} 条。",
   "modal.importPreview.selectAll": "全选",
@@ -317,6 +339,9 @@ export const zhCN: Dict = {
   "view.hub.filter.all": "全部",
   "view.hub.filter.note": "笔记",
   "view.hub.filter.bookmark": "书签",
+  "view.hub.privacyScope.public": "公开",
+  "view.hub.privacyScope.private": "私密",
+  "view.hub.privacyScope.all": "全部",
   "view.hub.import": "📥 导入",
   "view.hub.pendingImports": "⏳ 待处理 {count}",
   "view.hub.jobs": "🧾 最近任务",
@@ -414,6 +439,12 @@ export const zhCN: Dict = {
   "settings.advanced.inboxFolder.open": "打开文件夹",
   "settings.advanced.inboxFolder.empty": "Inbox 文件夹路径为空",
   "settings.advanced.inboxFolder.openFailed": "打开文件夹失败：{error}",
+  "settings.privacy.title": "隐私路由",
+  "settings.privacy.desc": "私密目录按路径隔离。公开/私密模型请在「AI 角色」里分别配置。",
+  "settings.privacy.privateFolders": "私密目录列表",
+  "settings.privacy.privateFolders.desc": "用逗号分隔 vault 相对目录，例如：Private, Aether Private Inbox。",
+  "settings.privacy.privateInboxFolder": "私密导入目录",
+  "settings.privacy.privateInboxFolder.desc": "私密导入审批通过后写入该目录。",
   "settings.advanced.scope": "扫描范围",
   "settings.advanced.scope.vault": "整个 vault",
   "settings.advanced.scope.inbox": "仅 Aether Inbox 文件夹",

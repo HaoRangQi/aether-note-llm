@@ -95,6 +95,8 @@ export interface ProviderConfig {
    * 老配置可能没有这个字段；migration 会根据 baseUrl 反查或填 "custom"。
    */
   kind?: string;
+  /** 用户手动标记：可用于私密目录内容。 */
+  trustedForPrivate?: boolean;
 }
 
 export interface FeatureBinding {
@@ -127,6 +129,12 @@ export interface AiRole {
 
   providerId: string;
   modelName: string;
+  /**
+   * 私密目录调用时可选的专用绑定。
+   * 仅在 Provider 被标记 trustedForPrivate 时才会生效。
+   */
+  privateProviderId?: string;
+  privateModelName?: string;
 
   /** 含 {{variable}} 占位符的提示词模板 */
   promptTemplate: string;
@@ -158,12 +166,16 @@ export interface SearchFilters {
   before?: number;
 }
 
+export type PrivacyScope = "public" | "private" | "all";
+
 export interface SearchRequest {
   query: string;
   filters?: SearchFilters;
   limit?: number;
   /** alpha in [0,1] — text weight. final = alpha*text + (1-alpha)*vector. Default 0.4. */
   alpha?: number;
+  /** public/private/all directory domain for search results. */
+  privacyScope?: PrivacyScope;
 }
 
 export interface HitChunk {
@@ -210,6 +222,8 @@ export interface SearchResponse {
 export interface SearchAnswerRequest {
   query: string;
   filters?: SearchFilters;
+  /** public/private/all directory domain for answer context selection. */
+  privacyScope?: PrivacyScope;
   /** Existing search response to answer from; when omitted core performs a fresh search. */
   search?: SearchResponse;
   /** Number of search results to retrieve before selecting context chunks. Default 8. */
@@ -441,6 +455,11 @@ export interface PersistedSettings {
   /** v0.2 新增：AI 角色列表（含内置 5 个 + 用户自定义） */
   roles: AiRole[];
   apiKeys: Record<string, string>;
+  privacy: {
+    privateFolders: string[];
+    privateInboxFolder: string;
+    importLastTarget: "public" | "private" | null;
+  };
   ui: {
     alpha: number;
     aetherInboxFolder: string;

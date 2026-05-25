@@ -78,7 +78,8 @@ async function runRoleOnSelection(
   });
 
   try {
-    const out = await plugin.core.runRole(role.id, { selection: sel }, ac.signal);
+    const sourcePath = plugin.app.workspace.getActiveFile?.()?.path;
+    const out = await plugin.core.runRole(role.id, { selection: sel }, ac.signal, sourcePath);
     if (ac.signal.aborted) {
       indicator.hide("cancelled");
       new Notice(t("ai.cancelled"), 3000);

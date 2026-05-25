@@ -139,6 +139,174 @@ describe("AetherCore", () => {
     ]);
   });
 
+  it("isolates private/public search hits by privacyScope and keeps private search local without route", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "Private/keep.md": "# Keep\nsharedterm private scope",
+        "Private Draft/leak.md": "# Leak\nsharedterm should stay public",
+        "Public/keep.md": "# Public\nsharedterm public scope",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider();
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.indexExistingVaultFile("Private/keep.md");
+    await core.indexExistingVaultFile("Private Draft/leak.md");
+    await core.indexExistingVaultFile("Public/keep.md");
+
+    const privateResult = await core.searchWithMeta({
+      query: "sharedterm",
+      privacyScope: "private",
+      limit: 10,
+    });
+    expect(privateResult.meta.mode).toBe("bm25");
+    expect(privateResult.meta.fallbackReason).toBe("provider-error");
+    expect(privateResult.hits.map((hit) => hit.vaultPath)).toEqual(["Private/keep.md"]);
+
+    const publicResult = await core.searchWithMeta({
+      query: "sharedterm",
+      privacyScope: "public",
+      limit: 10,
+    });
+    const publicPaths = publicResult.hits.map((hit) => hit.vaultPath);
+    expect(publicPaths).toEqual(expect.arrayContaining(["Private Draft/leak.md", "Public/keep.md"]));
+    expect(publicPaths).not.toContain("Private/keep.md");
+  });
+
+  it("routes private editor role calls via trusted provider fallback and blocks when no private route", async () => {
+    const host = new InMemoryHostAdapter({
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: () => [{ delta: "private summary", finishReason: "stop" }],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+
+    await expect(
+      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+    ).rejects.toMatchObject({ code: "BINDING_NOT_FOUND" });
+    expect(provider.calls.chat).toHaveLength(0);
+
+    await core.settings.save({
+      ...core.settings.current,
+      providers: core.settings.current.providers.map((p) =>
+        p.id === "p" ? { ...p, trustedForPrivate: true } : p,
+      ),
+    });
+    core.applySettings(core.settings.current);
+
+    await expect(
+      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+    ).resolves.toBe("private summary");
+    expect(provider.calls.chat).toHaveLength(1);
+  });
+
+  it("prefers role-level private binding when provider is trusted", async () => {
+    const host = new InMemoryHostAdapter({
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const publicProvider = new MockProvider({
+      chatChunks: () => [{ delta: "public summary", finishReason: "stop" }],
+    });
+    const trustedProvider = new MockProvider({
+      chatChunks: () => [{ delta: "private summary", finishReason: "stop" }],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    core.registry.registerFactory({
+      kind: "openai-compatible",
+      create: ({ id }) => (id === "trusted" ? trustedProvider : publicProvider),
+    });
+    await core.settings.save({
+      ...core.settings.current,
+      providers: [
+        {
+          id: "public",
+          name: "Public",
+          baseUrl: "https://public.example/v1",
+          apiKeyRef: "k-public",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+          trustedForPrivate: false,
+        },
+        {
+          id: "trusted",
+          name: "Trusted",
+          baseUrl: "https://trusted.example/v1",
+          apiKeyRef: "k-trusted",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+          trustedForPrivate: true,
+        },
+      ],
+      roles: core.settings.current.roles.map((role) =>
+        role.id === "summarize"
+          ? {
+              ...role,
+              providerId: "public",
+              modelName: "public-model",
+              privateProviderId: "trusted",
+              privateModelName: "private-model",
+            }
+          : { ...role, providerId: "public", modelName: "public-model" },
+      ),
+      apiKeys: {
+        "k-public": "secret-public",
+        "k-trusted": "secret-trusted",
+      },
+    });
+    core.applySettings(core.settings.current);
+
+    await expect(
+      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+    ).resolves.toBe("private summary");
+    expect(trustedProvider.calls.chat).toHaveLength(1);
+    expect(trustedProvider.calls.chat[0]?.model).toBe("private-model");
+    expect(publicProvider.calls.chat).toHaveLength(0);
+  });
+
+  it("writes approved private imports into private inbox folder", async () => {
+    const host = new InMemoryHostAdapter({
+      now: () => Date.UTC(2026, 4, 24),
+      newId: (() => {
+        const ids = ["note-1"];
+        let n = 0;
+        return () => ids[n++] ?? `id-${n}`;
+      })(),
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    core.inbox.createBatch({ id: "batch-1", sourceLabel: "paste", totalItems: 1 });
+    core.inbox.addItem({
+      id: "item-1",
+      batchId: "batch-1",
+      sourceKind: "paste",
+      sourceRef: "paste",
+      proposedTitle: "Private Note",
+      proposedTags: ["private"],
+      proposedSummary: "",
+      content: "secret content",
+      kind: "note",
+      url: null,
+      duplicateOf: null,
+      status: "pending",
+      createdAt: Date.UTC(2026, 4, 24),
+      decidedAt: null,
+    });
+
+    const note = await core.approveInboxItem("item-1", { target: "private" });
+
+    expect(note.vaultPath).toContain("Aether Private Inbox/notes/");
+    expect(core.settings.current.privacy.importLastTarget).toBe("private");
+    await expect(host.readFile(note.vaultPath)).resolves.toContain("secret content");
+  });
+
   it("persists token usage across core init", async () => {
     const host = new InMemoryHostAdapter({ now: () => Date.UTC(2026, 4, 24) });
     const provider = new MockProvider({

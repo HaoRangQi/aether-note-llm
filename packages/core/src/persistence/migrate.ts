@@ -10,12 +10,19 @@ import { BUILTIN_ROLE_SEEDS, seedToRole, type BuiltInRoleId } from "../roles/def
 
 export const SETTINGS_LATEST_VERSION = 2 as const;
 
+interface RawPrivacy extends Partial<PersistedSettings["privacy"]> {
+  privateProviderId?: unknown;
+  privateChatModel?: unknown;
+  privateEmbeddingModel?: unknown;
+}
+
 interface RawSettings {
   schemaVersion?: number;
   providers?: ProviderConfig[];
   bindings?: FeatureBinding[];
   roles?: AiRole[];
   apiKeys?: Record<string, string>;
+  privacy?: RawPrivacy;
   ui?: Partial<PersistedSettings["ui"]>;
   budgets?: Partial<PersistedSettings["budgets"]>;
   flags?: Partial<PersistedSettings["flags"]>;
@@ -47,6 +54,7 @@ export function migrateSettings(raw: unknown): PersistedSettings {
     // v1 → v2 首次迁移：5 个内置 seed × 老 bindings 拼接
     roles = BUILTIN_ROLE_SEEDS.map((seed) => applyBindingToSeed(seed, bindings, now));
   }
+  applyLegacyPrivateBindings(roles, obj.privacy);
 
   return {
     schemaVersion: SETTINGS_LATEST_VERSION,
@@ -57,6 +65,18 @@ export function migrateSettings(raw: unknown): PersistedSettings {
       typeof obj.apiKeys === "object" && obj.apiKeys !== null
         ? (obj.apiKeys as Record<string, string>)
         : {},
+    privacy: {
+      privateFolders: normalizePrivateFolders(obj.privacy?.privateFolders),
+      privateInboxFolder:
+        typeof obj.privacy?.privateInboxFolder === "string" &&
+        obj.privacy.privateInboxFolder.trim().length > 0
+          ? obj.privacy.privateInboxFolder.trim()
+          : "Aether Private Inbox",
+      importLastTarget:
+        obj.privacy?.importLastTarget === "public" || obj.privacy?.importLastTarget === "private"
+          ? obj.privacy.importLastTarget
+          : null,
+    },
     ui: {
       alpha: normalizeAlpha(obj.ui?.alpha),
       aetherInboxFolder:
@@ -84,11 +104,27 @@ function normalizeAlpha(value: unknown): number {
   return Math.min(1, Math.max(0, value));
 }
 
+function normalizePrivateFolders(value: unknown): string[] {
+  const defaults = ["Private", "Aether Private Inbox"];
+  if (!Array.isArray(value)) return defaults;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "string") continue;
+    const normalized = raw.trim().replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out.length > 0 ? out : defaults;
+}
+
 /** 老配置没有 kind 字段；从 baseUrl 反查预设，找不到就标 "custom"。 */
 function backfillProviderKind(p: ProviderConfig): ProviderConfig {
-  if (p.kind) return p;
+  const withTrusted = { ...p, trustedForPrivate: p.trustedForPrivate === true };
+  if (p.kind) return withTrusted;
   const preset = findPresetByBaseUrl(p.baseUrl);
-  return { ...p, kind: preset?.id ?? "custom" };
+  return { ...withTrusted, kind: preset?.id ?? "custom" };
 }
 
 /** 把老的 FeatureBinding 套到内置 seed 上：feature.id 与 role.id 一一对齐。 */
@@ -164,6 +200,8 @@ function normalizeRole(r: Partial<AiRole>): AiRole {
     description: r.description ?? seed?.description ?? "",
     providerId: r.providerId ?? "",
     modelName: r.modelName ?? "",
+    privateProviderId: typeof r.privateProviderId === "string" ? r.privateProviderId : "",
+    privateModelName: typeof r.privateModelName === "string" ? r.privateModelName : "",
     promptTemplate: r.promptTemplate ?? seed?.promptTemplate ?? "",
     variables: Array.isArray(r.variables) ? r.variables : (seed?.variables ?? []),
     outputKind: r.outputKind ?? seed?.outputKind ?? "text",
@@ -200,6 +238,41 @@ function normalizeMaxTokens(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.floor(value)
     : undefined;
+}
+
+function applyLegacyPrivateBindings(roles: AiRole[], privacy: RawPrivacy | undefined): void {
+  const privateProviderId = asNonEmptyString(privacy?.privateProviderId);
+  if (!privateProviderId) return;
+
+  const privateChatModel = asNonEmptyString(privacy?.privateChatModel);
+  if (privateChatModel) {
+    for (const role of roles) {
+      if (role.outputKind === "embedding") continue;
+      if (asNonEmptyString(role.privateProviderId) && asNonEmptyString(role.privateModelName)) {
+        continue;
+      }
+      role.privateProviderId = privateProviderId;
+      role.privateModelName = privateChatModel;
+    }
+  }
+
+  const privateEmbeddingModel = asNonEmptyString(privacy?.privateEmbeddingModel);
+  if (!privateEmbeddingModel) return;
+  const embeddingRole = roles.find((role) => role.id === "embedding");
+  if (!embeddingRole) return;
+  if (
+    asNonEmptyString(embeddingRole.privateProviderId) &&
+    asNonEmptyString(embeddingRole.privateModelName)
+  ) {
+    return;
+  }
+  embeddingRole.privateProviderId = privateProviderId;
+  embeddingRole.privateModelName = privateEmbeddingModel;
+}
+
+function asNonEmptyString(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
 }
 
 // re-export for clarity
