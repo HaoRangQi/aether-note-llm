@@ -63,6 +63,45 @@ describe("Hub answer cancellation", () => {
     );
   });
 
+  it("keeps maintenance actions behind a secondary Hub disclosure", async () => {
+    const view = new HubView(
+      {
+        app: {
+          setting: {
+            open: vi.fn(),
+            openTabById: vi.fn(),
+          },
+        },
+      } as never,
+      {
+        app: {},
+        core: {
+          settings: { current: migrateSettings({}) },
+          store: { allChunks: () => [] },
+          inbox: { listItems: () => [] },
+          canOpenImportFolder: () => true,
+        },
+      } as never,
+    );
+
+    await (
+      view as unknown as {
+        renderShell(): Promise<void>;
+      }
+    ).renderShell();
+
+    const root = view.containerEl.children[1] as FakeElement;
+    const maintenance = root.querySelector(".aether-hub-maintenance");
+    expect(maintenance?.tag).toBe("details");
+    expect(root.textContent).toContain("导入");
+    expect(root.textContent).toContain("待处理 0");
+    expect(maintenance?.textContent).toContain("维护与用量");
+    expect(maintenance?.textContent).toContain("最近任务");
+    expect(maintenance?.textContent).toContain("本月用量");
+    expect(maintenance?.textContent).toContain("刷新变更");
+    expect(maintenance?.textContent).toContain("打开 Inbox 文件夹");
+  });
+
   it("forwards default public privacyScope for Hub search and answer requests", async () => {
     const meta: SearchMeta = {
       mode: "hybrid",

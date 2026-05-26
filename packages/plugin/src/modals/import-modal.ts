@@ -14,10 +14,16 @@ import {
 import {
   buildImportSourceFromFile,
   buildImportSourceFromPaste,
+  IMPORT_DIRECTORY_ACCEPT,
   IMPORT_FILE_ACCEPT,
 } from "../ui/import-source.js";
+import {
+  listDirectoryMarkdownFiles,
+  runDirectoryImportJob,
+  type DirectoryImportFileLike,
+} from "../ui/directory-import.js";
 
-type Mode = "paste" | "file";
+type Mode = "paste" | "file" | "directory";
 type ImportTarget = "public" | "private";
 
 interface ImportedNoteSummary {
@@ -104,14 +110,17 @@ export class ImportModal extends Modal {
     };
     mkTab("paste", "clipboard-paste", t("modal.import.tab.paste"));
     mkTab("file", "file-up", t("modal.import.tab.file"));
+    mkTab("directory", "folder-down", t("modal.import.tab.directory"));
     this.renderTargetSwitch(el);
 
     // —— 内容区 ——
     const body = el.createDiv({ cls: "aether-import-body" });
     if (this.mode === "paste") {
       this.renderPaste(body);
-    } else {
+    } else if (this.mode === "file") {
       this.renderFile(body);
+    } else {
+      this.renderDirectory(body);
     }
   }
 
@@ -251,6 +260,72 @@ export class ImportModal extends Modal {
       await this.runImport(source);
       return true;
     });
+  }
+
+  // ---- 目录导入 ----
+  private renderDirectory(body: HTMLElement): void {
+    body.createEl("p", {
+      cls: "aether-import-file-desc",
+      text: t("modal.import.directory.desc"),
+    });
+
+    const dropZone = body.createDiv({ cls: "aether-import-dropzone" });
+    const dzIcon = dropZone.createDiv({ cls: "aether-import-dropzone-icon" });
+    setIcon(dzIcon, "folder-down");
+    const dzLabel = dropZone.createDiv({ cls: "aether-import-dropzone-label" });
+    dzLabel.setText(t("modal.import.directory.noFolder"));
+
+    const directoryInput = body.createEl("input");
+    directoryInput.type = "file";
+    directoryInput.accept = IMPORT_DIRECTORY_ACCEPT;
+    directoryInput.multiple = true;
+    (directoryInput as HTMLInputElement & { webkitdirectory?: boolean }).webkitdirectory = true;
+    directoryInput.style.display = "none";
+
+    let directoryFiles: DirectoryImportFileLike[] = [];
+
+    const updateSelection = (files: File[]): void => {
+      directoryFiles = listDirectoryMarkdownFiles(files);
+      if (directoryFiles.length > 0) {
+        dropZone.addClass("has-file");
+      } else {
+        dropZone.removeClass("has-file");
+      }
+      dzLabel.setText(
+        directoryFiles.length > 0
+          ? t("modal.import.directory.ready", { count: directoryFiles.length })
+          : t("modal.import.directory.noFolder"),
+      );
+    };
+
+    dropZone.onclick = () => directoryInput.click();
+    directoryInput.onchange = () => {
+      updateSelection(Array.from(directoryInput.files ?? []));
+    };
+
+    const actions = body.createDiv({ cls: "aether-result-actions" });
+    const cancelBtn = actions.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("common.cancel"),
+    });
+    cancelBtn.onclick = () => this.close();
+
+    const importBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--cta",
+    });
+    const importIcon = importBtn.createSpan();
+    setIcon(importIcon, "folder-down");
+    importBtn.createSpan({ text: " " + t("modal.import.directory.button") });
+    importBtn.onclick = () => {
+      if (directoryFiles.length === 0) {
+        new Notice(t("modal.import.directory.empty"), 3000);
+        return;
+      }
+      const files = [...directoryFiles];
+      this.close();
+      void runDirectoryImportJob(this.plugin, files, { target: this.privacyTarget });
+      new Notice(t("modal.import.directory.started", { count: files.length }), 4000);
+    };
   }
 
   private renderActions(body: HTMLElement, onImport: () => Promise<boolean>): void {

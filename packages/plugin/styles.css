@@ -123,14 +123,81 @@
 }
 
 .aether-hub-quickactions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 0.5rem;
 }
-.aether-hub-quickactions button {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
+.aether-hub-action {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
   border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
   cursor: pointer;
+  line-height: 1.2;
+}
+.aether-hub-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.aether-hub-action-primary {
+  background: var(--interactive-accent);
+  border-color: transparent;
+  color: var(--text-on-accent);
+  font-weight: 650;
+}
+.aether-hub-action-secondary {
+  color: var(--text-muted);
+}
+.aether-hub-action-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+}
+.aether-hub-action-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aether-hub-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aether-hub-maintenance {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 0.15rem;
+}
+.aether-hub-maintenance-summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  user-select: none;
+}
+.aether-hub-maintenance-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.45rem;
+  padding-top: 0.55rem;
+}
+.aether-hub-maintenance-actions .aether-hub-action {
+  justify-content: flex-start;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+@media (max-width: 420px) {
+  .aether-hub-quickactions,
+  .aether-hub-maintenance-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .aether-hub-section-title {
@@ -508,7 +575,7 @@
 
 .aether-ai-activity {
   position: fixed;
-  top: 18px;
+  top: calc(18px + var(--aether-activity-stack, 0) * 5.4rem);
   left: 50%;
   z-index: 9999;
   min-width: 320px;
@@ -518,26 +585,16 @@
   gap: 0.55rem;
   padding: 0.7rem 0.95rem 0.85rem;
 
-  /* 毛玻璃核心：background 必须混 transparent 才能让 backdrop-filter 透过去 */
-  background-color: color-mix(in srgb, var(--background-primary) 55%, transparent);
+  background-color: color-mix(in srgb, var(--background-primary) 82%, transparent);
   background-image: var(--aether-noise);
   background-size: 200px 200px;
-  backdrop-filter: blur(40px) saturate(200%) brightness(1.05);
-  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05);
-  border-radius: 16px;
-
-  /* 磨砂边：白色半透明，不用彩色旋转描边 */
-  border: 1px solid rgba(255, 255, 255, 0.14);
-
-  /* 多层阴影：深度感 + 极淡 accent 晕染 */
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-radius: 10px;
+  border: 1px solid var(--background-modifier-border);
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-    0 1px 0 rgba(255, 255, 255, 0.12) inset,
-    0 16px 48px -8px rgba(0, 0, 0, 0.5),
-    0 4px 16px -4px rgba(0, 0, 0, 0.3),
-    0 0 40px -16px color-mix(in srgb, var(--interactive-accent) 50%, transparent);
-
-  /* 噪点纹理叠加（极低不透明度） */
+    0 10px 28px -12px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--interactive-accent) 8%, transparent) inset;
   background-image: var(--aether-noise);
   background-blend-mode: overlay;
   background-size: 200px 200px;
@@ -594,8 +651,6 @@
   display: grid;
   place-items: center;
   color: var(--interactive-accent);
-  filter: drop-shadow(0 0 8px var(--interactive-accent));
-  animation: aether-icon-pulse 1.6s ease-in-out infinite;
 }
 .aether-ai-activity-icon svg {
   width: 1.2rem;
@@ -623,19 +678,8 @@
 .aether-ai-activity-name {
   font-weight: 600;
   font-size: 0.95rem;
-  letter-spacing: 0.01em;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--text-normal) 60%, transparent) 0%,
-    var(--interactive-accent) 50%,
-    color-mix(in srgb, var(--text-normal) 60%, transparent) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: aether-text-shimmer 2.4s linear infinite;
+  letter-spacing: 0;
+  color: var(--text-normal);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -725,21 +769,17 @@
   background: transparent !important;
 }
 .aether-result-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 60%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 88%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
-  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  /* 用超大 spread 的 box-shadow 模拟遮罩，替代 container 背景 */
+  backdrop-filter: blur(18px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--background-modifier-border) !important;
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-    0 1px 0 rgba(255, 255, 255, 0.14) inset,
-    0 32px 80px -8px rgba(0, 0, 0, 0.7),
-    0 8px 32px -4px rgba(0, 0, 0, 0.5),
-    0 0 0 9999px rgba(0, 0, 0, 0.35) !important;
-  animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+    0 24px 64px -18px rgba(0, 0, 0, 0.55),
+    0 0 0 9999px rgba(0, 0, 0, 0.28) !important;
+  animation: aether-modal-in 0.18s ease-out both;
 }
 @keyframes aether-modal-in {
   from {
@@ -766,8 +806,6 @@
   display: grid;
   place-items: center;
   color: var(--interactive-accent);
-  filter: drop-shadow(0 0 6px var(--interactive-accent));
-  animation: aether-icon-pulse 2s ease-in-out infinite;
 }
 .aether-result-header-icon svg {
   width: 1.2rem;
@@ -776,19 +814,8 @@
 .aether-result-header-title {
   font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
-  background: linear-gradient(
-    90deg,
-    var(--text-normal) 0%,
-    var(--interactive-accent) 50%,
-    var(--text-normal) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: aether-text-shimmer 3s linear infinite;
+  letter-spacing: 0;
+  color: var(--text-normal);
 }
 
 .aether-result-section {
@@ -860,11 +887,9 @@
   background: var(--interactive-accent) !important;
   color: var(--text-on-accent) !important;
   border-color: transparent !important;
-  box-shadow: 0 0 20px -4px var(--interactive-accent);
 }
 .aether-result-btn--cta:hover {
   filter: brightness(1.1);
-  box-shadow: 0 0 28px -4px var(--interactive-accent);
 }
 
 /* 导入 Modal（毛玻璃版） */
@@ -873,20 +898,17 @@
 .aether-import-result-modal,
 .aether-job-history-modal,
 .aether-usage-modal {
-  background-color: color-mix(in srgb, var(--background-primary) 60%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background-primary) 88%, transparent) !important;
   background-image: var(--aether-noise) !important;
   background-size: 200px 200px !important;
-  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--background-modifier-border) !important;
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-    0 1px 0 rgba(255, 255, 255, 0.14) inset,
-    0 32px 80px -8px rgba(0, 0, 0, 0.7),
-    0 8px 32px -4px rgba(0, 0, 0, 0.5),
-    0 0 0 9999px rgba(0, 0, 0, 0.35) !important;
-  animation: aether-modal-in 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+    0 24px 64px -18px rgba(0, 0, 0, 0.55),
+    0 0 0 9999px rgba(0, 0, 0, 0.28) !important;
+  animation: aether-modal-in 0.18s ease-out both;
 }
 
 /* Tab 栏 */

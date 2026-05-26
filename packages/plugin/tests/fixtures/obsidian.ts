@@ -29,7 +29,12 @@ export class FakeElement {
   value = "";
   onclick?: () => void | Promise<void>;
   onchange?: () => void | Promise<void>;
-  style: Record<string, string> = {};
+  style: Record<string, string> & { setProperty(name: string, value: string): void } =
+    Object.assign(Object.create(null) as Record<string, string>, {
+      setProperty(name: string, value: string) {
+        this[name] = value;
+      },
+    });
 
   constructor(public readonly tag = "div") {}
 

@@ -143,7 +143,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css" "$PLUGIN_DIR/styles.css"
 
 1. 打开 Hub。
 2. 点 `Import`。
-3. 粘贴一段文本，或选择 `.md` / `.markdown` / `.txt` / `.url` / `.json` / `.itabdata` 文件。
+3. 粘贴一段文本，或选择 `.md` / `.markdown` / `.txt` / `.url` / `.json` / `.itabdata` 文件；批量导入目录时切到 `导入目录` tab 选择文件夹。
 4. 点 `Import`。
 
 期望：
@@ -153,6 +153,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css" "$PLUGIN_DIR/styles.css"
 - 点击写入所选后出现统一任务进度；完成后出现结果清单，可打开文件、撤销本次导入、查看失败项；
 - 文件写入 `Aether Inbox/notes/<yyyy>/<mm>/...md` 或 `Aether Inbox/bookmarks/<yyyy>/<mm>/...md`；
 - Hub 最近列表出现新文件。
+- 目录导入会后台逐个处理 `.md/.markdown`，顶部任务提示显示进度，完成 / 失败 / 取消会进入 `最近任务`。
 
 当前版本导入后先预览，不需要回到旧 Inbox 逐张 approve。AI metadata 不满意时，可在预览阶段直接修改标题、摘要、标签，或取消勾选不写入。
 

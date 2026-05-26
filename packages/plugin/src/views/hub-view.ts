@@ -1,4 +1,4 @@
-import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, setIcon, type WorkspaceLeaf } from "obsidian";
 import type AetherPlugin from "../main.js";
 import {
   getPendingImportItems,
@@ -155,11 +155,19 @@ export class HubView extends ItemView {
     mkScope("private", t("view.hub.privacyScope.private"));
     mkScope("all", t("view.hub.privacyScope.all"));
 
-    // 5. 快速操作
+    // 5. 快速操作：把日常入口和维护入口分开，保持 Hub 首屏聚焦在导入与待处理。
     const actions = root.createDiv({ cls: "aether-hub-quickactions" });
-    const importBtn = actions.createEl("button", { text: t("view.hub.import") });
+    const importBtn = this.createActionButton(actions, {
+      label: t("view.hub.import"),
+      icon: "download",
+      cls: "aether-hub-action-primary",
+    });
     importBtn.onclick = () => new ImportModal(this.plugin.app, this.plugin).open();
-    const pendingBtn = actions.createEl("button");
+    const pendingBtn = this.createActionButton(actions, {
+      label: "",
+      icon: "inbox",
+      cls: "aether-hub-action-secondary",
+    });
     this.pendingImportsBtn = pendingBtn;
     this.renderPendingImportButtonState();
     pendingBtn.onclick = () => {
@@ -167,11 +175,27 @@ export class HubView extends ItemView {
         this.renderPendingImportButtonState();
       }
     };
-    const jobsBtn = actions.createEl("button", { text: t("view.hub.jobs") });
+
+    const maintenance = root.createEl("details", { cls: "aether-hub-maintenance" });
+    maintenance.createEl("summary", {
+      cls: "aether-hub-maintenance-summary",
+      text: t("view.hub.maintenance"),
+    });
+    const maintenanceActions = maintenance.createDiv({ cls: "aether-hub-maintenance-actions" });
+    const jobsBtn = this.createActionButton(maintenanceActions, {
+      label: t("view.hub.jobs"),
+      icon: "list-checks",
+    });
     jobsBtn.onclick = () => new JobHistoryModal(this.plugin.app, this.plugin).open();
-    const usageBtn = actions.createEl("button", { text: t("view.hub.usage") });
+    const usageBtn = this.createActionButton(maintenanceActions, {
+      label: t("view.hub.usage"),
+      icon: "bar-chart-3",
+    });
     usageBtn.onclick = () => new UsageModal(this.plugin.app, this.plugin).open();
-    const refreshBtn = actions.createEl("button", { text: t("view.hub.refreshIndex") });
+    const refreshBtn = this.createActionButton(maintenanceActions, {
+      label: t("view.hub.refreshIndex"),
+      icon: "refresh-cw",
+    });
     refreshBtn.onclick = async () => {
       refreshBtn.disabled = true;
       await runRefreshIndexJob(this.plugin, {
@@ -189,7 +213,10 @@ export class HubView extends ItemView {
       refreshBtn.disabled = false;
     };
     if (this.plugin.core.canOpenImportFolder()) {
-      const folderBtn = actions.createEl("button", { text: t("view.hub.openFolder") });
+      const folderBtn = this.createActionButton(maintenanceActions, {
+        label: t("view.hub.openFolder"),
+        icon: "folder-open",
+      });
       folderBtn.onclick = async () => {
         try {
           await this.plugin.core.openImportFolder();
@@ -204,6 +231,19 @@ export class HubView extends ItemView {
 
     // 6. 结果区
     this.resultsEl = root.createDiv({ cls: "aether-hub-results" });
+  }
+
+  private createActionButton(
+    root: HTMLElement,
+    opts: { label: string; icon: string; cls?: string },
+  ): HTMLButtonElement {
+    const button = root.createEl("button", {
+      cls: `aether-hub-action${opts.cls ? ` ${opts.cls}` : ""}`,
+    });
+    const icon = button.createSpan({ cls: "aether-hub-action-icon" });
+    setIcon(icon, opts.icon);
+    button.createSpan({ cls: "aether-hub-action-label", text: opts.label });
+    return button;
   }
 
   private renderStatus(el: HTMLElement): void {
@@ -226,7 +266,14 @@ export class HubView extends ItemView {
   private renderPendingImportButtonState(): void {
     if (!this.pendingImportsBtn) return;
     const pendingCount = getPendingImportItems(this.plugin).length;
-    this.pendingImportsBtn.setText(t("view.hub.pendingImports", { count: pendingCount }));
+    const label = this.pendingImportsBtn.querySelector(".aether-hub-action-label");
+    const nextText = t("view.hub.pendingImports", { count: pendingCount });
+    const setText = (label as { setText?: (text: string) => void } | null)?.setText;
+    if (setText) {
+      setText.call(label, nextText);
+    } else {
+      this.pendingImportsBtn.setText(nextText);
+    }
     this.pendingImportsBtn.disabled = pendingCount === 0;
   }
 
