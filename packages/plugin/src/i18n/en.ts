@@ -200,8 +200,11 @@ export const en: Dict = {
   "modal.import.target.title": "Import target",
   "modal.import.target.private": "Private import",
   "modal.import.target.public": "Public import",
+  "modal.import.target.privateTitle": "Save to private folder",
+  "modal.import.target.publicTitle": "Save to public folder",
+  "modal.import.target.privateWarningTitle": "Private import is active",
   "modal.import.target.privateHint":
-    "Warning: private import is active. Content is saved to private folders; remote metadata is skipped unless a private/trusted route exists.",
+    "Content is saved to private folders; remote metadata is skipped unless a private/trusted route exists.",
   "modal.import.target.publicHint":
     "Public import may route content to third-party models according to current role/provider bindings.",
   "modal.import.target.publicConfirm":
@@ -505,9 +508,14 @@ export const en: Dict = {
   "settings.importCategories.title": "Import categories",
   "settings.importCategories.desc":
     "AI picks one of these categories during import. You can change it in the preview.",
+  "settings.importCategories.count": "{count} categories",
   "settings.importCategories.label": "Label",
   "settings.importCategories.folder": "Folder name",
   "settings.importCategories.keywords": "Keywords",
+  "settings.importCategories.keywords.placeholder": "Comma-separated keywords",
+  "settings.importCategories.action": "Action",
+  "settings.importCategories.fallback": "Fallback",
+  "settings.importCategories.locked": "Reserved",
   "settings.importCategories.add": "Add category",
   "settings.importCategories.add.desc":
     "New categories are used by import preview and organization.",

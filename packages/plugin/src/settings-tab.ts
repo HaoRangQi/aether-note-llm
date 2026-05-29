@@ -915,94 +915,137 @@ export class AetherSettingsTab extends PluginSettingTab {
   }
 
   private renderImportCategories(root: HTMLElement): void {
-    const details = root.createEl("details", { cls: "aether-import-categories-card" });
+    const categories = this.plugin.core.settings.current.importing.categories;
+    const details = root.createEl("details", { cls: "aether-category-manager" });
     details.open = this.importCategoriesOpen;
     details.addEventListener("toggle", () => {
       this.importCategoriesOpen = details.open;
     });
 
-    const summary = details.createEl("summary", { cls: "aether-import-categories-summary" });
-    const toggleIcon = summary.createSpan({ cls: "aether-import-categories-toggle-icon" });
+    const summary = details.createEl("summary", { cls: "aether-category-manager__summary" });
+    const toggleIcon = summary.createSpan({ cls: "aether-category-manager__toggle" });
     setIcon(toggleIcon, "chevron-right");
-    const titleWrap = summary.createSpan({ cls: "aether-import-categories-heading" });
-    titleWrap.createSpan({
-      cls: "aether-import-categories-title",
+
+    const heading = summary.createSpan({ cls: "aether-category-manager__heading" });
+    heading.createSpan({
+      cls: "aether-category-manager__eyebrow",
       text: t("settings.importCategories.title"),
     });
-    titleWrap.createSpan({
-      cls: "aether-import-categories-count",
-      text: `${this.plugin.core.settings.current.importing.categories.length}`,
-    });
-
-    const body = details.createDiv({ cls: "aether-import-categories-body" });
-    body.createEl("p", {
-      cls: "setting-item-description",
+    heading.createSpan({
+      cls: "aether-category-manager__description",
       text: t("settings.importCategories.desc"),
     });
-    const list = body.createDiv({ cls: "aether-import-categories-list" });
-    for (const category of this.plugin.core.settings.current.importing.categories) {
-      this.renderImportCategoryRow(list, category);
+
+    const count = summary.createSpan({
+      cls: "aether-category-manager__count",
+      text: t("settings.importCategories.count", { count: String(categories.length) }),
+    });
+    count.addClass("aether-category-manager__count-pill");
+
+    const body = details.createDiv({ cls: "aether-category-manager__body" });
+    const toolbar = body.createDiv({ cls: "aether-category-manager__toolbar" });
+    toolbar.createDiv({
+      cls: "aether-category-manager__toolbar-text",
+      text: t("settings.importCategories.add.desc"),
+    });
+    const actions = toolbar.createDiv({ cls: "aether-category-manager__actions" });
+    const add = actions.createEl("button", {
+      cls: "aether-category-manager__button mod-cta",
+      text: t("settings.importCategories.add.button"),
+    });
+    add.onclick = () => {
+      void this.patch((s) => {
+        const id = uniqueCategoryId(s.importing.categories);
+        s.importing.categories.push({
+          id,
+          label: t("settings.importCategories.newLabel"),
+          folderName: t("settings.importCategories.newLabel"),
+          keywords: [],
+        });
+      });
+    };
+    const restore = actions.createEl("button", {
+      cls: "aether-category-manager__button",
+      text: t("settings.importCategories.restoreDefaults"),
+    });
+    restore.onclick = () => {
+      void this.patch((s) => {
+        s.importing.categories = DEFAULT_IMPORT_CATEGORIES.map((category) => ({
+          ...category,
+          keywords: [...category.keywords],
+        }));
+      });
+    };
+
+    const table = body.createDiv({ cls: "aether-category-manager__table" });
+    const header = table.createDiv({ cls: "aether-category-manager__table-head" });
+    header.createSpan({ text: t("settings.importCategories.label") });
+    header.createSpan({ text: t("settings.importCategories.folder") });
+    header.createSpan({ text: t("settings.importCategories.keywords") });
+    header.createSpan({ text: t("settings.importCategories.action") });
+    for (const category of categories) {
+      this.renderImportCategoryRow(table, category);
     }
-    new Setting(body)
-      .setName(t("settings.importCategories.add"))
-      .setDesc(t("settings.importCategories.add.desc"))
-      .addButton((button) =>
-        button.setButtonText(t("settings.importCategories.add.button")).onClick(() =>
-          this.patch((s) => {
-            const id = uniqueCategoryId(s.importing.categories);
-            s.importing.categories.push({
-              id,
-              label: t("settings.importCategories.newLabel"),
-              folderName: t("settings.importCategories.newLabel"),
-              keywords: [],
-            });
-          }),
-        ),
-      )
-      .addButton((button) =>
-        button.setButtonText(t("settings.importCategories.restoreDefaults")).onClick(() =>
-          this.patch((s) => {
-            s.importing.categories = DEFAULT_IMPORT_CATEGORIES.map((category) => ({
-              ...category,
-              keywords: [...category.keywords],
-            }));
-          }),
-        ),
-      );
   }
 
   private renderImportCategoryRow(parent: HTMLElement, category: ImportCategory): void {
-    const row = parent.createDiv({ cls: "aether-import-category-row" });
-    row.createDiv({
-      cls: "setting-item-name",
-      text: `${category.label} · ${category.id}`,
+    const row = parent.createDiv({ cls: "aether-category-row" });
+    const nameCell = row.createDiv({ cls: "aether-category-row__name" });
+    const labelInput = nameCell.createEl("input", {
+      cls: "aether-category-row__input",
     });
-    new Setting(row).setName(t("settings.importCategories.label")).addText((tx) =>
-      tx.setValue(category.label).onChange((value) =>
-        this.patchSilent((s) => {
-          const target = s.importing.categories.find((c) => c.id === category.id);
-          if (target) target.label = value.trim() || category.label;
-        }),
-      ),
-    );
-    new Setting(row).setName(t("settings.importCategories.folder")).addText((tx) =>
-      tx.setValue(category.folderName).onChange((value) =>
-        this.patchSilent((s) => {
-          const target = s.importing.categories.find((c) => c.id === category.id);
-          if (target) target.folderName = value.trim() || target.label;
-        }),
-      ),
-    );
-    new Setting(row).setName(t("settings.importCategories.keywords")).addText((tx) =>
-      tx.setValue(category.keywords.join(", ")).onChange((value) =>
-        this.patchSilent((s) => {
-          const target = s.importing.categories.find((c) => c.id === category.id);
-          if (target) target.keywords = parseCommaList(value).slice(0, 12);
-        }),
-      ),
-    );
-    if (category.id !== "other") {
-      const remove = row.createEl("button", { text: t("common.remove") });
+    labelInput.type = "text";
+    labelInput.value = category.label;
+    labelInput.onchange = () => {
+      void this.patchSilent((s) => {
+        const target = s.importing.categories.find((c) => c.id === category.id);
+        if (target) target.label = labelInput.value.trim() || category.label;
+      });
+    };
+    nameCell.createDiv({ cls: "aether-category-row__id", text: category.id });
+    if (category.id === "other") {
+      nameCell.createSpan({
+        cls: "aether-category-row__fallback-badge",
+        text: t("settings.importCategories.fallback"),
+      });
+    }
+
+    const folderInput = row.createEl("input", {
+      cls: "aether-category-row__input",
+    });
+    folderInput.type = "text";
+    folderInput.value = category.folderName;
+    folderInput.onchange = () => {
+      void this.patchSilent((s) => {
+        const target = s.importing.categories.find((c) => c.id === category.id);
+        if (target) target.folderName = folderInput.value.trim() || target.label;
+      });
+    };
+
+    const keywordsInput = row.createEl("input", {
+      cls: "aether-category-row__input",
+    });
+    keywordsInput.type = "text";
+    keywordsInput.placeholder = t("settings.importCategories.keywords.placeholder");
+    keywordsInput.value = category.keywords.join(", ");
+    keywordsInput.onchange = () => {
+      void this.patchSilent((s) => {
+        const target = s.importing.categories.find((c) => c.id === category.id);
+        if (target) target.keywords = parseCommaList(keywordsInput.value).slice(0, 12);
+      });
+    };
+
+    const actionCell = row.createDiv({ cls: "aether-category-row__actions" });
+    if (category.id === "other") {
+      actionCell.createSpan({
+        cls: "aether-category-row__locked",
+        text: t("settings.importCategories.locked"),
+      });
+    } else {
+      const remove = actionCell.createEl("button", {
+        cls: "aether-category-row__remove",
+        text: t("common.remove"),
+      });
       remove.onclick = () => {
         void this.patch((s) => {
           s.importing.categories = s.importing.categories.filter((c) => c.id !== category.id);

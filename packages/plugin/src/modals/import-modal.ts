@@ -125,16 +125,26 @@ export class ImportModal extends Modal {
   }
 
   private renderTargetSwitch(root: HTMLElement): void {
-    const wrap = root.createDiv({
-      cls: `aether-import-target-wrap${
+    const panel = root.createDiv({
+      cls: `aether-import-target-panel${
         this.privacyTarget === "private" ? " is-private" : " is-public"
       }`,
     });
-    wrap.createDiv({
-      cls: "aether-import-target-title",
+
+    const header = panel.createDiv({ cls: "aether-import-target-panel__header" });
+    const titleWrap = header.createDiv({ cls: "aether-import-target-panel__title-wrap" });
+    titleWrap.createDiv({
+      cls: "aether-import-target-panel__eyebrow",
       text: t("modal.import.target.title"),
     });
-    const bar = wrap.createDiv({ cls: "aether-import-target-switch" });
+    titleWrap.createDiv({
+      cls: "aether-import-target-panel__title",
+      text:
+        this.privacyTarget === "private"
+          ? t("modal.import.target.privateTitle")
+          : t("modal.import.target.publicTitle"),
+    });
+    const bar = header.createDiv({ cls: "aether-import-target-switch" });
     const mk = (target: ImportTarget, label: string): void => {
       const btn = bar.createEl("button", {
         cls: `aether-import-target-btn${this.privacyTarget === target ? " active" : ""}`,
@@ -146,17 +156,28 @@ export class ImportModal extends Modal {
     };
     mk("private", t("modal.import.target.private"));
     mk("public", t("modal.import.target.public"));
-    const hint = wrap.createDiv({
-      cls: `aether-import-target-hint${
-        this.privacyTarget === "private" ? " aether-import-target-hint--private" : ""
-      }`,
-      text:
-        this.privacyTarget === "private"
-          ? t("modal.import.target.privateHint")
-          : t("modal.import.target.publicHint"),
-    });
+
     if (this.privacyTarget === "private") {
-      hint.createSpan({ cls: "aether-import-target-warning-dot", text: "!" });
+      const warning = panel.createDiv({ cls: "aether-import-target-warning" });
+      const icon = warning.createSpan({ cls: "aether-import-target-warning__icon" });
+      setIcon(icon, "shield-alert");
+      const copy = warning.createDiv({ cls: "aether-import-target-warning__copy" });
+      copy.createDiv({
+        cls: "aether-import-target-warning__title",
+        text: t("modal.import.target.privateWarningTitle"),
+      });
+      copy.createDiv({
+        cls: "aether-import-target-warning__desc",
+        text: t("modal.import.target.privateHint"),
+      });
+    } else {
+      const hint = panel.createDiv({ cls: "aether-import-target-hint" });
+      const icon = hint.createSpan({ cls: "aether-import-target-hint__icon" });
+      setIcon(icon, "globe-2");
+      hint.createSpan({
+        cls: "aether-import-target-hint__text",
+        text: t("modal.import.target.publicHint"),
+      });
     }
   }
 
