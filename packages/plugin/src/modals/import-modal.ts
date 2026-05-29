@@ -125,7 +125,11 @@ export class ImportModal extends Modal {
   }
 
   private renderTargetSwitch(root: HTMLElement): void {
-    const wrap = root.createDiv({ cls: "aether-import-target-wrap" });
+    const wrap = root.createDiv({
+      cls: `aether-import-target-wrap${
+        this.privacyTarget === "private" ? " is-private" : " is-public"
+      }`,
+    });
     wrap.createDiv({
       cls: "aether-import-target-title",
       text: t("modal.import.target.title"),
@@ -142,13 +146,18 @@ export class ImportModal extends Modal {
     };
     mk("private", t("modal.import.target.private"));
     mk("public", t("modal.import.target.public"));
-    wrap.createDiv({
-      cls: "aether-import-target-hint",
+    const hint = wrap.createDiv({
+      cls: `aether-import-target-hint${
+        this.privacyTarget === "private" ? " aether-import-target-hint--private" : ""
+      }`,
       text:
         this.privacyTarget === "private"
           ? t("modal.import.target.privateHint")
           : t("modal.import.target.publicHint"),
     });
+    if (this.privacyTarget === "private") {
+      hint.createSpan({ cls: "aether-import-target-warning-dot", text: "!" });
+    }
   }
 
   private async switchTarget(target: ImportTarget): Promise<void> {
@@ -431,7 +440,12 @@ class ImportPreviewModal extends Modal {
   private readonly decisions = new Map<string, ImportDecision>();
   private readonly drafts = new Map<
     string,
-    { proposedTitle: string; proposedSummary: string; proposedTagsText: string }
+    {
+      proposedTitle: string;
+      proposedSummary: string;
+      proposedTagsText: string;
+      proposedCategoryId: string;
+    }
   >();
   private finalized = false;
   private working = false;
@@ -455,6 +469,7 @@ class ImportPreviewModal extends Modal {
         proposedTitle: item.proposedTitle,
         proposedSummary: item.proposedSummary,
         proposedTagsText: item.proposedTags.join(", "),
+        proposedCategoryId: item.proposedCategoryId,
       });
     }
   }
@@ -552,6 +567,11 @@ class ImportPreviewModal extends Modal {
         onInput: (value) => {
           draft.proposedTagsText = value;
         },
+      });
+      this.renderCategoryField(main, item, draft);
+      main.createDiv({
+        cls: "aether-import-result-path",
+        text: this.previewTargetPath(item, draft),
       });
       if (item.duplicateOf) {
         meta.createSpan({
@@ -771,6 +791,7 @@ class ImportPreviewModal extends Modal {
     proposedTitle: string;
     proposedSummary: string;
     proposedTagsText: string;
+    proposedCategoryId: string;
   } {
     let draft = this.drafts.get(item.id);
     if (!draft) {
@@ -778,10 +799,68 @@ class ImportPreviewModal extends Modal {
         proposedTitle: item.proposedTitle,
         proposedSummary: item.proposedSummary,
         proposedTagsText: item.proposedTags.join(", "),
+        proposedCategoryId: item.proposedCategoryId,
       };
       this.drafts.set(item.id, draft);
     }
     return draft;
+  }
+
+  private renderCategoryField(
+    parent: HTMLElement,
+    item: InboxItem,
+    draft: {
+      proposedCategoryId: string;
+    },
+  ): void {
+    const wrap = parent.createDiv({ cls: "aether-import-preview-field" });
+    wrap.createDiv({
+      cls: "aether-import-preview-field-label",
+      text: t("modal.importPreview.field.category"),
+    });
+    const select = wrap.createEl("select", { cls: "aether-import-preview-category-select" });
+    const categories = this.plugin.core.settings.current.importing.categories;
+    for (const category of categories) {
+      const option = select.createEl("option", { text: category.label });
+      option.value = category.id;
+    }
+    select.value = categories.some((category) => category.id === draft.proposedCategoryId)
+      ? draft.proposedCategoryId
+      : "other";
+    select.disabled = this.working;
+    select.onchange = () => {
+      draft.proposedCategoryId = select.value;
+      this.render();
+    };
+    if (item.duplicateOf) {
+      wrap.createDiv({
+        cls: "aether-import-target-hint",
+        text: t("modal.importPreview.categoryMergeHint"),
+      });
+    }
+  }
+
+  private previewTargetPath(
+    item: InboxItem,
+    draft: { proposedTitle: string; proposedCategoryId: string },
+  ): string {
+    const settings = this.plugin.core.settings.current;
+    const root =
+      this.privacyTarget === "private"
+        ? settings.privacy.privateInboxFolder
+        : settings.ui.aetherInboxFolder;
+    const category =
+      settings.importing.categories.find((c) => c.id === draft.proposedCategoryId) ??
+      settings.importing.categories.find((c) => c.id === "other");
+    const folderName =
+      category?.folderName ?? category?.label ?? t("modal.importPreview.categoryOther");
+    const date = new Date(item.createdAt || Date.now());
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const title = draft.proposedTitle.trim() || item.proposedTitle || item.sourceRef || item.id;
+    return t("modal.importPreview.targetPath", {
+      path: `${root.replace(/\/+$/, "")}/${folderName}/${year}/${month}/…-${title}.md`,
+    });
   }
 
   private renderEditableField(
@@ -817,6 +896,7 @@ class ImportPreviewModal extends Modal {
       proposedTitle: draft.proposedTitle.trim() || item.sourceRef || item.id,
       proposedSummary: draft.proposedSummary,
       proposedTags: parseTags(draft.proposedTagsText),
+      proposedCategoryId: draft.proposedCategoryId,
     });
   }
 

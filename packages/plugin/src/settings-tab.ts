@@ -1,10 +1,12 @@
 import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type AetherPlugin from "./main.js";
 import {
+  DEFAULT_IMPORT_CATEGORIES,
   PROVIDER_PRESETS,
   findPresetById,
   newUlid,
   type AiRole,
+  type ImportCategory,
   type ProviderConfig,
 } from "@aether/core";
 import { ApiKeyModal } from "./modals/api-key-modal.js";
@@ -31,6 +33,7 @@ export class AetherSettingsTab extends PluginSettingTab {
   private testingProviders = new Set<string>();
   private currentSection: Section = "quickstart";
   private expandedProviderId = "";
+  private importCategoriesOpen = true;
   /** Quick Start 里「绑定向导」当前选择，未保存到 settings 直到点应用。 */
   private bindWizard = { chatProviderId: "", embeddingProviderId: "" };
 
@@ -719,9 +722,16 @@ export class AetherSettingsTab extends PluginSettingTab {
     const privateProviderId = role.privateProviderId?.trim() ?? "";
     const privateModelName = role.privateModelName?.trim() ?? "";
     if (!privateProviderId || !privateModelName) return "";
-    const provider = this.plugin.core.settings.current.providers.find((p) => p.id === privateProviderId);
-    const providerLabel = provider ? provider.name || provider.kind || provider.id : privateProviderId;
-    return t("settings.roles.row.privateBound", { provider: providerLabel, model: privateModelName });
+    const provider = this.plugin.core.settings.current.providers.find(
+      (p) => p.id === privateProviderId,
+    );
+    const providerLabel = provider
+      ? provider.name || provider.kind || provider.id
+      : privateProviderId;
+    return t("settings.roles.row.privateBound", {
+      provider: providerLabel,
+      model: privateModelName,
+    });
   }
 
   // ---- Advanced ---------------------------------------------------------
@@ -759,6 +769,8 @@ export class AetherSettingsTab extends PluginSettingTab {
           }),
       );
     }
+
+    this.renderImportCategories(root);
 
     root.createEl("h3", { text: t("settings.privacy.title") });
     root.createEl("p", {
@@ -902,6 +914,103 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
   }
 
+  private renderImportCategories(root: HTMLElement): void {
+    const details = root.createEl("details", { cls: "aether-import-categories-card" });
+    details.open = this.importCategoriesOpen;
+    details.addEventListener("toggle", () => {
+      this.importCategoriesOpen = details.open;
+    });
+
+    const summary = details.createEl("summary", { cls: "aether-import-categories-summary" });
+    const toggleIcon = summary.createSpan({ cls: "aether-import-categories-toggle-icon" });
+    setIcon(toggleIcon, "chevron-right");
+    const titleWrap = summary.createSpan({ cls: "aether-import-categories-heading" });
+    titleWrap.createSpan({
+      cls: "aether-import-categories-title",
+      text: t("settings.importCategories.title"),
+    });
+    titleWrap.createSpan({
+      cls: "aether-import-categories-count",
+      text: `${this.plugin.core.settings.current.importing.categories.length}`,
+    });
+
+    const body = details.createDiv({ cls: "aether-import-categories-body" });
+    body.createEl("p", {
+      cls: "setting-item-description",
+      text: t("settings.importCategories.desc"),
+    });
+    const list = body.createDiv({ cls: "aether-import-categories-list" });
+    for (const category of this.plugin.core.settings.current.importing.categories) {
+      this.renderImportCategoryRow(list, category);
+    }
+    new Setting(body)
+      .setName(t("settings.importCategories.add"))
+      .setDesc(t("settings.importCategories.add.desc"))
+      .addButton((button) =>
+        button.setButtonText(t("settings.importCategories.add.button")).onClick(() =>
+          this.patch((s) => {
+            const id = uniqueCategoryId(s.importing.categories);
+            s.importing.categories.push({
+              id,
+              label: t("settings.importCategories.newLabel"),
+              folderName: t("settings.importCategories.newLabel"),
+              keywords: [],
+            });
+          }),
+        ),
+      )
+      .addButton((button) =>
+        button.setButtonText(t("settings.importCategories.restoreDefaults")).onClick(() =>
+          this.patch((s) => {
+            s.importing.categories = DEFAULT_IMPORT_CATEGORIES.map((category) => ({
+              ...category,
+              keywords: [...category.keywords],
+            }));
+          }),
+        ),
+      );
+  }
+
+  private renderImportCategoryRow(parent: HTMLElement, category: ImportCategory): void {
+    const row = parent.createDiv({ cls: "aether-import-category-row" });
+    row.createDiv({
+      cls: "setting-item-name",
+      text: `${category.label} · ${category.id}`,
+    });
+    new Setting(row).setName(t("settings.importCategories.label")).addText((tx) =>
+      tx.setValue(category.label).onChange((value) =>
+        this.patchSilent((s) => {
+          const target = s.importing.categories.find((c) => c.id === category.id);
+          if (target) target.label = value.trim() || category.label;
+        }),
+      ),
+    );
+    new Setting(row).setName(t("settings.importCategories.folder")).addText((tx) =>
+      tx.setValue(category.folderName).onChange((value) =>
+        this.patchSilent((s) => {
+          const target = s.importing.categories.find((c) => c.id === category.id);
+          if (target) target.folderName = value.trim() || target.label;
+        }),
+      ),
+    );
+    new Setting(row).setName(t("settings.importCategories.keywords")).addText((tx) =>
+      tx.setValue(category.keywords.join(", ")).onChange((value) =>
+        this.patchSilent((s) => {
+          const target = s.importing.categories.find((c) => c.id === category.id);
+          if (target) target.keywords = parseCommaList(value).slice(0, 12);
+        }),
+      ),
+    );
+    if (category.id !== "other") {
+      const remove = row.createEl("button", { text: t("common.remove") });
+      remove.onclick = () => {
+        void this.patch((s) => {
+          s.importing.categories = s.importing.categories.filter((c) => c.id !== category.id);
+        });
+      };
+    }
+  }
+
   // ---- 推荐配置 ---------------------------------------------------------
   // (已被 renderBindWizard / applyBindWizard 取代)
 }
@@ -923,4 +1032,24 @@ function parsePrivateFolders(raw: string): string[] {
     folders.push(normalized);
   }
   return folders.length > 0 ? folders : defaults;
+}
+
+function parseCommaList(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(/[,，\n]+/)) {
+    const normalized = part.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function uniqueCategoryId(categories: ImportCategory[]): string {
+  let n = categories.length + 1;
+  while (categories.some((category) => category.id === `custom-${n}`)) {
+    n += 1;
+  }
+  return `custom-${n}`;
 }

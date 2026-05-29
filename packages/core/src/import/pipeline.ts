@@ -6,7 +6,15 @@ import type { OramaIndexStore } from "../index-store/orama-store.js";
 import { proposeMetadata } from "../ai/metadata.js";
 import { detectDuplicate } from "./duplicate-detector.js";
 import type { InboxStore } from "./inbox-store.js";
-import type { Feature, ImportSource, InboxItem, RawCandidate, TokenUsage } from "../types.js";
+import { DEFAULT_IMPORT_CATEGORIES } from "./categories.js";
+import type {
+  Feature,
+  ImportCategory,
+  ImportSource,
+  InboxItem,
+  RawCandidate,
+  TokenUsage,
+} from "../types.js";
 import type { SourceConnector } from "../connectors/connector.js";
 import { normalizeUrl } from "../url-normalize.js";
 
@@ -26,6 +34,7 @@ export interface ImportPipelineDeps {
   connectors: SourceConnector[];
   /** Max items before pausing the AI metadata step. Default 200. */
   maxItemsPerBatch?: number;
+  getImportCategories?: () => ImportCategory[];
   onUsage?: (args: {
     providerId: string;
     feature: Feature;
@@ -106,12 +115,14 @@ export class ImportPipeline {
       return null;
     }
     const fallbackTitle = candidate.sourceRef.split("/").pop()?.replace(/\.md$/i, "") ?? "Untitled";
+    const categories = this.deps.getImportCategories?.() ?? DEFAULT_IMPORT_CATEGORIES;
     let proposal;
     if (isUrlOnlyBookmark(candidate)) {
       proposal = {
         title: candidate.title?.trim() || titleFromUrl(candidate.url) || fallbackTitle,
         tags: candidate.tags,
         summary: "",
+        categoryId: "other",
       };
     } else {
       try {
@@ -124,6 +135,7 @@ export class ImportPipeline {
             title: fallbackTitle,
             tags: candidate.tags,
             summary: "",
+            categoryId: "other",
           };
         } else {
           proposal = await proposeMetadata({
@@ -131,6 +143,7 @@ export class ImportPipeline {
             roles: this.deps.roles,
             candidate,
             fallbackTitle,
+            categories,
             providerOverride: metadataRoute ?? undefined,
             onUsage: this.deps.onUsage,
             signal: options.signal,
@@ -144,6 +157,7 @@ export class ImportPipeline {
           title: fallbackTitle,
           tags: candidate.tags,
           summary: "",
+          categoryId: "other",
         };
       }
     }
@@ -164,6 +178,7 @@ export class ImportPipeline {
             proposedTitle: proposal.title,
             proposedTags: proposal.tags.length > 0 ? proposal.tags : candidate.tags,
             proposedSummary: proposal.summary,
+            proposedCategoryId: proposal.categoryId,
             content: candidate.content,
             kind: candidate.kind,
             url: candidate.url,
@@ -217,6 +232,7 @@ export class ImportPipeline {
       proposedTitle: proposal.title,
       proposedTags: proposal.tags.length > 0 ? proposal.tags : candidate.tags,
       proposedSummary: proposal.summary,
+      proposedCategoryId: proposal.categoryId,
       content: candidate.content,
       kind: candidate.kind,
       url: candidate.url,

@@ -90,7 +90,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css" "$PLUGIN_DIR/styles.css"
    - 左侧 ribbon 出现 Aether Hub 图标；
    - 首次启用后打开 Hub；关闭 Hub 后重启 Obsidian 不会再次强制打开；
    - 状态栏显示已索引数量和 Provider 数量；
-   - `⌘P` 打开命令面板；英文界面能看到 Open Aether Hub、Import...、Review pending imports、Refresh index changes、Rebuild index、View recent jobs、View this month's usage、Diagnostics export；中文界面能看到打开 Aether Hub、导入...、处理待导入项、刷新索引变更、重建索引、查看最近任务、查看本月用量、导出诊断信息。
+   - `⌘P` 打开命令面板；英文界面能看到 Open Aether Hub、Import...、Review pending imports、Organize imported notes...、Refresh index changes、Rebuild index、View recent jobs、View this month's usage、Diagnostics export；中文界面能看到打开 Aether Hub、导入...、处理待导入项、整理已导入笔记...、刷新索引变更、重建索引、查看最近任务、查看本月用量、导出诊断信息。
 
 ---
 
@@ -101,7 +101,7 @@ ln -sf "$(pwd)/packages/plugin/styles.css" "$PLUGIN_DIR/styles.css"
 - `Quick Start`：首次配置入口；
 - `AI Providers`：管理 OpenAI 兼容服务；
 - `AI Roles`：管理总结、改写、提取、综合回答、metadata、embedding 和自定义角色；
-- `Advanced`：导入目录、扫描范围、alpha、月度 token 预算提醒、重建索引。
+- `Advanced`：导入目录、导入分类、隐私路由、扫描范围、alpha、月度 token 预算提醒、重建索引。
 
 ### 3.1 Quick Start 推荐路径
 
@@ -149,13 +149,23 @@ ln -sf "$(pwd)/packages/plugin/styles.css" "$PLUGIN_DIR/styles.css"
 期望：
 
 - 出现解析进度；
-- 解析完成后出现预览清单，可编辑标题、摘要、标签，并可全选 / 全不选 / 单条勾选；
+- 解析完成后出现预览清单，可编辑标题、摘要、标签、分类，并可全选 / 全不选 / 单条勾选；
 - 点击写入所选后出现统一任务进度；完成后出现结果清单，可打开文件、撤销本次导入、查看失败项；
-- 文件写入 `Aether Inbox/notes/<yyyy>/<mm>/...md` 或 `Aether Inbox/bookmarks/<yyyy>/<mm>/...md`；
+- 文件写入 `Aether Inbox/<分类>/<yyyy>/<mm>/...md`；私密目标写入 `Aether Private Inbox/<分类>/<yyyy>/<mm>/...md`；
 - Hub 最近列表出现新文件。
 - 目录导入会后台逐个处理 `.md/.markdown`，顶部任务提示显示进度，完成 / 失败 / 取消会进入 `最近任务`。
 
-当前版本导入后先预览，不需要回到旧 Inbox 逐张 approve。AI metadata 不满意时，可在预览阶段直接修改标题、摘要、标签，或取消勾选不写入。
+当前版本导入后先预览，不需要回到旧 Inbox 逐张 approve。AI metadata 不满意时，可在预览阶段直接修改标题、摘要、标签、分类，或取消勾选不写入。导入分类在 `Advanced → 导入分类` 的可折叠卡片里维护；默认 6 类为 `教程`、`AI 提示词`、`生活`、`历史`、`工作`、`其他`。
+
+### 4.1.1 整理已有导入笔记
+
+1. `⌘P → 整理已导入笔记...`。
+2. 填写要整理的 vault 相对目录，例如 `Aether Inbox`。
+3. 可选填写起止年月，格式为 `YYYY/MM`。
+4. 先生成预览，确认当前路径、推荐分类和目标路径。
+5. 勾选要移动的条目后再执行移动。
+
+整理流程只把标题、摘要、标签和类型发给分类角色，不发送正文；失败项会保留原文件并在结果里显示失败原因。
 
 ### 4.2 搜索
 

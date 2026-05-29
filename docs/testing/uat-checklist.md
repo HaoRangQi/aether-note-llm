@@ -8,10 +8,11 @@
 
 ## 最近执行记录
 
-| 日期       | 范围                        | 环境 / 分支 | 结论                                                                                                     |
-| ---------- | --------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-05-25 | 自动化回归 + 提交前文档治理 | `main`      | PASS：`pnpm test` 388 tests、`pnpm typecheck`、`pnpm --filter aether-note-llm build`、`git diff --check` |
-| 2026-05-25 | 手工 Obsidian UAT           | `main`      | 待执行：提交前至少复核阶段 1、2、3.1、4、7 的用户可见路径                                                |
+| 日期       | 范围                        | 环境 / 分支                         | 结论                                                                                                                                                                                                                          |
+| ---------- | --------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-29 | 自动化回归 + 提交前文档治理 | `codex/directory-background-import` | PASS：`pnpm --filter @aether/core run test` 255 tests、`pnpm --filter ./packages/plugin run test` 144 tests、`pnpm -r '--filter=./packages/*' run typecheck`、`pnpm -r '--filter=./packages/*' run build`、`git diff --check` |
+| 2026-05-25 | 自动化回归 + 提交前文档治理 | `main`                              | PASS：`pnpm test` 388 tests、`pnpm typecheck`、`pnpm --filter aether-note-llm build`、`git diff --check`                                                                                                                      |
+| 2026-05-25 | 手工 Obsidian UAT           | `main`                              | 待执行：提交前至少复核阶段 1、2、3.1、4、7 的用户可见路径                                                                                                                                                                     |
 
 ---
 
@@ -30,7 +31,7 @@
 - [ ] **T0.1** `pnpm install` 成功
 - [ ] **T0.2** `pnpm --filter @aether/core build` 成功
 - [ ] **T0.3** `pnpm typecheck` 全绿
-- [ ] **T0.4** `pnpm test` 全绿，当前应为 388 tests（core 247 + plugin 141）
+- [ ] **T0.4** `pnpm test` 全绿，当前应为 399 tests（core 255 + plugin 144）
 - [ ] **T0.5** `pnpm --filter @aether/core test:coverage` 达到阈值
 - [ ] **T0.6** `pnpm --filter @aether/core smoke` 输出 `=== 冒烟测试全部通过 ✓ ===`
 - [ ] **T0.7** `pnpm --filter aether-note-llm build` 产出 `packages/plugin/main.js`
@@ -65,7 +66,8 @@
 - [ ] **T2.6** 点应用绑定，AI Roles 中 `summarize` / `rewrite` / `extract` / `critique` / `answer` / `inbox_metadata` / `embedding` 已绑定 Provider / Model
 - [ ] **T2.6a** 若模型列表同时包含 chat 与 embedding 模型，Quick Start 会给聊天类角色选择 chat 模型，给 `embedding` 选择 embedding 模型
 - [ ] **T2.7** 新建一个自定义 AI Role，设置 `showInEditor = true`
-- [ ] **T2.8** Advanced 中能看到 Inbox folder、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
+- [ ] **T2.8** Advanced 中能看到 Inbox folder、导入分类、Privacy Routing、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、导入分类、隐私路由、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
+- [ ] **T2.8c** `导入分类` 是一个可折叠整体卡片；默认包含 `教程`、`AI 提示词`、`生活`、`历史`、`工作`、`其他`，可编辑名称 / 目录名 / 关键词，可新增、删除非 `其他` 分类并恢复默认分类
 - [ ] **T2.8a** 若旧设置中的 AI Role provider 参数包含 `temperature = NaN / Infinity / > 2` 或无效 `maxTokens`，迁移层会在运行 Role 前删除、回落到内置安全默认值或取整这些参数，同时保留自定义 prompt 变量参数
 - [ ] **T2.8b** Advanced 中可配置隐私路由：私密目录列表、私密导入目录；AI Roles 中每个角色可分别配置公开模型与私密模型
 - [ ] **T2.9** 无 Provider 或缺 API key / model 时，Hub 顶部显示 `需要配置`，健康卡片列出具体缺项并可打开 Settings
@@ -80,9 +82,9 @@
 
 - [ ] **T3.1.1** Hub → `Import` → 粘贴短文本 → `Import`
 - [ ] **T3.1.1a** 导入弹窗默认目标为私密导入（首次）；后续默认记忆上次选择
-- [ ] **T3.1.1b** 从私密切到公开导入时，必须出现风险确认；取消确认后保持私密导入
+- [ ] **T3.1.1b** 私密导入目标区域必须红色警示显示；从私密切到公开导入时，必须出现风险确认；取消确认后保持私密导入
 - [ ] **T3.1.2** 进度提示显示解析状态，解析完成后弹出预览清单
-- [ ] **T3.1.2a** 预览清单显示标题、来源、摘要、标签，并可编辑标题 / 摘要 / 标签、全选 / 全不选 / 单条勾选
+- [ ] **T3.1.2a** 预览清单显示标题、来源、摘要、标签、分类和目标路径预览，并可编辑标题 / 摘要 / 标签 / 分类、全选 / 全不选 / 单条勾选
 - [ ] **T3.1.2b** 取消并丢弃后不写入 vault，Diagnostics 中 pending inbox 不增加
 - [ ] **T3.1.3** 点击写入所选后弹出结果清单，显示成功条数和生成文件路径
 - [ ] **T3.1.3b** 写入所选时显示统一任务进度，完成后自动关闭进度提示
@@ -91,10 +93,10 @@
 - [ ] **T3.1.3d** Hub 快捷操作显示待处理数量；有 pending import 时可从 Hub 或命令面板重新打开，关闭该历史 pending 预览不会自动丢弃条目
 - [ ] **T3.1.3e** 从待处理入口只写入部分 pending import 时，未选条目仍保持 pending，可再次从待处理入口继续处理
 - [ ] **T3.1.3f** 从待处理入口写入时点击任务进度 Cancel，已写入条目保持完成，剩余未处理条目仍为 pending，最近任务记录为 cancelled
-- [ ] **T3.1.4** vault 出现 `Aether Inbox/notes/<yyyy>/<mm>/...md`
-- [ ] **T3.1.4a** 公开导入写入 `Aether Inbox/...`；私密导入写入 `Aether Private Inbox/...`
-- [ ] **T3.1.5** 生成文件 frontmatter 包含 `aether_id`、`aether_kind`、`title`、`tags`、`aether_summary`
-- [ ] **T3.1.5a** 在预览清单修改标题、摘要、标签后写入，生成文件 frontmatter 和搜索结果使用修改后的 metadata
+- [ ] **T3.1.4** vault 出现 `Aether Inbox/<分类>/<yyyy>/<mm>/...md`
+- [ ] **T3.1.4a** 公开导入写入 `Aether Inbox/<分类>/...`；私密导入写入 `Aether Private Inbox/<分类>/...`
+- [ ] **T3.1.5** 生成文件 frontmatter 包含 `aether_id`、`aether_kind`、`title`、`tags`、`aether_summary`、`aether_category`、`aether_category_label`
+- [ ] **T3.1.5a** 在预览清单修改标题、摘要、标签、分类后写入，生成文件 frontmatter、目标路径和搜索结果使用修改后的 metadata
 - [ ] **T3.1.6** Hub 最近列表显示新导入文件，点击能打开笔记
 - [ ] **T3.1.7** 结果清单中点击 `Open` 可打开对应笔记
 - [ ] **T3.1.7a** 结果清单中点击 `Open` 打开失败时显示失败提示，结果清单和已写入 / 已合并路径仍保留可见
@@ -109,7 +111,7 @@
 - [ ] **T3.2.2** Chrome Bookmarks JSON 可导入多条 bookmark
 - [ ] **T3.2.3** iTab 数据可导入 bookmark
 - [ ] **T3.2.3a** 多条 bookmark 可在预览清单中选择性写入，未勾选条目不会生成 markdown
-- [ ] **T3.2.4** bookmark 文件落在 `Aether Inbox/bookmarks/<yyyy>/<mm>/`
+- [ ] **T3.2.4** bookmark 文件落在 `Aether Inbox/<分类>/<yyyy>/<mm>/`，类型仍由 frontmatter 的 `aether_kind: bookmark` 表示
 - [ ] **T3.2.5** bookmark frontmatter 包含 `aether_kind: bookmark` 和 `aether_url`
 - [ ] **T3.2.6** Markdown `.md` / `.markdown` 文件可从 File tab 导入，预览清单显示文件标题和正文
 - [ ] **T3.2.7** `.txt` / `.url` URL 列表文件可从 File tab 导入，完整 `http(s)` URL 进入预览，普通文本行会被跳过
@@ -123,6 +125,15 @@
 - [ ] **T3.3.5** 目录导入运行时启动其他 AI / 导入 / 索引任务，活动提示并存堆叠，不会顶掉目录导入进度
 - [ ] **T3.3.6** 目录导入完成/失败/取消后，`最近任务` 记录状态、数量摘要与失败明细
 - [ ] **T3.3.7** 目录导入写入失败项会保留为 pending，可从待处理入口继续处理
+
+### 3.3a 整理已有导入笔记
+
+- [ ] **T3.3a.1** 命令面板能看到 `整理已导入笔记...`
+- [ ] **T3.3a.2** 填写 `Aether Inbox` 和可选 `YYYY/MM` 起止范围后，先生成移动预览，不会直接移动文件
+- [ ] **T3.3a.3** 预览项显示当前路径、推荐分类和目标路径；可取消或取消勾选单条
+- [ ] **T3.3a.4** 确认移动所选项后，文件移动到 `<root>/<分类>/<yyyy>/<mm>/`，frontmatter 更新 `aether_category` / `aether_category_label`，搜索仍能命中
+- [ ] **T3.3a.5** 整理分类请求只包含标题、摘要、标签和类型，不发送正文内容
+- [ ] **T3.3a.6** 移动失败时原文件保留，目标文件和目标索引回滚，结果页显示失败原因
 
 ### 3.4 异常输入
 

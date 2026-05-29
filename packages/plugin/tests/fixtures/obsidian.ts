@@ -231,6 +231,12 @@ export class Setting {
     return this;
   }
 
+  addSlider(cb: (slider: SliderComponent) => unknown): Setting {
+    const inputEl = this.settingEl.createEl("input", { type: "range" });
+    cb(new SliderComponent(inputEl));
+    return this;
+  }
+
   addExtraButton(cb: (button: ExtraButtonComponent) => unknown): Setting {
     const buttonEl = this.settingEl.createEl("button");
     cb(new ExtraButtonComponent(buttonEl));
@@ -291,6 +297,28 @@ class TextComponent {
 
   onChange(cb: (value: string) => void | Promise<void>): TextComponent {
     this.el.onchange = () => cb(this.el.value);
+    return this;
+  }
+}
+
+class SliderComponent {
+  constructor(private readonly el: FakeElement) {}
+
+  setLimits(_min: number, _max: number, _step: number): SliderComponent {
+    return this;
+  }
+
+  setDynamicTooltip(): SliderComponent {
+    return this;
+  }
+
+  setValue(value: number): SliderComponent {
+    this.el.value = String(value);
+    return this;
+  }
+
+  onChange(cb: (value: number) => void | Promise<void>): SliderComponent {
+    this.el.onchange = () => cb(Number(this.el.value));
     return this;
   }
 }

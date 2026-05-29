@@ -7,6 +7,7 @@ import type {
 } from "../types.js";
 import { findPresetByBaseUrl } from "../provider/presets.js";
 import { BUILTIN_ROLE_SEEDS, seedToRole, type BuiltInRoleId } from "../roles/default-roles.js";
+import { normalizeImportCategories } from "../import/categories.js";
 
 export const SETTINGS_LATEST_VERSION = 2 as const;
 
@@ -23,6 +24,7 @@ interface RawSettings {
   roles?: AiRole[];
   apiKeys?: Record<string, string>;
   privacy?: RawPrivacy;
+  importing?: Partial<PersistedSettings["importing"]>;
   ui?: Partial<PersistedSettings["ui"]>;
   budgets?: Partial<PersistedSettings["budgets"]>;
   flags?: Partial<PersistedSettings["flags"]>;
@@ -76,6 +78,9 @@ export function migrateSettings(raw: unknown): PersistedSettings {
         obj.privacy?.importLastTarget === "public" || obj.privacy?.importLastTarget === "private"
           ? obj.privacy.importLastTarget
           : null,
+    },
+    importing: {
+      categories: normalizeImportCategories(obj.importing?.categories),
     },
     ui: {
       alpha: normalizeAlpha(obj.ui?.alpha),

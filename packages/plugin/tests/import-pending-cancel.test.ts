@@ -3,6 +3,7 @@ import { FakeElement, notices, openedModals } from "./fixtures/obsidian.js";
 import { PluginDataStore } from "../src/plugin-data-store.js";
 import { listJobHistory } from "../src/job-history.js";
 import { openPendingImportItems } from "../src/modals/import-modal.js";
+import { migrateSettings } from "@aether/core";
 import type { InboxItem, Note } from "@aether/core";
 
 interface Deferred<T> {
@@ -65,6 +66,7 @@ describe("pending import cancellation", () => {
       dataStore: new PluginDataStore(host),
       openHubAndRefresh: vi.fn(),
       core: {
+        settings: { current: migrateSettings({}) },
         inbox: {
           listItems: vi.fn(() => items.filter((item) => item.status === "pending")),
           getItem: vi.fn((id: string) => items.find((item) => item.id === id) ?? null),
@@ -147,6 +149,7 @@ function makeInboxItem(id: string, createdAt: number): InboxItem {
     proposedTitle: `Title ${id}`,
     proposedTags: ["inbox"],
     proposedSummary: `Summary ${id}`,
+    proposedCategoryId: "other",
     content: `Content ${id}`,
     kind: "note",
     url: null,

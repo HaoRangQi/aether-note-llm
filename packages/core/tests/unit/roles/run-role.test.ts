@@ -45,7 +45,13 @@ describe("runRole", () => {
       registry,
       roles,
       roleId: "inbox_metadata",
-      vars: { sourceRef: "x.md", kind: "note", urlLine: "", content: "body" },
+      vars: {
+        sourceRef: "x.md",
+        kind: "note",
+        urlLine: "",
+        categoryList: "- other",
+        content: "body",
+      },
     });
     expect(r.output).toMatchObject({ title: "T", tags: ["a"], summary: "S" });
   });

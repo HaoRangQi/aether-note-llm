@@ -1,12 +1,18 @@
 import type { ProviderRegistry } from "../provider/registry.js";
 import type { RoleRegistry } from "../roles/role-registry.js";
 import { runRole } from "../roles/run-role.js";
-import type { Feature, RawCandidate, TokenUsage } from "../types.js";
+import {
+  DEFAULT_IMPORT_CATEGORIES,
+  renderCategoryPromptList,
+  resolveImportCategoryId,
+} from "../import/categories.js";
+import type { Feature, ImportCategory, RawCandidate, TokenUsage } from "../types.js";
 
 export interface MetadataProposal {
   title: string;
   tags: string[];
   summary: string;
+  categoryId: string;
 }
 
 export async function proposeMetadata(args: {
@@ -14,6 +20,7 @@ export async function proposeMetadata(args: {
   roles: RoleRegistry;
   candidate: RawCandidate;
   fallbackTitle: string;
+  categories?: ImportCategory[];
   providerOverride?: {
     providerId: string;
     modelName: string;
@@ -27,6 +34,7 @@ export async function proposeMetadata(args: {
   }) => void | Promise<void>;
 }): Promise<MetadataProposal> {
   const { candidate, fallbackTitle } = args;
+  const categories = args.categories?.length ? args.categories : DEFAULT_IMPORT_CATEGORIES;
   const opts: Parameters<typeof runRole>[0] = {
     registry: args.registry,
     roles: args.roles,
@@ -35,6 +43,7 @@ export async function proposeMetadata(args: {
       sourceRef: candidate.sourceRef,
       kind: candidate.kind,
       urlLine: candidate.url ? `URL：${candidate.url}` : "",
+      categoryList: renderCategoryPromptList(categories),
       content: candidate.content.slice(0, 4000),
     },
   };
@@ -50,13 +59,16 @@ export async function proposeMetadata(args: {
         usage: r.usage,
       });
     }
-    return parseProposal(r.output) ?? fallbackProposal(candidate, fallbackTitle);
+    return parseProposal(r.output, categories) ?? fallbackProposal(candidate, fallbackTitle);
   } catch {
     return fallbackProposal(candidate, fallbackTitle);
   }
 }
 
-export function parseProposal(raw: unknown): MetadataProposal | null {
+export function parseProposal(
+  raw: unknown,
+  categories: ImportCategory[] = DEFAULT_IMPORT_CATEGORIES,
+): MetadataProposal | null {
   if (raw === null || raw === undefined) return null;
   let obj: Record<string, unknown> | null = null;
   if (typeof raw === "string") {
@@ -79,6 +91,10 @@ export function parseProposal(raw: unknown): MetadataProposal | null {
     title: obj.title.trim().slice(0, 80),
     tags,
     summary: typeof obj.summary === "string" ? obj.summary.trim().slice(0, 160) : "",
+    categoryId: resolveImportCategoryId(
+      typeof obj.categoryId === "string" ? obj.categoryId : null,
+      categories,
+    ),
   };
 }
 
@@ -89,5 +105,5 @@ function fallbackProposal(c: RawCandidate, fallbackTitle: string): MetadataPropo
       .find((l) => l.trim().length > 0)
       ?.trim() ?? "";
   const title = c.title ?? (firstLine.length > 0 ? firstLine.slice(0, 80) : fallbackTitle);
-  return { title, tags: c.tags, summary: "" };
+  return { title, tags: c.tags, summary: "", categoryId: "other" };
 }

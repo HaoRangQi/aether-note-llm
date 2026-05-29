@@ -61,6 +61,14 @@ export { ITabConnector } from "./connectors/itab-connector.js";
 export { UrlListConnector } from "./connectors/url-list-connector.js";
 export { ImportPipeline, type ImportEvent, type ImportPipelineDeps } from "./import/pipeline.js";
 export { InboxStore } from "./import/inbox-store.js";
+export {
+  DEFAULT_IMPORT_CATEGORIES,
+  OTHER_CATEGORY_ID,
+  findImportCategory,
+  normalizeImportCategories,
+  renderCategoryPromptList,
+  resolveImportCategoryId,
+} from "./import/categories.js";
 export { detectDuplicate } from "./import/duplicate-detector.js";
 export { proposeMetadata, parseProposal, type MetadataProposal } from "./ai/metadata.js";
 export { rewriteSelection, runFeature } from "./ai/rewrite.js";

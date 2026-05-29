@@ -548,6 +548,92 @@
   color: var(--text-error);
 }
 
+.aether-import-categories-card {
+  margin: 0.85rem 0 1rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+.aether-import-categories-card[open] {
+  padding-bottom: 0.8rem;
+}
+.aether-import-categories-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.aether-import-categories-summary::-webkit-details-marker {
+  display: none;
+}
+.aether-import-categories-toggle-icon {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  transition: transform 120ms ease;
+}
+.aether-import-categories-card[open] .aether-import-categories-toggle-icon {
+  transform: rotate(90deg);
+}
+.aether-import-categories-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.aether-import-categories-title {
+  font-weight: 650;
+  color: var(--text-normal);
+}
+.aether-import-categories-count {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.aether-import-categories-body {
+  padding: 0.1rem 0 0;
+}
+.aether-import-categories-body > .setting-item-description {
+  margin: 0 0 0.65rem;
+}
+.aether-import-categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+.aether-import-category-row {
+  padding: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-primary) 62%, transparent);
+}
+.aether-import-category-row > .setting-item-name {
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.aether-import-category-row .setting-item {
+  padding: 0.35rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+}
+.aether-import-category-row button {
+  margin-top: 0.45rem;
+}
+
 /* ============================================================
  * 毛玻璃共用变量 & 噪点纹理
  * ============================================================ */
@@ -967,10 +1053,20 @@
   flex-direction: column;
   gap: 0.35rem;
   margin-bottom: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-secondary) 58%, transparent);
+}
+.aether-import-target-wrap.is-private {
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 58%, transparent);
+  background: color-mix(in srgb, var(--text-error, #ef4444) 12%, var(--background-secondary));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-error, #ef4444) 18%, transparent) inset;
 }
 .aether-import-target-title {
   font-size: 0.8rem;
   color: var(--text-muted);
+  font-weight: 700;
 }
 .aether-import-target-switch {
   display: inline-flex;
@@ -990,10 +1086,34 @@
   background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
   color: var(--text-normal);
 }
+.aether-import-target-wrap.is-private .aether-import-target-btn.active {
+  border-color: color-mix(in srgb, var(--text-error, #ef4444) 65%, transparent);
+  background: color-mix(in srgb, var(--text-error, #ef4444) 18%, transparent);
+  color: var(--text-error, #ef4444);
+  font-weight: 700;
+}
 .aether-import-target-hint {
   font-size: 0.76rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+.aether-import-target-hint--private {
+  color: var(--text-error, #ef4444);
+  font-weight: 650;
+}
+.aether-import-target-warning-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: var(--text-error, #ef4444);
+  color: var(--background-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  vertical-align: text-bottom;
 }
 
 /* 文本域 */

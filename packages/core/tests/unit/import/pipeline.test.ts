@@ -23,7 +23,11 @@ function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
 }
 
 async function makeRig(
-  options: { connectors?: SourceConnector[]; maxItemsPerBatch?: number } = {},
+  options: {
+    connectors?: SourceConnector[];
+    maxItemsPerBatch?: number;
+    chatChunks?: ConstructorParameters<typeof MockProvider>[0]["chatChunks"];
+  } = {},
 ) {
   const host = new InMemoryHostAdapter({
     now: () => 5_000_000,
@@ -36,9 +40,9 @@ async function makeRig(
   await store.init();
   const inbox = new InboxStore(host);
   const provider = new MockProvider({
-    chatChunks: () => [
-      { delta: '{"title":"AI","tags":["t"],"summary":"S"}', finishReason: "stop" },
-    ],
+    chatChunks:
+      options.chatChunks ??
+      (() => [{ delta: '{"title":"AI","tags":["t"],"summary":"S"}', finishReason: "stop" }]),
     embedDim: 8,
   });
   const reg = new ProviderRegistry({
@@ -101,6 +105,45 @@ describe("ImportPipeline", () => {
     await collect(pipeline.run(src));
     const items = inbox.listItems();
     expect(items[0]?.proposedTitle).toBe("AI");
+  });
+
+  it("stores a valid AI-proposed category on inbox items", async () => {
+    const { pipeline, inbox, provider } = await makeRig({
+      chatChunks: () => [
+        {
+          delta:
+            '{"title":"Prompt Pack","tags":["prompt"],"summary":"S","categoryId":"ai-prompts"}',
+          finishReason: "stop",
+        },
+      ],
+    });
+    const src: ImportSource = {
+      kind: "file",
+      label: "a.md",
+      payload: { type: "markdown-file", path: "a.md", content: "Prompt library" },
+    };
+    await collect(pipeline.run(src));
+    expect(inbox.listItems()[0]?.proposedCategoryId).toBe("ai-prompts");
+    expect(provider.calls.chat[0]?.messages[0]?.content).toContain("ai-prompts");
+    expect(provider.calls.chat[0]?.messages[0]?.content).toContain("教程");
+  });
+
+  it("falls back to other when AI category is invalid", async () => {
+    const { pipeline, inbox } = await makeRig({
+      chatChunks: () => [
+        {
+          delta: '{"title":"Unknown","tags":[],"summary":"","categoryId":"misc"}',
+          finishReason: "stop",
+        },
+      ],
+    });
+    const src: ImportSource = {
+      kind: "file",
+      label: "a.md",
+      payload: { type: "markdown-file", path: "a.md", content: "Unknown" },
+    };
+    await collect(pipeline.run(src));
+    expect(inbox.listItems()[0]?.proposedCategoryId).toBe("other");
   });
 
   it("emits error event when no connector matches", async () => {

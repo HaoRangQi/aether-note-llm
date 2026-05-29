@@ -201,7 +201,7 @@ export const en: Dict = {
   "modal.import.target.private": "Private import",
   "modal.import.target.public": "Public import",
   "modal.import.target.privateHint":
-    "Private import keeps content in private folders and prefers private/trusted model routing.",
+    "Warning: private import is active. Content is saved to private folders; remote metadata is skipped unless a private/trusted route exists.",
   "modal.import.target.publicHint":
     "Public import may route content to third-party models according to current role/provider bindings.",
   "modal.import.target.publicConfirm":
@@ -227,6 +227,10 @@ export const en: Dict = {
   "modal.importPreview.field.title": "Title",
   "modal.importPreview.field.summary": "Summary",
   "modal.importPreview.field.tags": "Tags (comma or space separated)",
+  "modal.importPreview.field.category": "Category",
+  "modal.importPreview.categoryMergeHint": "Merging keeps the target note where it is.",
+  "modal.importPreview.categoryOther": "Other",
+  "modal.importPreview.targetPath": "Target path: {path}",
   "modal.importResult.title": "Import complete",
   "modal.importResult.summary": "Created {count} item(s), merged {merged} item(s).",
   "modal.importResult.summaryWithFailures":
@@ -250,6 +254,21 @@ export const en: Dict = {
   "modal.importPending.title": "Pending imports",
   "modal.importPending.summary": "{total} pending; {selected} selected.",
   "modal.importPending.empty": "No pending import items",
+
+  "modal.organize.title": "Organize imported notes",
+  "modal.organize.rootFolder": "Folder to organize",
+  "modal.organize.fromMonth": "From month (YYYY/MM, optional)",
+  "modal.organize.toMonth": "To month (YYYY/MM, optional)",
+  "modal.organize.preview": "Generate preview",
+  "modal.organize.previewing": "Previewing…",
+  "modal.organize.apply": "Move {count} selected",
+  "modal.organize.applying": "Moving…",
+  "modal.organize.previewSummary": "{count} movable item(s) found.",
+  "modal.organize.itemCategory": "Suggested category: {category}",
+  "modal.organize.resultSummary": "Moved {moved}; failed {failed}.",
+  "modal.organize.rootRequired": "Enter a folder to organize.",
+  "modal.organize.previewFailed": "Failed to preview organization: {error}",
+  "modal.organize.applyFailed": "Failed to organize: {error}",
 
   // ---- AI result modal ----
   "modal.aiResult.title": "AI result",
@@ -310,6 +329,7 @@ export const en: Dict = {
   "cmd.openHub": "Open Aether Hub",
   "cmd.import": "Import…",
   "cmd.pendingImports": "Review pending imports",
+  "cmd.organizeImports": "Organize imported notes…",
   "cmd.rebuild": "Rebuild index",
   "cmd.refreshIndex": "Refresh index changes",
   "cmd.diagnostics": "Diagnostics export",
@@ -339,6 +359,8 @@ export const en: Dict = {
   "job.import.title": "Writing imported items",
   "job.import.writing": "Writing {done}/{total} items",
   "job.import.cancelled": "Import write cancelled: {done}/{total} completed",
+  "job.organize.title": "Organizing imported notes",
+  "job.organize.running": "Moving {count} file(s)",
   "job.directoryImport.title": "Folder background import",
   "job.directoryImport.reading": "Preparing {done}/{total} files",
   "job.directoryImport.readingFile": "Reading {done}/{total}: {path}",
@@ -480,6 +502,18 @@ export const en: Dict = {
   "settings.advanced.inboxFolder.open": "Open folder",
   "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
   "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
+  "settings.importCategories.title": "Import categories",
+  "settings.importCategories.desc":
+    "AI picks one of these categories during import. You can change it in the preview.",
+  "settings.importCategories.label": "Label",
+  "settings.importCategories.folder": "Folder name",
+  "settings.importCategories.keywords": "Keywords",
+  "settings.importCategories.add": "Add category",
+  "settings.importCategories.add.desc":
+    "New categories are used by import preview and organization.",
+  "settings.importCategories.add.button": "Add category",
+  "settings.importCategories.restoreDefaults": "Restore defaults",
+  "settings.importCategories.newLabel": "New category",
   "settings.privacy.title": "Privacy Routing",
   "settings.privacy.desc":
     "Private folders are isolated by directory. Configure public/private models in AI Roles.",

@@ -27,12 +27,15 @@ const T_INBOX_METADATA = `你是个人知识库的元数据助手。给定一段
 - title：≤ 80 字，描述性，不带引号
 - tags：≤ 5 个小写短标签（单词或连字符）
 - summary：≤ 160 字，一句话，不要 bullet
+- categoryId：必须从给定分类列表中选择一个 id
 
-仅返回单个 JSON 对象，键为 "title"、"tags"、"summary"。不要任何额外说明。
+仅返回单个 JSON 对象，键为 "title"、"tags"、"summary"、"categoryId"。不要任何额外说明。
 
 来源路径：{{sourceRef}}
 类型：{{kind}}
 {{urlLine}}
+可选分类：
+{{categoryList}}
 --- 内容开始 ---
 {{content}}
 --- 内容结束 ---`;
@@ -146,7 +149,7 @@ export const BUILTIN_ROLE_SEEDS: BuiltInRoleSeed[] = [
     icon: "tag",
     description: "为导入项目自动生成 title/tags/summary",
     promptTemplate: T_INBOX_METADATA,
-    variables: ["sourceRef", "kind", "urlLine", "content"],
+    variables: ["sourceRef", "kind", "urlLine", "categoryList", "content"],
     outputKind: "metadata",
     params: { temperature: 0.2 },
     showInEditor: false,

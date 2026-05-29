@@ -4,6 +4,7 @@ import { ImportModal, openPendingImportItems } from "./modals/import-modal.js";
 import { RewriteResultModal } from "./modals/rewrite-result-modal.js";
 import { DiagnosticsModal } from "./modals/diagnostics-modal.js";
 import { JobHistoryModal } from "./modals/job-history-modal.js";
+import { OrganizeImportsModal } from "./modals/organize-imports-modal.js";
 import { UsageModal } from "./modals/usage-modal.js";
 import { HUB_VIEW_TYPE } from "./views/hub-view.js";
 import { AiActivityIndicator } from "./ui/ai-activity.js";
@@ -140,6 +141,12 @@ export function registerCommands(plugin: AetherPlugin): void {
     callback: () => {
       openPendingImportItems(plugin.app, plugin);
     },
+  });
+
+  plugin.addCommand({
+    id: "organize-imports",
+    name: t("cmd.organizeImports"),
+    callback: () => new OrganizeImportsModal(plugin.app, plugin).open(),
   });
 
   plugin.addCommand({

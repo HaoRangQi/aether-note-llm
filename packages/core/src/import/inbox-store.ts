@@ -73,7 +73,9 @@ export class InboxStore {
 
   updateDraft(
     itemId: string,
-    patch: Partial<Pick<InboxItem, "proposedTitle" | "proposedSummary" | "proposedTags">>,
+    patch: Partial<
+      Pick<InboxItem, "proposedTitle" | "proposedSummary" | "proposedTags" | "proposedCategoryId">
+    >,
   ): InboxItem | undefined {
     const item = this.items.get(itemId);
     if (!item || item.status !== "pending") return undefined;
