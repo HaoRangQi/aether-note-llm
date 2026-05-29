@@ -977,12 +977,7 @@ export class AetherSettingsTab extends PluginSettingTab {
       });
     };
 
-    const table = body.createDiv({ cls: "aether-category-manager__table" });
-    const header = table.createDiv({ cls: "aether-category-manager__table-head" });
-    header.createSpan({ text: t("settings.importCategories.label") });
-    header.createSpan({ text: t("settings.importCategories.folder") });
-    header.createSpan({ text: t("settings.importCategories.keywords") });
-    header.createSpan({ text: t("settings.importCategories.action") });
+    const table = body.createDiv({ cls: "aether-category-manager__list" });
     for (const category of categories) {
       this.renderImportCategoryRow(table, category);
     }
@@ -990,10 +985,14 @@ export class AetherSettingsTab extends PluginSettingTab {
 
   private renderImportCategoryRow(parent: HTMLElement, category: ImportCategory): void {
     const row = parent.createDiv({ cls: "aether-category-row" });
-    const nameCell = row.createDiv({ cls: "aether-category-row__name" });
-    const labelInput = nameCell.createEl("input", {
-      cls: "aether-category-row__input",
+    const fields = row.createDiv({ cls: "aether-category-row__fields" });
+
+    const labelField = fields.createDiv({ cls: "aether-category-row__field" });
+    labelField.createDiv({
+      cls: "aether-category-row__label",
+      text: t("settings.importCategories.label"),
     });
+    const labelInput = labelField.createEl("input", { cls: "aether-category-row__input" });
     labelInput.type = "text";
     labelInput.value = category.label;
     labelInput.onchange = () => {
@@ -1002,17 +1001,15 @@ export class AetherSettingsTab extends PluginSettingTab {
         if (target) target.label = labelInput.value.trim() || category.label;
       });
     };
-    nameCell.createDiv({ cls: "aether-category-row__id", text: category.id });
-    if (category.id === "other") {
-      nameCell.createSpan({
-        cls: "aether-category-row__fallback-badge",
-        text: t("settings.importCategories.fallback"),
-      });
-    }
+    const meta = labelField.createDiv({ cls: "aether-category-row__meta" });
+    meta.createSpan({ cls: "aether-category-row__id", text: category.id });
 
-    const folderInput = row.createEl("input", {
-      cls: "aether-category-row__input",
+    const folderField = fields.createDiv({ cls: "aether-category-row__field" });
+    folderField.createDiv({
+      cls: "aether-category-row__label",
+      text: t("settings.importCategories.folder"),
     });
+    const folderInput = folderField.createEl("input", { cls: "aether-category-row__input" });
     folderInput.type = "text";
     folderInput.value = category.folderName;
     folderInput.onchange = () => {
@@ -1022,9 +1019,12 @@ export class AetherSettingsTab extends PluginSettingTab {
       });
     };
 
-    const keywordsInput = row.createEl("input", {
-      cls: "aether-category-row__input",
+    const keywordsField = fields.createDiv({ cls: "aether-category-row__field" });
+    keywordsField.createDiv({
+      cls: "aether-category-row__label",
+      text: t("settings.importCategories.keywords"),
     });
+    const keywordsInput = keywordsField.createEl("input", { cls: "aether-category-row__input" });
     keywordsInput.type = "text";
     keywordsInput.placeholder = t("settings.importCategories.keywords.placeholder");
     keywordsInput.value = category.keywords.join(", ");
@@ -1037,6 +1037,10 @@ export class AetherSettingsTab extends PluginSettingTab {
 
     const actionCell = row.createDiv({ cls: "aether-category-row__actions" });
     if (category.id === "other") {
+      actionCell.createSpan({
+        cls: "aether-category-row__fallback-badge",
+        text: t("settings.importCategories.fallback"),
+      });
       actionCell.createSpan({
         cls: "aether-category-row__locked",
         text: t("settings.importCategories.locked"),

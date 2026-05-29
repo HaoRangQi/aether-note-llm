@@ -81,8 +81,9 @@ describe("import categories UI", () => {
     expect(manager?.tag).toBe("details");
     expect(manager?.open).toBe(true);
     expect(manager?.querySelector(".aether-category-manager__summary")?.tag).toBe("summary");
-    expect(manager?.querySelector(".aether-category-manager__table")).toBeTruthy();
+    expect(manager?.querySelector(".aether-category-manager__list")).toBeTruthy();
     expect(manager?.querySelector(".aether-category-row")).toBeTruthy();
+    expect(manager?.querySelector(".aether-category-row__fields")).toBeTruthy();
     expect(manager?.querySelector(".aether-category-row__fallback-badge")?.textContent).toContain(
       "兜底",
     );
