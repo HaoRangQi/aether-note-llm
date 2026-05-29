@@ -124,6 +124,19 @@ export class FakeElement {
     return this.find((child) => child.tag === selector);
   }
 
+  findAll(selector: string): FakeElement[] {
+    const matches: FakeElement[] = [];
+    const visit = (node: FakeElement): void => {
+      const matched = selector.startsWith(".")
+        ? node.cls.split(/\s+/).includes(selector.slice(1))
+        : node.tag === selector;
+      if (matched) matches.push(node);
+      for (const child of node.children) visit(child);
+    };
+    visit(this);
+    return matches;
+  }
+
   get textContent(): string {
     return [this.text, ...this.children.map((child) => child.textContent)].join("");
   }

@@ -177,6 +177,22 @@ describe("getConfigHealth", () => {
     });
   });
 
+  it("requires solve because problem solving is part of the core Hub flow", () => {
+    const settings = updateRole(configuredSettings(), "solve", (role) => {
+      role.providerId = "";
+      role.modelName = "";
+    });
+
+    const health = getConfigHealth(settings);
+
+    expect(health.status).toBe("error");
+    expect(health.issues).toContainEqual({
+      code: "roleProviderMissing",
+      roleName: "解决问题",
+      severity: "error",
+    });
+  });
+
   it("does not warn for editor roles the user intentionally hides", () => {
     const settings = updateRole(configuredSettings(), "critique", (role) => {
       role.enabled = false;

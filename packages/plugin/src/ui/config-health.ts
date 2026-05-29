@@ -99,6 +99,7 @@ export function getConfigHealth(settings: PersistedSettings): ConfigHealth {
 function roleIsRequired(id: BuiltInRoleId, defaultShowInEditor: boolean, role?: AiRole): boolean {
   if (id === "inbox_metadata" || id === "embedding") return true;
   if (id === "answer") return true;
+  if (id === "solve") return true;
   if (!role) return defaultShowInEditor;
   return role?.enabled === true && role.showInEditor === true;
 }

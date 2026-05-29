@@ -65,7 +65,7 @@ interface AiRole {
 }
 ```
 
-### 7 个内置角色（旧 Feature Binding 会迁移到对应 Role）
+### 8 个内置角色（旧 Feature Binding 会迁移到对应 Role）
 
 | id               | outputKind | 编辑器右键 | 说明                                      |
 | ---------------- | ---------- | ---------- | ----------------------------------------- |
@@ -73,6 +73,7 @@ interface AiRole {
 | `rewrite`        | text       | ✅         | 改写选中文本                              |
 | `extract`        | list       | ✅         | 提取要点为 bullet 列表                    |
 | `critique`       | text       | ✅         | 批评性分析选中文本                        |
+| `solve`          | metadata   | ❌         | 基于历史经验输出结构化解决方案 JSON       |
 | `answer`         | text       | ❌         | 基于 Hub 当前搜索结果生成带引用回答       |
 | `inbox_metadata` | metadata   | ❌         | 给导入项目生成 title/tags/summary（JSON） |
 | `embedding`      | embedding  | ❌         | 文本向量化（无 promptTemplate）           |
@@ -89,8 +90,8 @@ interface AiRole {
 - `{{tags}}` — 标签 join 字符串
 - `{{url}}` — 来源 URL（书签/导入）
 - `{{kind}}` — 笔记类型 note/bookmark
-- `{{question}}` — Hub 综合回答的问题
-- `{{context}}` — Hub 综合回答使用的检索片段
+- `{{question}}` — Hub 综合回答 / 解决问题的问题
+- `{{context}}` — Hub 综合回答 / 解决问题使用的检索片段
 - `{{maxSentences}}` `{{maxPoints}}` — 调用时传入的数值
 
 新增变量：在 `roles/render-prompt.ts` 加键，并在 `default-roles.ts` 的某个 role 里用上。

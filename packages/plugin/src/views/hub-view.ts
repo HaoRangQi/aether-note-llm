@@ -7,6 +7,7 @@ import {
 } from "../modals/import-modal.js";
 import { JobHistoryModal } from "../modals/job-history-modal.js";
 import { UsageModal } from "../modals/usage-modal.js";
+import { ExperienceCardModal } from "../modals/experience-card-modal.js";
 import { escapeHtml, highlight } from "../ui/render.js";
 import { formatAnswerWithSources } from "../ui/answer-sources.js";
 import { copyToClipboard } from "../ui/clipboard.js";
@@ -17,6 +18,7 @@ import {
   isAetherError,
   type NoteKind,
   type PrivacyScope,
+  type ProblemSolveResponse,
   type SearchAnswerResponse,
   type SearchHit,
   type SearchMeta,
@@ -28,6 +30,7 @@ export const HUB_VIEW_TYPE = "aether-hub-view";
 export const HUB_ICON = "bot-message-square";
 
 type Mode = "recent" | "search";
+type TaskMode = "search" | "solve";
 type Filter = "all" | "note" | "bookmark";
 
 /**
@@ -42,6 +45,7 @@ type Filter = "all" | "note" | "bookmark";
  */
 export class HubView extends ItemView {
   private mode: Mode = "recent";
+  private taskMode: TaskMode = "search";
   private filter: Filter = "all";
   private privacyScope: PrivacyScope = "public";
   private query = "";
@@ -112,6 +116,24 @@ export class HubView extends ItemView {
       cls: "aether-search-privacy-hint",
       text: t("view.hub.searchPrivacyHint"),
     });
+
+    const taskBar = root.createDiv({ cls: "aether-hub-taskmode" });
+    const taskButtons: HTMLButtonElement[] = [];
+    const mkTaskMode = (mode: TaskMode, label: string): void => {
+      const button = taskBar.createEl("button", { text: label });
+      if (this.taskMode === mode) button.addClass("active");
+      button.onclick = () => {
+        this.taskMode = mode;
+        taskButtons.forEach((item) => item.removeClass("active"));
+        button.addClass("active");
+        if (this.query.trim()) this.mode = "search";
+        void this.refreshResults();
+      };
+      taskButtons.push(button);
+    };
+    mkTaskMode("search", t("view.hub.taskMode.search"));
+    mkTaskMode("solve", t("view.hub.taskMode.solve"));
+
     input.addEventListener("input", () => {
       this.query = input.value;
       window.clearTimeout(this.debounce);
@@ -324,7 +346,11 @@ export class HubView extends ItemView {
     if (!this.resultsEl) return;
     const requestId = ++this.resultsRequestId;
     if (this.mode === "search") {
-      await this.renderSearch(this.resultsEl, requestId);
+      if (this.taskMode === "solve") {
+        await this.renderSolve(this.resultsEl, requestId);
+      } else {
+        await this.renderSearch(this.resultsEl, requestId);
+      }
     } else {
       await this.renderRecent(this.resultsEl, requestId);
     }
@@ -359,6 +385,154 @@ export class HubView extends ItemView {
       const meta = card.createEl("div", { cls: "aether-card-meta" });
       meta.createSpan({ text: f.path });
       meta.createSpan({ text: relativeTime(f.mtime, this.plugin.core.now()) });
+    }
+  }
+
+  private async renderSolve(root: HTMLElement, requestId: number): Promise<void> {
+    root.empty();
+    const question = this.query.trim();
+    if (!question) return;
+    root.createDiv({ cls: "aether-hub-loading", text: t("view.hub.solve.loading") });
+    try {
+      const filterArg = this.filter === "all" ? undefined : (this.filter as NoteKind);
+      const req: Parameters<typeof this.plugin.core.solveProblem>[0] = {
+        question,
+        limit: 8,
+        maxContextChunks: 6,
+        privacyScope: this.privacyScope,
+      };
+      if (filterArg) req.filters = { kind: filterArg };
+      const response = await this.plugin.core.solveProblem(req);
+      if (!this.isCurrentResultsRequest(requestId)) return;
+      this.renderProblemSolutionBody(root, response, this.privacyScope);
+    } catch (e) {
+      if (!this.isCurrentResultsRequest(requestId)) return;
+      root.empty();
+      if (isAetherError(e) && e.code === "BINDING_NOT_FOUND") {
+        root.createDiv({ cls: "aether-answer-error", text: t("view.hub.solve.notConfigured") });
+      } else {
+        root.createDiv({
+          cls: "aether-answer-error",
+          text: t("view.hub.solve.failed", { error: (e as Error).message }),
+        });
+      }
+    }
+  }
+
+  private renderProblemSolutionBody(
+    root: HTMLElement,
+    response: ProblemSolveResponse,
+    privacyScope: PrivacyScope,
+  ): void {
+    root.empty();
+    const panel = root.createDiv({ cls: "aether-solve-panel" });
+    const header = panel.createDiv({ cls: "aether-solve-header" });
+    header.createDiv({ cls: "aether-solve-title", text: t("view.hub.solve.title") });
+    header.createDiv({
+      cls: `aether-solve-confidence aether-solve-confidence--${response.solution.confidence}`,
+      text: t(`view.hub.solve.confidence.${response.solution.confidence}`),
+    });
+    if (response.blockedReason === "private-route-missing") {
+      panel.createDiv({
+        cls: "aether-answer-warning",
+        text: t("view.hub.solve.privateBlocked"),
+      });
+    }
+    this.renderSolveSection(panel, t("view.hub.solve.summary"), response.solution.summary);
+    this.renderSolveSection(panel, t("view.hub.solve.steps"), response.solution.steps, true);
+    this.renderSolveSection(panel, t("view.hub.solve.evidence"), response.solution.likelyCauses);
+    this.renderSolveSection(panel, t("view.hub.solve.risks"), [
+      ...response.solution.risks,
+      ...response.solution.missingInfo,
+    ]);
+    panel.createDiv({
+      cls: `aether-answer-context${response.contextTruncated ? " is-truncated" : ""}`,
+      text: response.contextTruncated
+        ? t("view.hub.answer.contextTruncated", { tokens: response.contextTokenCount })
+        : t("view.hub.answer.contextUsed", { tokens: response.contextTokenCount }),
+    });
+    this.renderCitationCheck(panel, {
+      question: response.question,
+      answer: response.solution.summary,
+      citations: response.citations,
+      citationCheck: response.citationCheck,
+      contextTokenCount: response.contextTokenCount,
+      contextTruncated: response.contextTruncated,
+      search: response.search,
+    });
+    const refsTitle = panel.createDiv({
+      cls: "aether-solve-section-title",
+      text: t("view.hub.solve.sources"),
+    });
+    refsTitle.addClass("aether-solve-section-title--sources");
+    this.renderSolveSources(panel, response);
+    const actions = panel.createDiv({ cls: "aether-answer-toolbar" });
+    const save = actions.createEl("button", {
+      cls: "aether-answer-copy",
+      text: t("view.hub.solve.saveExperience"),
+    });
+    save.onclick = () => {
+      new ExperienceCardModal(this.app, this.plugin, { response, privacyScope }).open();
+    };
+  }
+
+  private renderSolveSection(
+    root: HTMLElement,
+    title: string,
+    content: string | string[],
+    ordered = false,
+  ): void {
+    const section = root.createDiv({ cls: "aether-solve-section" });
+    section.createDiv({ cls: "aether-solve-section-title", text: title });
+    if (typeof content === "string") {
+      section.createDiv({ cls: "aether-solve-text", text: content || t("common.none") });
+      return;
+    }
+    if (content.length === 0) {
+      section.createDiv({ cls: "aether-solve-empty", text: t("common.none") });
+      return;
+    }
+    const list = section.createEl(ordered ? "ol" : "ul", { cls: "aether-solve-list" });
+    for (const item of content) {
+      list.createEl("li", { text: item });
+    }
+  }
+
+  private renderSolveSources(root: HTMLElement, response: ProblemSolveResponse): void {
+    if (response.citations.length === 0) {
+      root.createDiv({ cls: "aether-solve-empty", text: t("view.hub.solve.noSources") });
+      return;
+    }
+    const refs = root.createDiv({ cls: "aether-answer-citations" });
+    for (const citation of response.citations) {
+      const details = refs.createEl("details", { cls: "aether-answer-source" });
+      details.createEl("summary", {
+        cls: "aether-answer-source-summary",
+        text: `[${citation.index}] ${citation.title}`,
+      });
+      const meta = details.createDiv({ cls: "aether-answer-source-meta" });
+      this.renderSourceMeta(meta, t("view.hub.answer.sourcePath"), citation.vaultPath);
+      this.renderSourceMeta(meta, t("view.hub.answer.sourceHeading"), citation.headingPath || "-");
+      if (citation.url) {
+        this.renderSourceMeta(meta, t("view.hub.answer.sourceUrl"), citation.url);
+      }
+      const excerpt = details.createDiv({ cls: "aether-answer-source-excerpt" });
+      excerpt.createDiv({
+        cls: "aether-answer-source-label",
+        text: t("view.hub.answer.sourceExcerpt"),
+      });
+      excerpt.createDiv({ cls: "aether-answer-source-text", text: citation.excerpt });
+      const openBtn = details.createEl("button", {
+        cls: "aether-answer-source-open",
+        text: t("view.hub.answer.openSource"),
+      });
+      openBtn.onclick = () => {
+        if (citation.url) {
+          void this.openExternal(citation.url);
+        } else {
+          void this.openVaultSource(citation.vaultPath);
+        }
+      };
     }
   }
 

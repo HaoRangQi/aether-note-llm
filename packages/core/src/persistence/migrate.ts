@@ -86,6 +86,15 @@ export function migrateSettings(raw: unknown): PersistedSettings {
       alpha: normalizeAlpha(obj.ui?.alpha),
       aetherInboxFolder:
         typeof obj.ui?.aetherInboxFolder === "string" ? obj.ui.aetherInboxFolder : "Aether Inbox",
+      experienceFolder:
+        typeof obj.ui?.experienceFolder === "string" && obj.ui.experienceFolder.trim().length > 0
+          ? obj.ui.experienceFolder.trim()
+          : "Aether Experience",
+      privateExperienceFolder:
+        typeof obj.ui?.privateExperienceFolder === "string" &&
+        obj.ui.privateExperienceFolder.trim().length > 0
+          ? obj.ui.privateExperienceFolder.trim()
+          : "Aether Private Experience",
       scanScope: obj.ui?.scanScope === "aether-inbox-only" ? "aether-inbox-only" : "vault",
       language: obj.ui?.language === "en" ? "en" : "zh-CN",
     },
@@ -161,7 +170,7 @@ function findBindingForSeed(
 ): FeatureBinding | undefined {
   const direct = bindings.find((x) => (x.feature as BuiltInRoleId) === seedId);
   if (direct) return direct;
-  if (seedId !== "answer") return undefined;
+  if (seedId !== "answer" && seedId !== "solve") return undefined;
   return (
     bindings.find((x) => x.feature === "summarize") ??
     bindings.find((x) => x.feature === "rewrite") ??
@@ -178,8 +187,9 @@ function applyExistingRoleToSeed(
   now: number,
 ): AiRole {
   const role = applyBindingToSeed(seed, bindings, now);
-  if (seed.id !== "answer" || role.providerId) return role;
+  if ((seed.id !== "answer" && seed.id !== "solve") || role.providerId) return role;
   const source =
+    roles.find((r) => r.id === "answer" && r.providerId && r.modelName) ??
     roles.find((r) => r.id === "summarize" && r.providerId && r.modelName) ??
     roles.find((r) => r.id === "rewrite" && r.providerId && r.modelName) ??
     roles.find((r) => r.id === "extract" && r.providerId && r.modelName) ??

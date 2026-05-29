@@ -33,6 +33,7 @@ Once installed in Obsidian, Aether lets you:
 - **Ingest** scattered markdown, pasted text, Chrome bookmarks, iTab data, directories, and URL lists into your vault (URL lists store links; they do not fetch article bodies automatically)
 - **Distill** — AI auto-generates titles, tags, summaries, and import categories, then writes imported notes under `Aether Inbox/<category>/<year>/<month>/`
 - **Recall** — natural-language search across notes + bookmarks with snippet highlights and one-click jump-to-source
+- **Solve** — switch to `Solve`, let Aether recall historical material and return a conclusion, steps, risks, and citations; then save the result as a reusable experience card
 - **Rewrite** — select any paragraph in your editor → right-click → AI rewrite / summarize / extract
 
 **Your data is always plain markdown in your vault.** Uninstall the plugin — the notes are still there, untouched.
@@ -48,6 +49,7 @@ Once installed in Obsidian, Aether lets you:
 | 🧭 Hub view             | Search / recent imports / quick import / provider status in one daily entry point                      |
 | 🔍 Hybrid retrieval     | BM25 text + vector semantics; Hub shows Hybrid / BM25 / Stale-biased and fallback reason               |
 | 💬 Synthesised answers  | Generate cited answers from the current search results; citations open notes or bookmarks              |
+| ✅ Problem solving      | Turn historical material into structured conclusion / steps / evidence / risks, then save as a card    |
 | ✏️ Paragraph-level AI   | Select → right-click → rewrite / summarize / extract key points                                        |
 | 🔗 Searchable bookmarks | One search box for notes + bookmarks; click bookmark → opens default browser                           |
 | 🔌 Multi-provider       | Any OpenAI-compatible endpoint: DeepSeek / Kimi / GLM / OpenRouter / Ollama / self-hosted              |
@@ -71,6 +73,7 @@ Once installed in Obsidian, Aether lets you:
 - Imports show a metadata/category preview first, then write only the selected items into `Aether Inbox/<category>/<year>/<month>/`.
 - Import categories are configurable; defaults are Tutorial, AI Prompts, Life, History, Work, and Other.
 - `Organize imported notes…` previews category-based moves for existing files and only moves selected rows after confirmation.
+- Hub now has `Solve` mode: it searches historical experience, drafts a structured cited solution, and can save it as an experience card.
 - Failed import writes can be resumed from the result modal, Hub pending entry, or command palette.
 - Search falls back to BM25 when embedding config or provider calls are unavailable, and Hub shows the current mode and reason.
 - Search results can now generate cited answers from the currently displayed hits.

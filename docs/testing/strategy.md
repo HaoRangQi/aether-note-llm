@@ -124,6 +124,13 @@ pnpm --filter @aether/core test:coverage
   answer or source evidence. Hub result navigation uses the same vault-open
   guard: recent-import cards and note search results surface open failures as
   Notices while keeping the current recent/search list visible.
+- Hub problem-solving mode is covered at the `HubView` and modal level: the
+  `搜索 / 解决问题` switch routes solve-mode queries to `core.solveProblem`,
+  renders structured conclusion, steps, evidence, risks, citations, confidence,
+  and source actions, then opens an editable experience-card preview. The modal
+  verifies edited title/problem/summary/steps/tags are forwarded to
+  `core.saveExperienceCard`, and that `all` scope without citations previews the
+  private experience folder.
 - Activity indicator regressions cover the shared floating task UI used by AI
   roles, import writes, refresh, and rebuild: progress metadata updates keep the
   elapsed timer, cancel callbacks are idempotent, multiple active indicators can
@@ -155,7 +162,7 @@ Run before every release. Use a clean test vault. The full UAT script lives in
    - Confirm each Provider card exposes `Trusted for private content`; only trusted Providers can be selected for private role bindings and used by private routes.
    - In `Advanced`, configure `Privacy Routing` folders (`Private folders`, `Private import folder`), then configure public/private model bindings per role in `AI Roles`.
    - Add or select an embedding-capable Provider when available.
-   - Apply bindings and confirm AI Roles have Provider / Model values for `inbox_metadata`, `answer`, editor roles, and `embedding`.
+   - Apply bindings and confirm AI Roles have Provider / Model values for `inbox_metadata`, `answer`, `solve`, editor roles, and `embedding`.
 4. **Import preview**
    - Command palette → `Import…`. Paste text or a URL list.
    - Confirm import target defaults to `Private import` on first use, then remembers the last selected target.
@@ -169,11 +176,12 @@ Run before every release. Use a clean test vault. The full UAT script lives in
 5. **Pending import retry**
    - Force or simulate a write failure if practical.
    - Confirm failed write items remain pending and can be reopened from Hub or `Review pending imports`.
-6. **Search and answer**
+6. **Search, answer, and solve**
    - Open Hub (`Open Aether Hub` or ribbon), search for imported content, and click a note result.
    - Confirm the search box shows the privacy warning about private notes, API keys, passwords, and preferring local models.
    - Confirm Hub `Public / Private / All` scope switch forwards correctly to search and answer.
    - Run `Answer` from current results; confirm citations map to existing sources.
+   - Switch to `Solve`, ask a concrete problem, confirm structured sections and citations render, then save an edited experience card and verify it lands in the configured public/private experience folder.
    - For private scope without private/trusted route, confirm search falls back to BM25 and private answer generation is blocked with actionable guidance.
    - Copy the answer with sources; if clipboard access is denied or unavailable, confirm a failure notice appears and the answer remains visible.
    - If embedding is unavailable, confirm search falls back to BM25 with a visible reason.

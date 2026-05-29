@@ -701,6 +701,223 @@ describe("AetherCore", () => {
     expect(answer.answer).toBe("只使用预算内片段。[1]");
   });
 
+  it("solves a problem from historical context and records solve usage", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "notes/swiftui.md": "# SwiftUI\nState is lost when identity changes in a List row.",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: (req) => [
+        {
+          delta: req.messages[0]?.content.includes("State is lost")
+            ? JSON.stringify({
+                summary: "列表身份变化会导致状态丢失。[1]",
+                confidence: "high",
+                evidenceStatus: "supported",
+                likelyCauses: ["List row identity changed [1]"],
+                steps: ["Stabilize row identity [1]", "Keep state outside recreated row [1]"],
+                risks: ["Confirm the actual identity source before refactor"],
+                missingInfo: [],
+              })
+            : "missing context",
+          finishReason: "stop",
+          usage: { promptTokens: 19, completionTokens: 11 },
+        },
+      ],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.indexExistingVaultFile("notes/swiftui.md");
+
+    const solved = await core.solveProblem({ question: "SwiftUI 状态丢失怎么办？" });
+
+    expect(solved.solution).toMatchObject({
+      summary: "列表身份变化会导致状态丢失。[1]",
+      confidence: "high",
+      evidenceStatus: "supported",
+      steps: ["Stabilize row identity [1]", "Keep state outside recreated row [1]"],
+    });
+    expect(solved.citations).toHaveLength(1);
+    expect(solved.citationCheck.invalidIndexes).toEqual([]);
+    expect(provider.calls.chat.at(-1)?.messages[0]?.content).toContain("[1] SwiftUI");
+    expect(core.usage.snapshot().perFeature.solve).toEqual({
+      promptTokens: 19,
+      completionTokens: 11,
+    });
+  });
+
+  it("returns low-confidence generic advice without calling solve when context is empty", async () => {
+    const host = new InMemoryHostAdapter({ now: () => Date.UTC(2026, 4, 24) });
+    const provider = new MockProvider();
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+
+    const solved = await core.solveProblem({ question: "怎么整理新项目？" });
+
+    expect(solved.solution).toMatchObject({
+      confidence: "low",
+      evidenceStatus: "missing",
+    });
+    expect(solved.solution.steps.length).toBeGreaterThan(0);
+    expect(solved.citations).toEqual([]);
+    expect(provider.calls.chat).toEqual([]);
+  });
+
+  it("does not call remote solve for private scope without a trusted route", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "Private/debug.md": "# Debug\nSecret incident root cause.",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: () => [{ delta: "should not be called", finishReason: "stop" }],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.settings.save({
+      ...core.settings.current,
+      providers: [
+        {
+          id: "p",
+          name: "Mock",
+          baseUrl: "https://x",
+          apiKeyRef: "k",
+          defaultHeaders: {},
+          enabled: true,
+          createdAt: 0,
+          trustedForPrivate: false,
+        },
+      ],
+    });
+    core.applySettings(core.settings.current);
+    await core.indexExistingVaultFile("Private/debug.md");
+
+    const solved = await core.solveProblem({
+      question: "secret root cause",
+      privacyScope: "private",
+    });
+
+    expect(solved.solution.evidenceStatus).toBe("missing");
+    expect(solved.blockedReason).toBe("private-route-missing");
+    expect(provider.calls.chat).toEqual([]);
+  });
+
+  it("saves an editable experience card to the configured folder and indexes it", async () => {
+    const host = new InMemoryHostAdapter({
+      now: () => Date.UTC(2026, 4, 24),
+      newId: (() => {
+        const ids = ["exp-note-1", "private-exp-note-1", "exp-note-2"];
+        let n = 0;
+        return () => ids[n++] ?? `id-${n}`;
+      })(),
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await core.settings.save({
+      ...core.settings.current,
+      ui: {
+        ...core.settings.current.ui,
+        experienceFolder: "Experience",
+        privateExperienceFolder: "Private Experience",
+      },
+    });
+
+    const note = await core.saveExperienceCard({
+      title: "SwiftUI state loss",
+      problem: "SwiftUI 状态丢失怎么办？",
+      summary: "稳定 List row identity。",
+      steps: ["检查 id 来源", "把状态提升到稳定 owner"],
+      tags: ["swiftui", "debug"],
+      confidence: "medium",
+      evidenceStatus: "partial",
+      citations: [
+        {
+          index: 1,
+          noteId: "n1",
+          vaultPath: "notes/swiftui.md",
+          title: "SwiftUI",
+          chunkId: "c1",
+          headingPath: "",
+          excerpt: "State is lost",
+          url: null,
+          tokenCount: 5,
+          truncated: false,
+        },
+      ],
+      privacyScope: "public",
+    });
+
+    expect(note.vaultPath).toBe("Experience/2026/05/exp-note-1-swiftui-state-loss.md");
+    const raw = await host.readFile(note.vaultPath);
+    expect(raw).toContain("aether_experience: true");
+    expect(raw).toContain("aether_problem: SwiftUI 状态丢失怎么办？");
+    expect(raw).toContain("aether_solution_confidence: medium");
+    expect(raw).toContain("aether_evidence_status: partial");
+    expect(raw).toContain("## 推荐步骤");
+    expect(
+      (await core.search({ query: "stable owner", limit: 3 })).map((hit) => hit.vaultPath),
+    ).toContain(note.vaultPath);
+
+    const privateNote = await core.saveExperienceCard({
+      title: "Private incident",
+      problem: "私密事故怎么处理？",
+      summary: "secret stable owner",
+      steps: ["只在私密范围复盘"],
+      tags: ["incident"],
+      confidence: "low",
+      evidenceStatus: "missing",
+      citations: [],
+      privacyScope: "private",
+    });
+
+    expect(privateNote.vaultPath).toBe("Private Experience/2026/05/private-ex-private-incident.md");
+    expect(
+      (await core.search({ query: "secret stable owner", privacyScope: "public" })).map(
+        (hit) => hit.vaultPath,
+      ),
+    ).not.toContain(privateNote.vaultPath);
+    expect(
+      (await core.search({ query: "secret stable owner", privacyScope: "private" })).map(
+        (hit) => hit.vaultPath,
+      ),
+    ).toContain(privateNote.vaultPath);
+
+    const allScopePrivateCitation = await core.saveExperienceCard({
+      title: "All private source",
+      problem: "all 范围引用私密来源时写到哪里？",
+      summary: "private cited evidence",
+      steps: ["保存到私密经验目录"],
+      tags: ["privacy"],
+      confidence: "medium",
+      evidenceStatus: "partial",
+      citations: [
+        {
+          index: 1,
+          noteId: "n-private",
+          vaultPath: "Private/source.md",
+          title: "Private source",
+          chunkId: "c-private",
+          headingPath: "",
+          excerpt: "Private evidence",
+          url: null,
+          tokenCount: 4,
+          truncated: false,
+        },
+      ],
+      privacyScope: "all",
+    });
+
+    expect(allScopePrivateCitation.vaultPath).toBe(
+      "Private Experience/2026/05/exp-note-2-all-private-source.md",
+    );
+  });
+
   it("merges an inbox item into an existing note and refreshes the index", async () => {
     const host = new InMemoryHostAdapter({
       files: {

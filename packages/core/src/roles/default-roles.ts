@@ -63,11 +63,37 @@ const T_ANSWER = `你是个人知识库问答助手。请只基于给定检索�
 {{context}}
 --- 片段结束 ---`;
 
+const T_SOLVE = `你是一个帮助用户调动历史经验的解决问题助手。请基于给定检索片段，为用户问题输出可执行解决方案。
+
+要求：
+- 优先使用历史片段里的经验和事实，引用时使用片段编号，如 [1]、[2]。
+- 如果历史片段不足，仍可给通用建议，但 confidence 必须为 "low"，evidenceStatus 必须为 "missing" 或 "partial"。
+- steps 必须是可执行动作，不要写空泛建议。
+- 仅返回单个 JSON 对象，不要 Markdown，不要额外说明。
+
+JSON 字段：
+{
+  "summary": "直接结论，≤ 160 字",
+  "confidence": "high | medium | low",
+  "evidenceStatus": "supported | partial | missing",
+  "likelyCauses": ["可能原因，最多 5 条"],
+  "steps": ["推荐步骤，最多 7 条"],
+  "risks": ["风险或注意事项，最多 5 条"],
+  "missingInfo": ["还缺哪些信息，最多 5 条"]
+}
+
+用户问题：{{question}}
+
+--- 检索片段 ---
+{{context}}
+--- 片段结束 ---`;
+
 export const BUILTIN_ROLE_IDS = [
   "summarize",
   "rewrite",
   "extract",
   "critique",
+  "solve",
   "answer",
   "inbox_metadata",
   "embedding",
@@ -131,6 +157,17 @@ export const BUILTIN_ROLE_SEEDS: BuiltInRoleSeed[] = [
     outputKind: "text",
     params: { temperature: 0.5 },
     showInEditor: true,
+  },
+  {
+    id: "solve",
+    name: "解决问题",
+    icon: "badge-check",
+    description: "基于历史经验输出可执行解决步骤",
+    promptTemplate: T_SOLVE,
+    variables: ["question", "context"],
+    outputKind: "metadata",
+    params: { temperature: 0.2, maxTokens: 1000 },
+    showInEditor: false,
   },
   {
     id: "answer",
