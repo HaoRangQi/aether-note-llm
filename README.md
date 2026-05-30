@@ -12,7 +12,7 @@
     <img alt="provider" src="https://img.shields.io/badge/AI-OpenAI%20兼容-orange" />
   </a>
   <a href="./docs/testing/strategy.md">
-    <img alt="tests" src="https://img.shields.io/badge/tests-374%20passed-brightgreen" />
+    <img alt="tests" src="https://img.shields.io/badge/tests-399%20passed-brightgreen" />
   </a>
   <a href="./docs/architecture/core-package.md">
     <img alt="coverage" src="https://img.shields.io/badge/coverage-90.5%25-brightgreen" />
@@ -30,8 +30,8 @@
 
 Aether 装到 Obsidian 后，你可以：
 
-- **吸纳**：把散落的 markdown、粘贴文本、Chrome 书签和 URL 列表一键塞进 vault（URL 列表保存链接，不自动抓取网页正文）
-- **沉淀**：AI 自动起标题、打标签、写摘要，预览确认后写入 `Aether Inbox/`
+- **吸纳**：把散落的 markdown、目录批量 markdown、粘贴文本、Chrome 书签和 URL 列表一键塞进 vault（URL 列表保存链接，不自动抓取网页正文）
+- **沉淀**：AI 自动起标题、打标签、写摘要和推荐分类，预览确认后按 `分类/年/月` 写入 `Aether Inbox/`
 - **召回**：自然语言搜索 → 跨笔记 / 跨书签 / 命中片段高亮 + 一键跳转原文
 - **重写**：编辑器里选中任意段落 → 右键 AI 改写 / 总结 / 提要点
 
@@ -41,20 +41,20 @@ Aether 装到 Obsidian 后，你可以：
 
 ## ✨ 30 秒看核心能力
 
-| 能力                 | 关键词                                                                         |
-| -------------------- | ------------------------------------------------------------------------------ |
-| 🪄 智能导入          | markdown 文件 / 粘贴文本 / Chrome 书签 JSON / iTab / URL 列表                  |
-| 🧠 AI 自动元数据     | 标题 / 标签 / 摘要 / 重复检测（向量 cosine ≥ 0.92）                            |
-| 🧭 Hub 主面板        | 搜索 / 最近导入 / 快速导入 / Provider 状态集中到一个入口                       |
-| 🔍 混合检索          | BM25 文本 + 向量语义；Hub 显示 Hybrid / BM25 / Stale-biased 与降级原因         |
-| 💬 综合回答          | 基于当前搜索结果生成带引用回答，引用可打开笔记或书签                           |
-| ✏️ 段落级 AI 辅助    | 选中段 → 右键 → rewrite / summarize / extract                                  |
-| 🔗 书签搜得到 + 点开 | 书签和笔记同搜索框；命中点击打开默认浏览器                                     |
-| 🔌 多 Provider 接入  | 任何 OpenAI 兼容端点：DeepSeek / Kimi / 智谱 / OpenRouter / Ollama / 自托管    |
-| 🎭 AI 角色           | 内置 / 自定义 Role 可分别绑定 Provider、模型、提示词和参数，提示词变量会被诊断 |
-| 💸 token 用量统计    | 月度聚合 + 预算告警                                                            |
-| 🧾 最近任务          | 导入 / 刷新变更 / 重建任务状态、耗时、数量摘要和失败明细                       |
-| 🩺 诊断包导出        | 一键脱敏报告，含版本 / 索引 / 最近任务 / 用量                                  |
+| 能力                 | 关键词                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| 🪄 智能导入          | markdown 文件 / 目录批量导入（.md/.markdown）/ 粘贴文本 / Chrome 书签 JSON / iTab / URL 列表 |
+| 🧠 AI 自动元数据     | 标题 / 标签 / 摘要 / 推荐分类 / 重复检测（向量 cosine ≥ 0.92）                               |
+| 🧭 Hub 主面板        | 搜索 / 最近导入 / 快速导入 / Provider 状态集中到一个入口                                     |
+| 🔍 混合检索          | BM25 文本 + 向量语义；Hub 显示 Hybrid / BM25 / Stale-biased 与降级原因                       |
+| 💬 综合回答          | 基于当前搜索结果生成带引用回答，引用可打开笔记或书签                                         |
+| ✏️ 段落级 AI 辅助    | 选中段 → 右键 → rewrite / summarize / extract                                                |
+| 🔗 书签搜得到 + 点开 | 书签和笔记同搜索框；命中点击打开默认浏览器                                                   |
+| 🔌 多 Provider 接入  | 任何 OpenAI 兼容端点：DeepSeek / Kimi / 智谱 / OpenRouter / Ollama / 自托管                  |
+| 🎭 AI 角色           | 内置 / 自定义 Role 可分别绑定 Provider、模型、提示词和参数，提示词变量会被诊断               |
+| 💸 token 用量统计    | 月度聚合 + 预算告警                                                                          |
+| 🧾 最近任务          | 目录后台导入 / 导入写入 / 刷新变更 / 重建任务状态、耗时、数量摘要和失败明细                  |
+| 🩺 诊断包导出        | 一键脱敏报告，含版本 / 索引 / 最近任务 / 用量                                                |
 
 ---
 
@@ -69,6 +69,9 @@ Aether 装到 Obsidian 后，你可以：
 - Hub 主面板已取代旧 Search / Inbox 双视图
 - AI Role 已取代旧 Feature Binding，支持自定义编辑器角色
 - 导入当前走预览确认：生成 metadata 后先展示清单，写入用户勾选的条目
+- 导入支持可配置分类，默认按 `教程 / AI 提示词 / 生活 / 历史 / 工作 / 其他` 写入 `分类/年/月`
+- 新增目录导入 tab：可按目录批量后台导入 `.md/.markdown`，进度持续显示并写入最近任务
+- 新增整理已有笔记命令：先预览分类移动计划，用户确认后再移动文件
 - 写入失败的导入项可从结果页、Hub 待处理入口或命令面板继续处理
 - 搜索在 embedding 缺失或 Provider 短暂失败时降级到 BM25，并在 Hub 展示当前模式与原因
 - 搜索结果页已支持基于当前命中的综合回答和引用跳转

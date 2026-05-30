@@ -13,10 +13,13 @@ import {
   type ImportPipelineRunOptions,
 } from "./import/pipeline.js";
 import { InboxStore } from "./import/inbox-store.js";
+import { findImportCategory, resolveImportCategoryId } from "./import/categories.js";
+import { ImportOrganizer } from "./import/organizer.js";
+import { buildUniqueImportVaultPath } from "./import/pathing.js";
 import { OramaIndexStore } from "./index-store/orama-store.js";
 import { chunkMarkdown } from "./markdown/chunker.js";
 import { deriveTitle, parseDocument, serializeDocument } from "./markdown/frontmatter.js";
-import { newUlid, slugify } from "./ids.js";
+import { newUlid } from "./ids.js";
 import { sha256Hex } from "./hash.js";
 import { openAICompatibleFactory } from "./provider/openai-compatible.js";
 import { ProviderRegistry } from "./provider/registry.js";
@@ -34,6 +37,9 @@ import type {
   IndexRefreshOptions,
   IndexRefreshFailure,
   IndexRefreshResult,
+  ImportOrganizeApplyResult,
+  ImportOrganizePlan,
+  ImportOrganizePreviewOptions,
   ImportSource,
   Note,
   PersistedIndex,
@@ -79,6 +85,7 @@ export class AetherCore {
   readonly usage: TokenUsageStore;
   private readonly searchEngine: SearchEngine;
   private readonly pipeline: ImportPipeline;
+  private readonly organizer: ImportOrganizer;
   private staleCount = 0;
   private embeddingDim = 8;
   private embeddingModel: string | null = null;
@@ -118,6 +125,7 @@ export class AetherCore {
       roles: this.roles,
       store: this.store,
       inbox: this.inbox,
+      getImportCategories: () => this.settings.current.importing.categories,
       onUsage: (args) => this.recordUsage(args),
       resolvePrivateRoute: (feature) => this.resolvePrivateRoute(feature),
       connectors: [
@@ -128,6 +136,17 @@ export class AetherCore {
         new UrlListConnector(),
         new ITabConnector(),
       ],
+    });
+    this.organizer = new ImportOrganizer({
+      host,
+      registry: this.registry,
+      roles: this.roles,
+      categories: () => this.settings.current.importing.categories,
+      notes: () => this.store.allNotes(),
+      reindexPath: (vaultPath, options) => this.indexExistingVaultFile(vaultPath, options),
+      removeStaleNote: (noteId) => this.store.removeNote(noteId),
+      saveIndex: () => this.saveIndex(),
+      onUsage: (args) => this.recordUsage(args),
     });
   }
 
@@ -186,12 +205,20 @@ export class AetherCore {
       target === "private"
         ? settings.privacy.privateInboxFolder.replace(/\/+$/, "")
         : settings.ui.aetherInboxFolder.replace(/\/+$/, "");
-    const d = new Date(this.host.now());
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const subdir = item.kind === "bookmark" ? "bookmarks" : "notes";
-    const slug = slugify(item.proposedTitle).slice(0, 40) || "untitled";
-    const vaultPath = `${folder}/${subdir}/${year}/${month}/${item.id.slice(0, 10)}-${slug}.md`;
+    const categoryId = resolveImportCategoryId(
+      item.proposedCategoryId,
+      settings.importing.categories,
+    );
+    const category = findImportCategory(settings.importing.categories, categoryId);
+    const vaultPath = await buildUniqueImportVaultPath({
+      rootFolder: folder,
+      itemId: item.id,
+      title: item.proposedTitle,
+      categoryId,
+      categories: settings.importing.categories,
+      now: this.host.now(),
+      host: this.host,
+    });
     const noteId = newUlid();
     const fm = {
       aether_id: noteId,
@@ -199,6 +226,8 @@ export class AetherCore {
       title: item.proposedTitle,
       tags: item.proposedTags,
       aether_summary: item.proposedSummary || null,
+      aether_category: category.id,
+      aether_category_label: category.label,
       aether_source: "import" as const,
       aether_url: item.url,
       aether_created: this.host.now(),
@@ -253,7 +282,9 @@ export class AetherCore {
 
   async updateInboxItemDraft(
     itemId: string,
-    patch: Partial<Pick<InboxItem, "proposedTitle" | "proposedSummary" | "proposedTags">>,
+    patch: Partial<
+      Pick<InboxItem, "proposedTitle" | "proposedSummary" | "proposedTags" | "proposedCategoryId">
+    >,
   ): Promise<void> {
     const next = this.inbox.updateDraft(itemId, {
       ...(patch.proposedTitle !== undefined
@@ -270,10 +301,29 @@ export class AetherCore {
               .slice(0, 12),
           }
         : {}),
+      ...(patch.proposedCategoryId !== undefined
+        ? {
+            proposedCategoryId: resolveImportCategoryId(
+              patch.proposedCategoryId,
+              this.settings.current.importing.categories,
+            ),
+          }
+        : {}),
     });
     if (!next)
       throw new AetherError("PARSE_ERROR", `Inbox item not found or not pending: ${itemId}`);
     await this.inbox.save();
+  }
+
+  async previewOrganizeImports(options: ImportOrganizePreviewOptions): Promise<ImportOrganizePlan> {
+    return this.organizer.preview(options);
+  }
+
+  async applyOrganizeImports(
+    plan: ImportOrganizePlan,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ImportOrganizeApplyResult> {
+    return this.organizer.apply(plan, options);
   }
 
   async mergeInboxItem(itemId: string, intoNoteId: string): Promise<Note> {
@@ -1087,7 +1137,11 @@ export class AetherCore {
     if (privateRoute && this.isProviderTrustedForPrivate(privateRoute.providerId)) {
       return privateRoute;
     }
-    if (fallback.providerId && fallback.modelName && this.isProviderTrustedForPrivate(fallback.providerId)) {
+    if (
+      fallback.providerId &&
+      fallback.modelName &&
+      this.isProviderTrustedForPrivate(fallback.providerId)
+    ) {
       return { providerId: fallback.providerId, modelName: fallback.modelName };
     }
     return null;
@@ -1100,10 +1154,13 @@ export class AetherCore {
     return { providerId, modelName };
   }
 
-  private roleBindingForFeature(
-    feature: RouteFeature,
-  ): RoleBindingRoute | null {
-    const roleId = feature === "embedding" ? "embedding" : feature === "inbox_metadata" ? "inbox_metadata" : "answer";
+  private roleBindingForFeature(feature: RouteFeature): RoleBindingRoute | null {
+    const roleId =
+      feature === "embedding"
+        ? "embedding"
+        : feature === "inbox_metadata"
+          ? "inbox_metadata"
+          : "answer";
     return this.resolveRoleBinding(roleId);
   }
 

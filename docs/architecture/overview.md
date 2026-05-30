@@ -52,17 +52,34 @@ User types → HubView debounces 300 ms
 User pastes text in ImportModal
   → AetherCore.importSource(source)
     → SourceConnector.parse → AsyncIterable<RawCandidate>
-    → For each: proposeMetadata (AI role=inbox_metadata)
+    → For each: proposeMetadata (AI role=inbox_metadata: title/tags/summary/category)
                 detectDuplicate (vector cosine ≥ 0.92)
                 InboxStore.addItem (status=pending)
     → InboxStore.save() (persisted to plugin data)
-  → ImportPreviewModal renders editable preview
+  → ImportPreviewModal renders editable preview, category picker, target path preview
   → User chooses create / merge / discard and clicks write selected
   → AetherCore.approveInboxItem(itemId) or mergeInboxItem(itemId, noteId)
-    → Write markdown file or merge into target via host.writeFile
+    → Write markdown file under <inbox>/<category>/<yyyy>/<mm>/ or merge into target via host.writeFile
     → reindexNote (chunk + embed + insert)
     → InboxStore.updateStatus → maybeArchive
   → ImportResultModal shows written / merged / failed items
+```
+
+### Organize imported notes
+
+```
+User runs "Organize imported notes…"
+  → OrganizeImportsModal collects root folder and optional YYYY/MM range
+  → AetherCore.previewOrganizeImports()
+    → ImportOrganizer reads indexed note title / summary / tags only
+    → inbox_metadata classifies a category
+    → build target path preview without moving files
+  → User selects preview rows and confirms
+  → AetherCore.applyOrganizeImports()
+    → Write moved markdown with updated category frontmatter
+    → Reindex target path
+    → Delete original file
+    → Roll back target file/index if a move step fails
 ```
 
 ## Why Obsidian Plugin first?

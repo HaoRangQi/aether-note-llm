@@ -1,6 +1,12 @@
 import type { ImportSource } from "@aether/core";
 
 export const IMPORT_FILE_ACCEPT = ".md,.markdown,.txt,.url,.itabdata,.json";
+export const IMPORT_DIRECTORY_ACCEPT = ".md,.markdown";
+
+export interface DirectoryMarkdownFile {
+  path: string;
+  content: string;
+}
 
 export function buildImportSourceFromPaste(text: string, label: string): ImportSource {
   const urls = parseUrlList(text);
@@ -50,6 +56,22 @@ export function buildImportSourceFromFile(raw: string, fileName: string): Import
     }
   }
   return null;
+}
+
+export function buildImportSourceFromMarkdownFiles(
+  files: DirectoryMarkdownFile[],
+  label: string,
+): ImportSource {
+  return {
+    kind: "file",
+    label,
+    payload: { type: "markdown-files", files },
+  };
+}
+
+export function isMarkdownFileName(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return lower.endsWith(".md") || lower.endsWith(".markdown");
 }
 
 export function parseUrlList(raw: string): string[] {

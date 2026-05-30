@@ -48,7 +48,10 @@ describe("import target privacy switch", () => {
 
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(plugin.core.settings.save).not.toHaveBeenCalled();
-    expect(modal.contentEl.textContent).toContain("私密导入会写入私密目录");
+    expect(modal.contentEl.textContent).toContain("警示：当前为私密导入");
+    const target = modal.contentEl.querySelector(".aether-import-target-wrap");
+    expect(target?.cls).toContain("is-private");
+    expect(modal.contentEl.querySelector(".aether-import-target-hint--private")).toBeTruthy();
   });
 
   it("forwards selected target to core importSource and persists last target", async () => {
@@ -90,6 +93,7 @@ function makePlugin() {
     proposedTitle: "hello",
     proposedTags: [],
     proposedSummary: "",
+    proposedCategoryId: "other",
     content: "hello",
     kind: "note",
     url: null,

@@ -14,10 +14,16 @@ import {
 import {
   buildImportSourceFromFile,
   buildImportSourceFromPaste,
+  IMPORT_DIRECTORY_ACCEPT,
   IMPORT_FILE_ACCEPT,
 } from "../ui/import-source.js";
+import {
+  listDirectoryMarkdownFiles,
+  runDirectoryImportJob,
+  type DirectoryImportFileLike,
+} from "../ui/directory-import.js";
 
-type Mode = "paste" | "file";
+type Mode = "paste" | "file" | "directory";
 type ImportTarget = "public" | "private";
 
 interface ImportedNoteSummary {
@@ -104,19 +110,26 @@ export class ImportModal extends Modal {
     };
     mkTab("paste", "clipboard-paste", t("modal.import.tab.paste"));
     mkTab("file", "file-up", t("modal.import.tab.file"));
+    mkTab("directory", "folder-down", t("modal.import.tab.directory"));
     this.renderTargetSwitch(el);
 
     // —— 内容区 ——
     const body = el.createDiv({ cls: "aether-import-body" });
     if (this.mode === "paste") {
       this.renderPaste(body);
-    } else {
+    } else if (this.mode === "file") {
       this.renderFile(body);
+    } else {
+      this.renderDirectory(body);
     }
   }
 
   private renderTargetSwitch(root: HTMLElement): void {
-    const wrap = root.createDiv({ cls: "aether-import-target-wrap" });
+    const wrap = root.createDiv({
+      cls: `aether-import-target-wrap${
+        this.privacyTarget === "private" ? " is-private" : " is-public"
+      }`,
+    });
     wrap.createDiv({
       cls: "aether-import-target-title",
       text: t("modal.import.target.title"),
@@ -133,13 +146,18 @@ export class ImportModal extends Modal {
     };
     mk("private", t("modal.import.target.private"));
     mk("public", t("modal.import.target.public"));
-    wrap.createDiv({
-      cls: "aether-import-target-hint",
+    const hint = wrap.createDiv({
+      cls: `aether-import-target-hint${
+        this.privacyTarget === "private" ? " aether-import-target-hint--private" : ""
+      }`,
       text:
         this.privacyTarget === "private"
           ? t("modal.import.target.privateHint")
           : t("modal.import.target.publicHint"),
     });
+    if (this.privacyTarget === "private") {
+      hint.createSpan({ cls: "aether-import-target-warning-dot", text: "!" });
+    }
   }
 
   private async switchTarget(target: ImportTarget): Promise<void> {
@@ -253,6 +271,72 @@ export class ImportModal extends Modal {
     });
   }
 
+  // ---- 目录导入 ----
+  private renderDirectory(body: HTMLElement): void {
+    body.createEl("p", {
+      cls: "aether-import-file-desc",
+      text: t("modal.import.directory.desc"),
+    });
+
+    const dropZone = body.createDiv({ cls: "aether-import-dropzone" });
+    const dzIcon = dropZone.createDiv({ cls: "aether-import-dropzone-icon" });
+    setIcon(dzIcon, "folder-down");
+    const dzLabel = dropZone.createDiv({ cls: "aether-import-dropzone-label" });
+    dzLabel.setText(t("modal.import.directory.noFolder"));
+
+    const directoryInput = body.createEl("input");
+    directoryInput.type = "file";
+    directoryInput.accept = IMPORT_DIRECTORY_ACCEPT;
+    directoryInput.multiple = true;
+    (directoryInput as HTMLInputElement & { webkitdirectory?: boolean }).webkitdirectory = true;
+    directoryInput.style.display = "none";
+
+    let directoryFiles: DirectoryImportFileLike[] = [];
+
+    const updateSelection = (files: File[]): void => {
+      directoryFiles = listDirectoryMarkdownFiles(files);
+      if (directoryFiles.length > 0) {
+        dropZone.addClass("has-file");
+      } else {
+        dropZone.removeClass("has-file");
+      }
+      dzLabel.setText(
+        directoryFiles.length > 0
+          ? t("modal.import.directory.ready", { count: directoryFiles.length })
+          : t("modal.import.directory.noFolder"),
+      );
+    };
+
+    dropZone.onclick = () => directoryInput.click();
+    directoryInput.onchange = () => {
+      updateSelection(Array.from(directoryInput.files ?? []));
+    };
+
+    const actions = body.createDiv({ cls: "aether-result-actions" });
+    const cancelBtn = actions.createEl("button", {
+      cls: "aether-result-btn",
+      text: t("common.cancel"),
+    });
+    cancelBtn.onclick = () => this.close();
+
+    const importBtn = actions.createEl("button", {
+      cls: "aether-result-btn aether-result-btn--cta",
+    });
+    const importIcon = importBtn.createSpan();
+    setIcon(importIcon, "folder-down");
+    importBtn.createSpan({ text: " " + t("modal.import.directory.button") });
+    importBtn.onclick = () => {
+      if (directoryFiles.length === 0) {
+        new Notice(t("modal.import.directory.empty"), 3000);
+        return;
+      }
+      const files = [...directoryFiles];
+      this.close();
+      void runDirectoryImportJob(this.plugin, files, { target: this.privacyTarget });
+      new Notice(t("modal.import.directory.started", { count: files.length }), 4000);
+    };
+  }
+
   private renderActions(body: HTMLElement, onImport: () => Promise<boolean>): void {
     const actions = body.createDiv({ cls: "aether-result-actions" });
     const cancelBtn = actions.createEl("button", {
@@ -356,7 +440,12 @@ class ImportPreviewModal extends Modal {
   private readonly decisions = new Map<string, ImportDecision>();
   private readonly drafts = new Map<
     string,
-    { proposedTitle: string; proposedSummary: string; proposedTagsText: string }
+    {
+      proposedTitle: string;
+      proposedSummary: string;
+      proposedTagsText: string;
+      proposedCategoryId: string;
+    }
   >();
   private finalized = false;
   private working = false;
@@ -380,6 +469,7 @@ class ImportPreviewModal extends Modal {
         proposedTitle: item.proposedTitle,
         proposedSummary: item.proposedSummary,
         proposedTagsText: item.proposedTags.join(", "),
+        proposedCategoryId: item.proposedCategoryId,
       });
     }
   }
@@ -477,6 +567,11 @@ class ImportPreviewModal extends Modal {
         onInput: (value) => {
           draft.proposedTagsText = value;
         },
+      });
+      this.renderCategoryField(main, item, draft);
+      main.createDiv({
+        cls: "aether-import-result-path",
+        text: this.previewTargetPath(item, draft),
       });
       if (item.duplicateOf) {
         meta.createSpan({
@@ -696,6 +791,7 @@ class ImportPreviewModal extends Modal {
     proposedTitle: string;
     proposedSummary: string;
     proposedTagsText: string;
+    proposedCategoryId: string;
   } {
     let draft = this.drafts.get(item.id);
     if (!draft) {
@@ -703,10 +799,68 @@ class ImportPreviewModal extends Modal {
         proposedTitle: item.proposedTitle,
         proposedSummary: item.proposedSummary,
         proposedTagsText: item.proposedTags.join(", "),
+        proposedCategoryId: item.proposedCategoryId,
       };
       this.drafts.set(item.id, draft);
     }
     return draft;
+  }
+
+  private renderCategoryField(
+    parent: HTMLElement,
+    item: InboxItem,
+    draft: {
+      proposedCategoryId: string;
+    },
+  ): void {
+    const wrap = parent.createDiv({ cls: "aether-import-preview-field" });
+    wrap.createDiv({
+      cls: "aether-import-preview-field-label",
+      text: t("modal.importPreview.field.category"),
+    });
+    const select = wrap.createEl("select", { cls: "aether-import-preview-category-select" });
+    const categories = this.plugin.core.settings.current.importing.categories;
+    for (const category of categories) {
+      const option = select.createEl("option", { text: category.label });
+      option.value = category.id;
+    }
+    select.value = categories.some((category) => category.id === draft.proposedCategoryId)
+      ? draft.proposedCategoryId
+      : "other";
+    select.disabled = this.working;
+    select.onchange = () => {
+      draft.proposedCategoryId = select.value;
+      this.render();
+    };
+    if (item.duplicateOf) {
+      wrap.createDiv({
+        cls: "aether-import-target-hint",
+        text: t("modal.importPreview.categoryMergeHint"),
+      });
+    }
+  }
+
+  private previewTargetPath(
+    item: InboxItem,
+    draft: { proposedTitle: string; proposedCategoryId: string },
+  ): string {
+    const settings = this.plugin.core.settings.current;
+    const root =
+      this.privacyTarget === "private"
+        ? settings.privacy.privateInboxFolder
+        : settings.ui.aetherInboxFolder;
+    const category =
+      settings.importing.categories.find((c) => c.id === draft.proposedCategoryId) ??
+      settings.importing.categories.find((c) => c.id === "other");
+    const folderName =
+      category?.folderName ?? category?.label ?? t("modal.importPreview.categoryOther");
+    const date = new Date(item.createdAt || Date.now());
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const title = draft.proposedTitle.trim() || item.proposedTitle || item.sourceRef || item.id;
+    return t("modal.importPreview.targetPath", {
+      path: `${root.replace(/\/+$/, "")}/${folderName}/${year}/${month}/…-${title}.md`,
+    });
   }
 
   private renderEditableField(
@@ -742,6 +896,7 @@ class ImportPreviewModal extends Modal {
       proposedTitle: draft.proposedTitle.trim() || item.sourceRef || item.id,
       proposedSummary: draft.proposedSummary,
       proposedTags: parseTags(draft.proposedTagsText),
+      proposedCategoryId: draft.proposedCategoryId,
     });
   }
 

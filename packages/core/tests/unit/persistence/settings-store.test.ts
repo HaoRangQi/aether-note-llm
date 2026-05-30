@@ -19,6 +19,18 @@ describe("migrateSettings", () => {
       privateInboxFolder: "Aether Private Inbox",
       importLastTarget: null,
     });
+    expect(s.importing.categories.map((c) => c.id)).toEqual([
+      "tutorial",
+      "ai-prompts",
+      "life",
+      "history",
+      "work",
+      "other",
+    ]);
+    expect(s.importing.categories.find((c) => c.id === "other")).toMatchObject({
+      label: "其他",
+      folderName: "其他",
+    });
   });
 
   it("v1 → v2 migrates bindings into role provider/model", () => {
@@ -167,11 +179,37 @@ describe("migrateSettings", () => {
         language: "en",
       },
       flags: { aiTrace: true },
+      importing: {
+        categories: [
+          { id: "books", label: "阅读", folderName: "阅读", keywords: ["book"] },
+          { id: "other", label: "未分类", folderName: "未分类" },
+        ],
+      },
     });
     expect(s.ui.alpha).toBe(0.7);
     expect(s.ui.aetherInboxFolder).toBe("X");
     expect(s.ui.language).toBe("en");
     expect(s.flags.aiTrace).toBe(true);
+    expect(s.importing.categories).toEqual([
+      { id: "books", label: "阅读", folderName: "阅读", keywords: ["book"] },
+      { id: "other", label: "未分类", folderName: "未分类", keywords: [] },
+    ]);
+  });
+
+  it("normalizes import categories and always keeps other fallback", () => {
+    const s = migrateSettings({
+      schemaVersion: 2,
+      importing: {
+        categories: [
+          { id: "ai prompts!", label: "AI/提示词", folderName: "AI/提示词", keywords: ["AI", ""] },
+          { id: "ai prompts!", label: "Duplicate", folderName: "Duplicate" },
+        ],
+      },
+    });
+    expect(s.importing.categories).toEqual([
+      { id: "ai-prompts", label: "AI/提示词", folderName: "AI提示词", keywords: ["AI"] },
+      { id: "other", label: "其他", folderName: "其他", keywords: [] },
+    ]);
   });
 
   it("invalid language falls back to zh-CN", () => {

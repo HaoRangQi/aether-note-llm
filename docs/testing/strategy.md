@@ -126,8 +126,9 @@ pnpm --filter @aether/core test:coverage
   Notices while keeping the current recent/search list visible.
 - Activity indicator regressions cover the shared floating task UI used by AI
   roles, import writes, refresh, and rebuild: progress metadata updates keep the
-  elapsed timer, cancel callbacks are idempotent, and starting a new task
-  cancels the previous active indicator.
+  elapsed timer, cancel callbacks are idempotent, multiple active indicators can
+  coexist with stack positioning, and remaining indicators are re-stacked after
+  one hides.
 - Editor AI Role command regressions cover command-palette guardrails: without
   an editor selection the direct role commands and `Run current AI role…` both
   show a selection notice without calling the provider, opening the role picker,
@@ -138,7 +139,7 @@ pnpm --filter @aether/core test:coverage
   an unavailable-role notice without calling the provider, and after cancellation
   a late provider result does not open a rewrite modal or replace the editor
   selection.
-- Current full baseline: 384 tests = core 247 + plugin 137.
+- Current full baseline: 399 tests = core 255 + plugin 144.
 
 ## Manual smoke checklist
 
@@ -158,9 +159,13 @@ Run before every release. Use a clean test vault. The full UAT script lives in
 4. **Import preview**
    - Command palette → `Import…`. Paste text or a URL list.
    - Confirm import target defaults to `Private import` on first use, then remembers the last selected target.
+   - Confirm the private target is visually marked as a red warning state.
    - Switch to `Public import` and confirm explicit risk confirmation is required before continuing.
-   - Confirm the preview list appears, edit one title/tag/summary, then write selected items.
-   - Verify public target writes into `Aether Inbox/...`; private target writes into `Aether Private Inbox/...`.
+   - Confirm the preview list appears, edit one title/tag/summary/category, then write selected items.
+   - Verify public target writes into `Aether Inbox/<category>/<yyyy>/<mm>/...`; private target writes into `Aether Private Inbox/<category>/<yyyy>/<mm>/...`, and generated frontmatter includes `aether_category` plus `aether_category_label`.
+   - Switch to `Import folder`, choose a folder containing markdown files, then confirm background progress appears, keeps running alongside other activity cards, and final status/failures are recorded in recent jobs.
+   - In Settings → Advanced, confirm import categories are grouped in one collapsible card and can be added/restored.
+   - Run `Organize imported notes…`, generate a preview for `Aether Inbox`, and confirm no files move until selected preview rows are applied.
 5. **Pending import retry**
    - Force or simulate a write failure if practical.
    - Confirm failed write items remain pending and can be reopened from Hub or `Review pending imports`.

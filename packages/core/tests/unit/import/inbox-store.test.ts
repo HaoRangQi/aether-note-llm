@@ -12,6 +12,7 @@ function mkItem(id: string, batchId: string, overrides: Partial<InboxItem> = {})
     proposedTitle: id,
     proposedTags: [],
     proposedSummary: "",
+    proposedCategoryId: "other",
     content: "body",
     kind: "note",
     url: null,

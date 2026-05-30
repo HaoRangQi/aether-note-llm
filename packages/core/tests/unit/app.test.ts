@@ -171,7 +171,9 @@ describe("AetherCore", () => {
       limit: 10,
     });
     const publicPaths = publicResult.hits.map((hit) => hit.vaultPath);
-    expect(publicPaths).toEqual(expect.arrayContaining(["Private Draft/leak.md", "Public/keep.md"]));
+    expect(publicPaths).toEqual(
+      expect.arrayContaining(["Private Draft/leak.md", "Public/keep.md"]),
+    );
     expect(publicPaths).not.toContain("Private/keep.md");
   });
 
@@ -187,7 +189,12 @@ describe("AetherCore", () => {
     await configureMockProvider(core, provider);
 
     await expect(
-      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+      core.runRole(
+        "summarize",
+        { selection: "secret", maxSentences: 3 },
+        undefined,
+        "Private/a.md",
+      ),
     ).rejects.toMatchObject({ code: "BINDING_NOT_FOUND" });
     expect(provider.calls.chat).toHaveLength(0);
 
@@ -200,7 +207,12 @@ describe("AetherCore", () => {
     core.applySettings(core.settings.current);
 
     await expect(
-      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+      core.runRole(
+        "summarize",
+        { selection: "secret", maxSentences: 3 },
+        undefined,
+        "Private/a.md",
+      ),
     ).resolves.toBe("private summary");
     expect(provider.calls.chat).toHaveLength(1);
   });
@@ -264,7 +276,12 @@ describe("AetherCore", () => {
     core.applySettings(core.settings.current);
 
     await expect(
-      core.runRole("summarize", { selection: "secret", maxSentences: 3 }, undefined, "Private/a.md"),
+      core.runRole(
+        "summarize",
+        { selection: "secret", maxSentences: 3 },
+        undefined,
+        "Private/a.md",
+      ),
     ).resolves.toBe("private summary");
     expect(trustedProvider.calls.chat).toHaveLength(1);
     expect(trustedProvider.calls.chat[0]?.model).toBe("private-model");
@@ -291,6 +308,7 @@ describe("AetherCore", () => {
       proposedTitle: "Private Note",
       proposedTags: ["private"],
       proposedSummary: "",
+      proposedCategoryId: "life",
       content: "secret content",
       kind: "note",
       url: null,
@@ -302,9 +320,165 @@ describe("AetherCore", () => {
 
     const note = await core.approveInboxItem("item-1", { target: "private" });
 
-    expect(note.vaultPath).toContain("Aether Private Inbox/notes/");
+    expect(note.vaultPath).toContain("Aether Private Inbox/生活/2026/05/");
     expect(core.settings.current.privacy.importLastTarget).toBe("private");
-    await expect(host.readFile(note.vaultPath)).resolves.toContain("secret content");
+    const raw = await host.readFile(note.vaultPath);
+    expect(raw).toContain("secret content");
+    expect(raw).toContain("aether_category: life");
+    expect(raw).toContain("aether_category_label: 生活");
+  });
+
+  it("approves imports into selected category folders and avoids path collisions", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "Aether Inbox/教程/2026/05/item-1-title.md": "existing",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+      newId: (() => {
+        const ids = ["note-1"];
+        let n = 0;
+        return () => ids[n++] ?? `id-${n}`;
+      })(),
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    core.inbox.createBatch({ id: "batch-1", sourceLabel: "paste", totalItems: 1 });
+    core.inbox.addItem({
+      id: "item-1",
+      batchId: "batch-1",
+      sourceKind: "paste",
+      sourceRef: "paste",
+      proposedTitle: "Title",
+      proposedTags: ["guide"],
+      proposedSummary: "summary",
+      proposedCategoryId: "tutorial",
+      content: "guide content",
+      kind: "note",
+      url: null,
+      duplicateOf: null,
+      status: "pending",
+      createdAt: Date.UTC(2026, 4, 24),
+      decidedAt: null,
+    });
+
+    const note = await core.approveInboxItem("item-1");
+
+    expect(note.vaultPath).toBe("Aether Inbox/教程/2026/05/item-1-title-2.md");
+    const raw = await host.readFile(note.vaultPath);
+    expect(raw).toContain("aether_category: tutorial");
+    expect(raw).toContain("aether_category_label: 教程");
+    await expect(host.readFile("Aether Inbox/教程/2026/05/item-1-title.md")).resolves.toBe(
+      "existing",
+    );
+  });
+
+  it("previews and applies organization moves by directory and path month without sending body", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "Aether Inbox/notes/2026/05/prompt.md":
+          "---\naether_id: note-1\naether_kind: note\ntitle: Prompt Library\ntags:\n  - prompt\naether_summary: AI prompt examples\n---\nSECRET BODY MUST STAY LOCAL",
+        "Aether Inbox/notes/2026/04/old.md":
+          "---\naether_id: note-2\ntitle: Old Note\ntags: []\naether_summary: old\n---\nold body",
+        "Other/2026/05/out.md": "---\naether_id: note-3\ntitle: Out\ntags: []\n---\nout body",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: (req) => [
+        {
+          delta: req.messages[0]?.content.includes("Prompt Library")
+            ? '{"title":"Prompt Library","tags":["prompt"],"summary":"AI prompt examples","categoryId":"ai-prompts"}'
+            : '{"title":"Other","tags":[],"summary":"","categoryId":"other"}',
+          finishReason: "stop",
+        },
+      ],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.rebuildAll();
+
+    const plan = await core.previewOrganizeImports({
+      rootFolder: "Aether Inbox",
+      fromMonth: "2026/05",
+      toMonth: "2026/05",
+    });
+
+    expect(plan.items.map((item) => item.currentPath)).toEqual([
+      "Aether Inbox/notes/2026/05/prompt.md",
+    ]);
+    expect(plan.items[0]).toMatchObject({
+      categoryId: "ai-prompts",
+      targetPath: "Aether Inbox/AI 提示词/2026/05/prompt.md",
+    });
+    expect(provider.calls.chat[0]?.messages[0]?.content).toContain("Prompt Library");
+    expect(provider.calls.chat[0]?.messages[0]?.content).not.toContain("SECRET BODY");
+
+    const result = await core.applyOrganizeImports(plan);
+
+    expect(result.moved).toHaveLength(1);
+    await expect(host.readFile("Aether Inbox/AI 提示词/2026/05/prompt.md")).resolves.toContain(
+      "aether_category: ai-prompts",
+    );
+    await expect(host.readFile("Aether Inbox/notes/2026/05/prompt.md")).rejects.toThrow();
+    expect(core.store.getNote("note-1")?.vaultPath).toBe(
+      "Aether Inbox/AI 提示词/2026/05/prompt.md",
+    );
+    const hits = await core.search({ query: "Prompt Library", limit: 10 });
+    expect(hits.map((hit) => hit.vaultPath)).toContain("Aether Inbox/AI 提示词/2026/05/prompt.md");
+    expect(hits.map((hit) => hit.vaultPath)).not.toContain("Aether Inbox/notes/2026/05/prompt.md");
+  });
+
+  it("rolls back organization target files and index entries when deleting the original fails", async () => {
+    class DeleteFailHostAdapter extends InMemoryHostAdapter {
+      async deleteFile(path: string): Promise<void> {
+        if (path === "Aether Inbox/notes/2026/05/prompt.md") {
+          throw new Error("delete failed");
+        }
+        await super.deleteFile(path);
+      }
+    }
+
+    const currentPath = "Aether Inbox/notes/2026/05/prompt.md";
+    const targetPath = "Aether Inbox/AI 提示词/2026/05/prompt.md";
+    const host = new DeleteFailHostAdapter({
+      files: {
+        [currentPath]:
+          "---\naether_id: note-1\naether_kind: note\ntitle: Prompt Library\ntags:\n  - prompt\naether_summary: AI prompt examples\n---\nRollback prompt body",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: () => [
+        {
+          delta: '{"categoryId":"ai-prompts"}',
+          finishReason: "stop",
+        },
+      ],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.rebuildAll();
+
+    const plan = await core.previewOrganizeImports({
+      rootFolder: "Aether Inbox",
+      fromMonth: "2026/05",
+      toMonth: "2026/05",
+    });
+
+    expect(plan.items[0]?.targetPath).toBe(targetPath);
+    const result = await core.applyOrganizeImports(plan);
+
+    expect(result.moved).toHaveLength(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.message).toContain("delete failed");
+    await expect(host.readFile(currentPath)).resolves.toContain("Rollback prompt body");
+    await expect(host.readFile(targetPath)).rejects.toThrow();
+    expect(core.store.getNote("note-1")?.vaultPath).toBe(currentPath);
+    const hits = await core.search({ query: "Rollback", limit: 10 });
+    expect(hits.map((hit) => hit.vaultPath)).toContain(currentPath);
+    expect(hits.map((hit) => hit.vaultPath)).not.toContain(targetPath);
   });
 
   it("persists token usage across core init", async () => {
@@ -552,6 +726,7 @@ describe("AetherCore", () => {
       proposedTitle: "Duplicate",
       proposedTags: [],
       proposedSummary: "",
+      proposedCategoryId: "other",
       content: "Merged content about import decisions.",
       kind: "note",
       url: null,
@@ -603,6 +778,7 @@ describe("AetherCore", () => {
       proposedTitle: "Rollback",
       proposedTags: [],
       proposedSummary: "",
+      proposedCategoryId: "other",
       content: "content that cannot be reindexed",
       kind: "note",
       url: null,
@@ -650,6 +826,7 @@ describe("AetherCore", () => {
       proposedTitle: "Duplicate",
       proposedTags: [],
       proposedSummary: "",
+      proposedCategoryId: "other",
       content: "Merged content should roll back.",
       kind: "note",
       url: null,

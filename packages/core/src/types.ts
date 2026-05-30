@@ -53,6 +53,7 @@ export interface InboxItem {
   proposedTitle: string;
   proposedTags: string[];
   proposedSummary: string;
+  proposedCategoryId: string;
   content: string;
   kind: NoteKind;
   url: string | null;
@@ -425,6 +426,45 @@ export interface RawCandidate {
   sourceMeta: Record<string, unknown>;
 }
 
+export interface ImportCategory {
+  id: string;
+  label: string;
+  folderName: string;
+  keywords: string[];
+}
+
+export interface ImportOrganizePreviewOptions {
+  rootFolder: string;
+  fromMonth?: string | null;
+  toMonth?: string | null;
+  signal?: AbortSignal;
+}
+
+export interface ImportOrganizePlanItem {
+  noteId: string;
+  currentPath: string;
+  targetPath: string;
+  title: string;
+  categoryId: string;
+  categoryLabel: string;
+}
+
+export interface ImportOrganizePlan {
+  id: string;
+  rootFolder: string;
+  fromMonth: string | null;
+  toMonth: string | null;
+  items: ImportOrganizePlanItem[];
+}
+
+export interface ImportOrganizeApplyResult {
+  moved: ImportOrganizePlanItem[];
+  failures: Array<{
+    item: ImportOrganizePlanItem;
+    message: string;
+  }>;
+}
+
 // ---- Persistence --------------------------------------------------------
 
 export interface PersistedIndex {
@@ -459,6 +499,9 @@ export interface PersistedSettings {
     privateFolders: string[];
     privateInboxFolder: string;
     importLastTarget: "public" | "private" | null;
+  };
+  importing: {
+    categories: ImportCategory[];
   };
   ui: {
     alpha: number;

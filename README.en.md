@@ -12,7 +12,7 @@
     <img alt="provider" src="https://img.shields.io/badge/AI-OpenAI%20compatible-orange" />
   </a>
   <a href="./docs/testing/strategy.md">
-    <img alt="tests" src="https://img.shields.io/badge/tests-374%20passed-brightgreen" />
+    <img alt="tests" src="https://img.shields.io/badge/tests-399%20passed-brightgreen" />
   </a>
   <a href="./docs/architecture/core-package.md">
     <img alt="coverage" src="https://img.shields.io/badge/coverage-90.5%25-brightgreen" />
@@ -30,8 +30,8 @@
 
 Once installed in Obsidian, Aether lets you:
 
-- **Ingest** scattered markdown, pasted text, Chrome bookmarks, and URL lists into your vault (URL lists store links; they do not fetch article bodies automatically)
-- **Distill** — AI auto-generates titles, tags, summaries, then writes imported notes into `Aether Inbox/`
+- **Ingest** scattered markdown, pasted text, Chrome bookmarks, iTab data, directories, and URL lists into your vault (URL lists store links; they do not fetch article bodies automatically)
+- **Distill** — AI auto-generates titles, tags, summaries, and import categories, then writes imported notes under `Aether Inbox/<category>/<year>/<month>/`
 - **Recall** — natural-language search across notes + bookmarks with snippet highlights and one-click jump-to-source
 - **Rewrite** — select any paragraph in your editor → right-click → AI rewrite / summarize / extract
 
@@ -43,8 +43,8 @@ Once installed in Obsidian, Aether lets you:
 
 | Capability              | Keywords                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| 🪄 Smart import         | markdown files / paste / Chrome bookmarks JSON / iTab / URL list                                       |
-| 🧠 AI auto-metadata     | title / tags / summary / duplicate detection (vector cosine ≥ 0.92)                                    |
+| 🪄 Smart import         | markdown files / markdown directories / paste / Chrome bookmarks JSON / iTab / URL list                |
+| 🧠 AI auto-metadata     | title / tags / summary / recommended category / duplicate detection (vector cosine ≥ 0.92)             |
 | 🧭 Hub view             | Search / recent imports / quick import / provider status in one daily entry point                      |
 | 🔍 Hybrid retrieval     | BM25 text + vector semantics; Hub shows Hybrid / BM25 / Stale-biased and fallback reason               |
 | 💬 Synthesised answers  | Generate cited answers from the current search results; citations open notes or bookmarks              |
@@ -68,7 +68,9 @@ Once installed in Obsidian, Aether lets you:
 
 - Hub view replaces the old separate Search / Inbox views.
 - AI Role replaces Feature Binding and supports custom editor roles.
-- Imports show a metadata preview first, then write only the selected items into `Aether Inbox/`.
+- Imports show a metadata/category preview first, then write only the selected items into `Aether Inbox/<category>/<year>/<month>/`.
+- Import categories are configurable; defaults are Tutorial, AI Prompts, Life, History, Work, and Other.
+- `Organize imported notes…` previews category-based moves for existing files and only moves selected rows after confirmation.
 - Failed import writes can be resumed from the result modal, Hub pending entry, or command palette.
 - Search falls back to BM25 when embedding config or provider calls are unavailable, and Hub shows the current mode and reason.
 - Search results can now generate cited answers from the currently displayed hits.

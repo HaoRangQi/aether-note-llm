@@ -14,9 +14,9 @@ export interface AiActivityOptions {
  * 浮动 AI 活动指示器：屏幕顶部居中弹出，带玻璃拟态、渐变流光、脉冲图标、
  * 流光进度条、取消按钮。完成时滑出动画再移除。
  *
- * 一次只允许一个实例（如果新请求来了，旧的会被强制收掉）。
+ * 多个长任务可并存显示，避免后台导入进度被临时 AI 调用顶掉。
  */
-let active: AiActivityIndicator | null = null;
+const active = new Set<AiActivityIndicator>();
 
 export class AiActivityIndicator {
   private el: HTMLDivElement;
@@ -28,12 +28,12 @@ export class AiActivityIndicator {
   private cancelled = false;
 
   constructor(opts: AiActivityOptions) {
-    if (active) active.cancelAndHide();
-    active = this;
     this.onCancel = opts.onCancel;
     this.startedAt = Date.now();
 
     this.el = document.body.createDiv({ cls: "aether-ai-activity" });
+    active.add(this);
+    updateStackPositions();
     const header = this.el.createDiv({ cls: "aether-ai-activity-header" });
 
     // 脉动图标
@@ -88,11 +88,16 @@ export class AiActivityIndicator {
   hide(state: "done" | "error" | "cancelled" = "done"): void {
     if (this.removed) return;
     this.removed = true;
-    if (active === this) active = null;
+    active.delete(this);
+    updateStackPositions();
     if (this.timer !== undefined) window.clearInterval(this.timer);
     this.el.addClass(`is-${state}`);
     // 等动画结束再移除
     window.setTimeout(() => this.el.remove(), 350);
+  }
+
+  setStackIndex(index: number): void {
+    this.el.style.setProperty("--aether-activity-stack", String(index));
   }
 
   private cancelAndHide(): void {
@@ -101,5 +106,13 @@ export class AiActivityIndicator {
       this.onCancel?.();
     }
     this.hide("cancelled");
+  }
+}
+
+function updateStackPositions(): void {
+  let index = 0;
+  for (const indicator of active) {
+    indicator.setStackIndex(index);
+    index += 1;
   }
 }

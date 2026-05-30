@@ -25,6 +25,17 @@ describe("parseProposal", () => {
     expect(r?.title).toBe("T");
     expect(r?.tags).toEqual(["a"]);
     expect(r?.summary).toBe("S");
+    expect(r?.categoryId).toBe("other");
+  });
+
+  it("parses valid category id from JSON", () => {
+    const r = parseProposal('{"title":"T","tags":[],"summary":"S","categoryId":"ai-prompts"}');
+    expect(r?.categoryId).toBe("ai-prompts");
+  });
+
+  it("falls back to other for unknown category id", () => {
+    const r = parseProposal('{"title":"T","tags":[],"summary":"S","categoryId":"misc"}');
+    expect(r?.categoryId).toBe("other");
   });
 
   it("returns null when no JSON object found", () => {
@@ -57,6 +68,7 @@ describe("proposeMetadata", () => {
     });
     expect(proposal.title).toBe("AI Title");
     expect(proposal.tags).toEqual(["x"]);
+    expect(proposal.categoryId).toBe("other");
   });
 
   it("falls back when role has no provider binding", async () => {
