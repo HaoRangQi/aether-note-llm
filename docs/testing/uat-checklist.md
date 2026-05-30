@@ -63,10 +63,10 @@
 - [ ] **T2.3d** 每个 Provider 卡片都可设置「可信赖的供应商，可访问私密文件」开关；开启后可用于私密角色，关闭后仅可用于公开角色
 - [ ] **T2.4** 故意填错 key，Test 显示明确失败信息；恢复正确 key
 - [ ] **T2.5** Quick Start 中选择 chat Provider 和 embedding Provider
-- [ ] **T2.6** 点应用绑定，AI Roles 中 `summarize` / `rewrite` / `extract` / `critique` / `answer` / `inbox_metadata` / `embedding` 已绑定 Provider / Model
+- [ ] **T2.6** 点应用绑定，AI Roles 中 `summarize` / `rewrite` / `extract` / `critique` / `solve` / `answer` / `inbox_metadata` / `embedding` 已绑定 Provider / Model
 - [ ] **T2.6a** 若模型列表同时包含 chat 与 embedding 模型，Quick Start 会给聊天类角色选择 chat 模型，给 `embedding` 选择 embedding 模型
 - [ ] **T2.7** 新建一个自定义 AI Role，设置 `showInEditor = true`
-- [ ] **T2.8** Advanced 中能看到 Inbox folder、导入分类、Privacy Routing、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、导入分类、隐私路由、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
+- [ ] **T2.8** Advanced 中能看到 Inbox folder、经验卡目录、导入分类、Privacy Routing、Scan scope、Search weight α、Monthly token budget warning、Refresh index changes、Rebuild index；中文界面对应为 Inbox 文件夹、经验卡目录、导入分类、隐私路由、扫描范围、搜索权重 α；若设置数据中 search weight α 为 NaN / Infinity / 越界值，迁移层会归一化到 `0..1` 或默认 `0.4`
 - [ ] **T2.8c** `导入分类` 是一个可折叠整体卡片；默认包含 `教程`、`AI 提示词`、`生活`、`历史`、`工作`、`其他`，可编辑名称 / 目录名 / 关键词，可新增、删除非 `其他` 分类并恢复默认分类
 - [ ] **T2.8a** 若旧设置中的 AI Role provider 参数包含 `temperature = NaN / Infinity / > 2` 或无效 `maxTokens`，迁移层会在运行 Role 前删除、回落到内置安全默认值或取整这些参数，同时保留自定义 prompt 变量参数
 - [ ] **T2.8b** Advanced 中可配置隐私路由：私密目录列表、私密导入目录；AI Roles 中每个角色可分别配置公开模型与私密模型
@@ -170,6 +170,9 @@
 - [ ] **T4.13a** `answer` Role 的 Provider 调用失败时显示失败原因，按钮恢复为 `综合回答`，不显示 `复制回答 + 来源` 或来源打开按钮
 - [ ] **T4.14** `综合回答` 运行中点击 Cancel，回答区域显示已取消，按钮恢复为 `综合回答`，不显示失败样式；若底层 Provider 在取消后才返回结果，不渲染过期回答
 - [ ] **T4.15** 私密范围未配置私密路由且没有 trusted 回退时：搜索可降级 BM25，综合回答阻断并给出可配置提示，私密正文不应外发给第三方模型
+- [ ] **T4.16** Hub 搜索框旁可切换 `搜索 / 解决问题`；解决问题模式输入问题后显示 `直接结论`、`推荐步骤`、`历史依据`、`风险和不确定性`、`来源引用`，并保留 `[1]` 等引用
+- [ ] **T4.17** 点击 `保存为经验卡` 会弹出可编辑预览；修改标题、问题、结论、步骤、标签后确认，写入 `Aether Experience/YYYY/MM/` 或 `Aether Private Experience/YYYY/MM/`，并能马上被搜索命中
+- [ ] **T4.18** `全部` 范围解决问题：有私密引用时经验卡默认私密目录；无引用时默认私密目录；私密范围无 trusted/private route 时不发远程 solve 请求并显示阻断提示
 
 ### 4.1 BM25 降级
 

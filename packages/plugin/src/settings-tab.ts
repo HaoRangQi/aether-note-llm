@@ -18,6 +18,7 @@ import { chooseModelForUse, mergeModels, type ModelUse } from "./ui/model-select
 import { openExternalLink } from "./ui/external-link.js";
 
 type Section = "quickstart" | "providers" | "roles" | "advanced";
+type SettingsSnapshot = ReturnType<AetherSettingsTab["snapshot"]>;
 
 /**
  * 4 段式 Settings：
@@ -770,6 +771,7 @@ export class AetherSettingsTab extends PluginSettingTab {
       );
     }
 
+    this.renderExperienceFolders(root);
     this.renderImportCategories(root);
 
     root.createEl("h3", { text: t("settings.privacy.title") });
@@ -912,6 +914,75 @@ export class AetherSettingsTab extends PluginSettingTab {
           }
         }),
       );
+  }
+
+  private renderExperienceFolders(root: HTMLElement): void {
+    const settings = this.plugin.core.settings.current;
+    const details = root.createEl("details", { cls: "aether-experience-folder-manager" });
+    details.open = true;
+    const summary = details.createEl("summary", { cls: "aether-category-manager__summary" });
+    const toggleIcon = summary.createSpan({ cls: "aether-category-manager__toggle" });
+    setIcon(toggleIcon, "chevron-right");
+    const heading = summary.createSpan({ cls: "aether-category-manager__heading" });
+    heading.createSpan({
+      cls: "aether-category-manager__eyebrow",
+      text: t("settings.experienceFolders.title"),
+    });
+    heading.createSpan({
+      cls: "aether-category-manager__description",
+      text: t("settings.experienceFolders.desc"),
+    });
+    summary.createSpan({
+      cls: "aether-category-manager__count aether-category-manager__count-pill",
+      text: t("settings.experienceFolders.count"),
+    });
+
+    const body = details.createDiv({ cls: "aether-category-manager__body" });
+    const list = body.createDiv({ cls: "aether-category-manager__list" });
+    this.renderExperienceFolderInput(list, {
+      label: t("settings.experienceFolders.public"),
+      desc: t("settings.experienceFolders.public.desc"),
+      value: settings.ui.experienceFolder,
+      cls: "aether-experience-folder-public",
+      update: (s, value) => {
+        s.ui.experienceFolder = value;
+      },
+    });
+    this.renderExperienceFolderInput(list, {
+      label: t("settings.experienceFolders.private"),
+      desc: t("settings.experienceFolders.private.desc"),
+      value: settings.ui.privateExperienceFolder,
+      cls: "aether-experience-folder-private",
+      update: (s, value) => {
+        s.ui.privateExperienceFolder = value;
+      },
+    });
+  }
+
+  private renderExperienceFolderInput(
+    parent: HTMLElement,
+    opts: {
+      label: string;
+      desc: string;
+      value: string;
+      cls: string;
+      update: (s: SettingsSnapshot, value: string) => void;
+    },
+  ): void {
+    const row = parent.createDiv({ cls: "aether-category-row aether-experience-folder-row" });
+    const fields = row.createDiv({ cls: "aether-category-row__fields" });
+    const field = fields.createDiv({ cls: "aether-category-row__field" });
+    field.createDiv({ cls: "aether-category-row__label", text: opts.label });
+    field.createDiv({ cls: "aether-category-row__meta", text: opts.desc });
+    const input = field.createEl("input", { cls: `aether-category-row__input ${opts.cls}` });
+    input.type = "text";
+    input.value = opts.value;
+    input.onchange = () => {
+      void this.patchSilent((s) => {
+        const next = input.value.trim();
+        if (next.length > 0) opts.update(s, next);
+      });
+    };
   }
 
   private renderImportCategories(root: HTMLElement): void {

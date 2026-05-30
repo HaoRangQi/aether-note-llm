@@ -33,9 +33,9 @@ onload()
 ## View lifecycle
 
 `HubView` is the only daily `ItemView`. It replaces the old Search / Inbox
-split: search, recent imports, pending import entry, recent jobs, usage, and
-index refresh live in one surface. It re-renders imperatively (no virtual DOM)
-because Obsidian's API is DOM-direct. Pattern:
+split: search, solve mode, recent imports, pending import entry, recent jobs,
+usage, and index refresh live in one surface. It re-renders imperatively (no
+virtual DOM) because Obsidian's API is DOM-direct. Pattern:
 
 ```typescript
 async onOpen() { this.render(); }
@@ -60,6 +60,13 @@ Import target is explicit (`public` / `private`): first use defaults to private,
 then remembers the last user choice. Switching to public import requires a risk
 confirmation. Approval writes to different folders (`Aether Inbox` vs `Aether
 Private Inbox`) and forwards target metadata into core privacy routing.
+
+Problem solving is a Hub mode, not a replacement for search. It calls
+`core.solveProblem`, renders the structured solution sections with citations,
+and uses `ExperienceCardModal` for the user-confirmed save step. Experience-card
+target preview mirrors core privacy rules: public scope goes to the public
+experience folder, private scope goes to the private folder, and all scope with
+no citations defaults private.
 
 Old `open-search` and `open-inbox` command IDs are kept as compatibility
 aliases, but both open Hub.
@@ -170,3 +177,7 @@ External-open and vault-note-open failures surface as Notices without clearing
 the rendered answer or citation evidence. Recent-import cards and note search
 results also route through the guarded vault opener, so Obsidian open failures
 show a Notice without clearing the current Hub list.
+Problem-solver tests use the same seam to verify the mode switch calls
+`solveProblem`, renders structured sections, opens the editable experience-card
+modal, forwards edited draft fields to core, and previews private storage for
+all-scope solutions without citations.

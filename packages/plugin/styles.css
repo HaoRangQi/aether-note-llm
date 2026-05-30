@@ -99,6 +99,31 @@
   color: var(--text-on-accent);
 }
 
+.aether-hub-taskmode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+.aether-hub-taskmode button {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.aether-hub-taskmode button.active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 650;
+}
+
 .aether-hub-privacy-scope {
   display: inline-flex;
   gap: 0.35rem;
@@ -275,6 +300,71 @@
   border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+}
+.aether-solve-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 34%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-secondary) 76%, transparent);
+}
+.aether-solve-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.aether-solve-title {
+  font-weight: 750;
+  color: var(--text-normal);
+}
+.aether-solve-confidence {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.aether-solve-confidence--high {
+  background: color-mix(in srgb, var(--text-success, #16a34a) 14%, transparent);
+  color: var(--text-success, #16a34a);
+}
+.aether-solve-confidence--medium {
+  background: color-mix(in srgb, var(--text-warning, #d97706) 14%, transparent);
+  color: var(--text-warning, #d97706);
+}
+.aether-solve-confidence--low {
+  background: color-mix(in srgb, var(--text-error, #ef4444) 12%, transparent);
+  color: var(--text-error, #ef4444);
+}
+.aether-solve-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.aether-solve-section-title {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+.aether-solve-section-title--sources {
+  margin-top: 0.2rem;
+}
+.aether-solve-text,
+.aether-solve-list {
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aether-solve-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.aether-solve-empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 .aether-answer-header {
   display: flex;
@@ -548,7 +638,8 @@
   color: var(--text-error);
 }
 
-.aether-category-manager {
+.aether-category-manager,
+.aether-experience-folder-manager {
   margin: 0.9rem 0 1.05rem;
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -575,7 +666,8 @@
   color: var(--text-muted);
   transition: transform 120ms ease;
 }
-.aether-category-manager[open] .aether-category-manager__toggle {
+.aether-category-manager[open] .aether-category-manager__toggle,
+.aether-experience-folder-manager[open] .aether-category-manager__toggle {
   transform: rotate(90deg);
 }
 .aether-category-manager__heading {
@@ -667,6 +759,9 @@
   align-items: start;
   min-width: 0;
 }
+.aether-experience-folder-row .aether-category-row__fields {
+  grid-template-columns: minmax(0, 1fr);
+}
 .aether-category-row__field {
   display: flex;
   min-width: 0;
@@ -692,6 +787,8 @@
   min-height: 1rem;
   align-items: center;
   gap: 0.35rem;
+  color: var(--text-faint);
+  font-size: 0.72rem;
 }
 .aether-category-row__id {
   min-width: 0;

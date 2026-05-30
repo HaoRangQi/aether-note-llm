@@ -80,6 +80,7 @@ export type Feature =
   | "rewrite"
   | "extract"
   | "critique"
+  | "solve"
   | "answer"
   | "inbox_metadata";
 
@@ -268,6 +269,53 @@ export interface SearchAnswerResponse {
   contextTokenCount: number;
   contextTruncated: boolean;
   search: SearchResponse;
+}
+
+export type ProblemConfidence = "high" | "medium" | "low";
+export type ProblemEvidenceStatus = "supported" | "partial" | "missing";
+
+export interface ProblemSolution {
+  summary: string;
+  confidence: ProblemConfidence;
+  evidenceStatus: ProblemEvidenceStatus;
+  likelyCauses: string[];
+  steps: string[];
+  risks: string[];
+  missingInfo: string[];
+}
+
+export interface ProblemSolveRequest {
+  question: string;
+  filters?: SearchFilters;
+  privacyScope?: PrivacyScope;
+  search?: SearchResponse;
+  limit?: number;
+  maxContextChunks?: number;
+  maxContextTokens?: number;
+  signal?: AbortSignal;
+}
+
+export interface ProblemSolveResponse {
+  question: string;
+  solution: ProblemSolution;
+  citations: SearchAnswerCitation[];
+  citationCheck: SearchAnswerCitationCheck;
+  contextTokenCount: number;
+  contextTruncated: boolean;
+  search: SearchResponse;
+  blockedReason: "private-route-missing" | null;
+}
+
+export interface ExperienceCardDraft {
+  title: string;
+  problem: string;
+  summary: string;
+  steps: string[];
+  tags: string[];
+  confidence: ProblemConfidence;
+  evidenceStatus: ProblemEvidenceStatus;
+  citations: SearchAnswerCitation[];
+  privacyScope: PrivacyScope;
 }
 
 // ---- Jobs / progress ----------------------------------------------------
@@ -506,6 +554,8 @@ export interface PersistedSettings {
   ui: {
     alpha: number;
     aetherInboxFolder: string;
+    experienceFolder: string;
+    privateExperienceFolder: string;
     scanScope: "vault" | "aether-inbox-only";
     /** UI 语言，影响插件内所有文案。默认 "zh-CN"。 */
     language: "zh-CN" | "en";

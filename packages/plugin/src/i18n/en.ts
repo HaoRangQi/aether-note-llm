@@ -394,6 +394,8 @@ export const en: Dict = {
   "view.hub.searchPlaceholder": "Search notes, bookmarks…",
   "view.hub.searchPrivacyHint":
     "Search and answers may send queries or source excerpts to the bound model. For private notes, API keys, or passwords, prefer a local model instead of a third-party provider.",
+  "view.hub.taskMode.search": "Search",
+  "view.hub.taskMode.solve": "Solve",
   "view.hub.filter.all": "All",
   "view.hub.filter.note": "Notes",
   "view.hub.filter.bookmark": "Bookmarks",
@@ -437,6 +439,23 @@ export const en: Dict = {
   "view.hub.answer.sourceExcerpt": "Evidence excerpt",
   "view.hub.answer.sourceTruncated": "This source was trimmed to fit the context budget.",
   "view.hub.answer.openSource": "Open source",
+  "view.hub.solve.title": "Problem solving",
+  "view.hub.solve.loading": "Searching historical experience and drafting a solution…",
+  "view.hub.solve.notConfigured":
+    "The solve role has no Provider / Model binding. Check Settings -> AI Roles.",
+  "view.hub.solve.failed": "Problem solving failed: {error}",
+  "view.hub.solve.privateBlocked":
+    "Private scope has no trusted private route, so no remote AI request was sent. Showing a low-confidence fallback and available search evidence only.",
+  "view.hub.solve.summary": "Direct conclusion",
+  "view.hub.solve.steps": "Recommended steps",
+  "view.hub.solve.evidence": "Historical evidence",
+  "view.hub.solve.risks": "Risks and uncertainty",
+  "view.hub.solve.sources": "Source citations",
+  "view.hub.solve.noSources": "No historical source is available.",
+  "view.hub.solve.saveExperience": "Save as experience card",
+  "view.hub.solve.confidence.high": "High confidence",
+  "view.hub.solve.confidence.medium": "Medium confidence",
+  "view.hub.solve.confidence.low": "Low confidence",
   "view.hub.searchMode.hybrid": "Hybrid",
   "view.hub.searchMode.bm25": "BM25",
   "view.hub.searchMode.stale-biased": "Stale-biased",
@@ -505,6 +524,16 @@ export const en: Dict = {
   "settings.advanced.inboxFolder.open": "Open folder",
   "settings.advanced.inboxFolder.empty": "Inbox folder path is empty",
   "settings.advanced.inboxFolder.openFailed": "Failed to open folder: {error}",
+  "settings.experienceFolders.title": "Experience card folders",
+  "settings.experienceFolders.desc":
+    "Confirmed problem-solving results are saved under these folders by public/private scope.",
+  "settings.experienceFolders.count": "2 folders",
+  "settings.experienceFolders.public": "Public experience folder",
+  "settings.experienceFolders.public.desc":
+    "Default target for public scope or public cited sources.",
+  "settings.experienceFolders.private": "Private experience folder",
+  "settings.experienceFolders.private.desc":
+    "Default target for private scope, or all scope when there are no citations.",
   "settings.importCategories.title": "Import categories",
   "settings.importCategories.desc":
     "AI picks one of these categories during import. You can change it in the preview.",
@@ -556,6 +585,21 @@ export const en: Dict = {
   "settings.advanced.rebuild.done": "Rebuilt: {indexed}/{scanned} files",
   "settings.advanced.rebuild.doneWithFailures":
     "Rebuilt: {indexed}/{scanned} files indexed, {failed} failed. See console for details.",
+
+  // ---- experience card modal ----
+  "modal.experience.title": "Save as experience card",
+  "modal.experience.defaultTitle": "Experience card",
+  "modal.experience.targetPath": "Target path: {path}",
+  "modal.experience.field.title": "Title",
+  "modal.experience.field.problem": "Original problem",
+  "modal.experience.field.summary": "Conclusion",
+  "modal.experience.field.steps": "Steps (one per line)",
+  "modal.experience.field.tags": "Tags (comma or space separated)",
+  "modal.experience.save": "Save experience card",
+  "modal.experience.saving": "Saving…",
+  "modal.experience.required": "Title, problem, and conclusion are required",
+  "modal.experience.saved": "Experience card saved: {path}",
+  "modal.experience.failed": "Failed to save experience card: {error}",
 
   // ---- ribbon ----
   "ribbon.hub": "Aether Hub",

@@ -14,6 +14,10 @@ tags: [a, b] # Obsidian-native tag array.
 aether_summary: ... # AI-generated summary; null when absent.
 aether_category: tutorial # Import category id.
 aether_category_label: 教程 # Import category label at write/move time.
+aether_experience: true # Present on saved problem-solving experience cards.
+aether_problem: ... # Original problem text for experience cards.
+aether_solution_confidence: medium # high | medium | low.
+aether_evidence_status: partial # supported | partial | missing.
 aether_source: import # manual | import | paste | clipping
 aether_url: https://... # kind=bookmark only.
 aether_created: 1715846400000
@@ -70,6 +74,10 @@ always keeps `other` as the fallback category.
 │   └── data.json
 ├── Aether Inbox/                 (configurable public inbox folder)
 │   └── <category-folder>/<yyyy>/<mm>/<item-id-slug>.md
+├── Aether Experience/            (configurable public experience folder)
+│   └── <yyyy>/<mm>/<note-id-slug>.md
+├── Aether Private Experience/    (configurable private experience folder)
+│   └── <yyyy>/<mm>/<note-id-slug>.md
 └── Aether Private Inbox/         (configurable private inbox folder)
     └── <category-folder>/<yyyy>/<mm>/<item-id-slug>.md
 ```
@@ -88,3 +96,8 @@ filters by a vault-relative root folder and optional path month range
 `<root>/<category>/<yyyy>/<mm>/` layout. Apply updates category frontmatter,
 reindexes the moved file, and reports per-file failures without deleting the
 original file.
+
+Saved problem-solving results are normal notes (`aether_kind: note`) with
+additional experience-card frontmatter. They are written only after user
+confirmation and are indexed immediately so future search and solve requests can
+reuse the distilled experience.

@@ -19,7 +19,7 @@ import { buildUniqueImportVaultPath } from "./import/pathing.js";
 import { OramaIndexStore } from "./index-store/orama-store.js";
 import { chunkMarkdown } from "./markdown/chunker.js";
 import { deriveTitle, parseDocument, serializeDocument } from "./markdown/frontmatter.js";
-import { newUlid } from "./ids.js";
+import { newUlid, slugify } from "./ids.js";
 import { sha256Hex } from "./hash.js";
 import { openAICompatibleFactory } from "./provider/openai-compatible.js";
 import { ProviderRegistry } from "./provider/registry.js";
@@ -30,6 +30,7 @@ import { SettingsStore } from "./persistence/settings-store.js";
 import type {
   AiRole,
   Chunk,
+  ExperienceCardDraft,
   Feature,
   InboxItem,
   IndexHealth,
@@ -44,6 +45,11 @@ import type {
   Note,
   PersistedIndex,
   PersistedSettings,
+  ProblemConfidence,
+  ProblemEvidenceStatus,
+  ProblemSolution,
+  ProblemSolveRequest,
+  ProblemSolveResponse,
   RebuildOptions,
   RebuildResult,
   SearchAnswerCitation,
@@ -63,7 +69,7 @@ const USAGE_KEY = "usage.json";
 const DEFAULT_ANSWER_CONTEXT_TOKENS = 1800;
 const SEARCH_SCOPE_OVERSCAN_MULTIPLIER = 6;
 
-type RouteFeature = "embedding" | "inbox_metadata" | "answer" | "chat";
+type RouteFeature = "embedding" | "inbox_metadata" | "answer" | "solve" | "chat";
 
 interface ProviderModelRoute {
   providerId: string;
@@ -468,6 +474,156 @@ export class AetherCore {
     };
   }
 
+  async solveProblem(req: ProblemSolveRequest): Promise<ProblemSolveResponse> {
+    const privacyScope = this.resolvePrivacyScope(req.privacyScope);
+    const search =
+      (req.search
+        ? this.filterSearchResponseByPrivacyScope(
+            this.filterSearchResponseToCurrentScanScope(req.search),
+            privacyScope,
+          )
+        : undefined) ??
+      (await this.searchWithMeta({
+        query: req.question,
+        filters: req.filters,
+        limit: req.limit ?? 8,
+        privacyScope,
+      }));
+    const isolatedHits = this.isolateAnswerHitsByDomain(search.hits, privacyScope);
+    const scopedSearch: SearchResponse = { ...search, hits: isolatedHits };
+    const contextBudget = Math.max(
+      1,
+      Math.floor(req.maxContextTokens ?? DEFAULT_ANSWER_CONTEXT_TOKENS),
+    );
+    const contextChunks = selectAnswerContext(
+      isolatedHits,
+      req.maxContextChunks ?? 6,
+      contextBudget,
+    );
+    const hasPrivateSolveContext = contextChunks.some((item) =>
+      this.isPrivatePath(item.hit.vaultPath),
+    );
+    const citations = answerCitationsFromContext(contextChunks);
+    const contextTokenCount = contextChunks.reduce((sum, item) => sum + item.tokenCount, 0);
+    const contextTruncated =
+      contextChunks.some((item) => item.truncated) ||
+      hasMoreAnswerContext(isolatedHits, contextChunks);
+    if (contextChunks.length === 0) {
+      const solution = fallbackProblemSolution(req.question, "missing");
+      return {
+        question: req.question,
+        solution,
+        citations,
+        citationCheck: checkProblemSolutionCitations(solution, citations),
+        contextTokenCount,
+        contextTruncated,
+        search: scopedSearch,
+        blockedReason: null,
+      };
+    }
+
+    const context = contextChunks
+      .map((item, idx) => formatAnswerContextItem(idx + 1, item))
+      .join("\n\n");
+    try {
+      const output = await this.runRole(
+        "solve",
+        { question: req.question, context },
+        req.signal,
+        contextChunks[0]?.hit.vaultPath,
+      );
+      const solution =
+        parseProblemSolution(output) ?? fallbackProblemSolution(req.question, "partial");
+      return {
+        question: req.question,
+        solution,
+        citations,
+        citationCheck: checkProblemSolutionCitations(solution, citations),
+        contextTokenCount,
+        contextTruncated,
+        search: scopedSearch,
+        blockedReason: null,
+      };
+    } catch (e) {
+      if (e instanceof AetherError && e.code === "BINDING_NOT_FOUND" && hasPrivateSolveContext) {
+        const solution = fallbackProblemSolution(req.question, "missing");
+        return {
+          question: req.question,
+          solution,
+          citations,
+          citationCheck: checkProblemSolutionCitations(solution, citations),
+          contextTokenCount,
+          contextTruncated,
+          search: scopedSearch,
+          blockedReason: "private-route-missing",
+        };
+      }
+      throw e;
+    }
+  }
+
+  async saveExperienceCard(draft: ExperienceCardDraft): Promise<Note> {
+    const noteId = this.host.newId();
+    const vaultPath = await buildUniqueExperienceVaultPath({
+      rootFolder: this.experienceFolderForDraft(draft),
+      noteId,
+      title: draft.title,
+      now: this.host.now(),
+      host: this.host,
+    });
+    const fm = {
+      aether_id: noteId,
+      aether_kind: "note" as const,
+      title: draft.title,
+      tags: draft.tags,
+      aether_summary: draft.summary || null,
+      aether_experience: true,
+      aether_problem: draft.problem,
+      aether_solution_confidence: draft.confidence,
+      aether_evidence_status: draft.evidenceStatus,
+      aether_source: "manual" as const,
+      aether_url: null,
+      aether_created: this.host.now(),
+      aether_updated: this.host.now(),
+    };
+    const body = renderExperienceCardBody(draft);
+    const md = serializeDocument(fm, body);
+    const parent = vaultPath.split("/").slice(0, -1).join("/");
+    if (parent) await this.host.ensureDir(parent);
+    await this.host.writeFile(vaultPath, md);
+    const contentHash = await sha256Hex(md);
+    const note: Note = {
+      id: noteId,
+      vaultPath,
+      kind: "note",
+      title: draft.title,
+      summary: draft.summary || null,
+      tags: draft.tags,
+      url: null,
+      source: "manual",
+      sourceMeta: {
+        experience: true,
+        problem: draft.problem,
+        confidence: draft.confidence,
+        evidenceStatus: draft.evidenceStatus,
+      },
+      createdAt: this.host.now(),
+      updatedAt: this.host.now(),
+      contentHash,
+      indexState: "indexing",
+    };
+    this.store.upsertNote(note);
+    try {
+      await this.reindexNote(note, body);
+    } catch (e) {
+      await this.store.removeNote(note.id);
+      await this.host.deleteFile(vaultPath);
+      throw e;
+    }
+    await this.saveIndex();
+    return note;
+  }
+
   // ---- AI helpers ----
   async rewrite(selection: string, style?: "concise" | "polished" | "neutral"): Promise<string> {
     const styleMap: Record<string, string> = {
@@ -515,7 +671,12 @@ export class AetherCore {
     };
     if (signal) opts.signal = signal;
     if (sourcePath && this.isPrivatePath(sourcePath)) {
-      const routeFeature = roleBinding?.outputKind === "embedding" ? "embedding" : "chat";
+      const routeFeature =
+        roleBinding?.outputKind === "embedding"
+          ? "embedding"
+          : roleId === "solve"
+            ? "solve"
+            : "chat";
       const route = this.resolvePrivateRoute(routeFeature, roleBinding ?? undefined);
       if (!route) {
         throw new AetherError(
@@ -529,17 +690,7 @@ export class AetherCore {
     if (r.usage) {
       await this.recordUsage({
         providerId: r.role.providerId,
-        feature:
-          r.role.id === "summarize" ||
-          r.role.id === "rewrite" ||
-          r.role.id === "extract" ||
-          r.role.id === "critique" ||
-          r.role.id === "answer" ||
-          r.role.id === "inbox_metadata"
-            ? r.role.id
-            : r.role.outputKind === "embedding"
-              ? "embedding"
-              : "chat",
+        feature: featureForRole(r.role),
         model: r.role.modelName,
         usage: r.usage,
       });
@@ -562,6 +713,17 @@ export class AetherCore {
 
   openImportFolder(): Promise<void> {
     return this.host.openFolder(this.settings.current.ui.aetherInboxFolder);
+  }
+
+  private experienceFolderForDraft(draft: ExperienceCardDraft): string {
+    const publicFolder = this.settings.current.ui.experienceFolder.replace(/\/+$/, "");
+    const privateFolder = this.settings.current.ui.privateExperienceFolder.replace(/\/+$/, "");
+    if (draft.privacyScope === "private") return privateFolder;
+    if (draft.privacyScope === "public") return publicFolder;
+    if (draft.citations.length === 0) return privateFolder;
+    return draft.citations.some((citation) => this.isPrivatePath(citation.vaultPath))
+      ? privateFolder
+      : publicFolder;
   }
 
   now(): number {
@@ -1111,6 +1273,7 @@ export class AetherCore {
     const folders = [
       ...this.settings.current.privacy.privateFolders,
       this.settings.current.privacy.privateInboxFolder,
+      this.settings.current.ui.privateExperienceFolder,
     ];
     const seen = new Set<string>();
     const out: string[] = [];
@@ -1160,7 +1323,9 @@ export class AetherCore {
         ? "embedding"
         : feature === "inbox_metadata"
           ? "inbox_metadata"
-          : "answer";
+          : feature === "solve"
+            ? "solve"
+            : "answer";
     return this.resolveRoleBinding(roleId);
   }
 
@@ -1219,6 +1384,158 @@ export class AetherCore {
       }
     }
   }
+}
+
+function featureForRole(role: AiRole): Feature {
+  if (
+    role.id === "summarize" ||
+    role.id === "rewrite" ||
+    role.id === "extract" ||
+    role.id === "critique" ||
+    role.id === "solve" ||
+    role.id === "answer" ||
+    role.id === "inbox_metadata"
+  ) {
+    return role.id;
+  }
+  return role.outputKind === "embedding" ? "embedding" : "chat";
+}
+
+function answerCitationsFromContext(contextChunks: AnswerContextItem[]): SearchAnswerCitation[] {
+  return contextChunks.map((item, idx) => ({
+    index: idx + 1,
+    noteId: item.hit.noteId,
+    vaultPath: item.hit.vaultPath,
+    title: item.hit.title,
+    chunkId: item.chunk.chunkId,
+    headingPath: item.chunk.headingPath,
+    excerpt: item.chunk.excerpt,
+    url: item.hit.url,
+    tokenCount: item.tokenCount,
+    truncated: item.truncated,
+  }));
+}
+
+function parseProblemSolution(raw: unknown): ProblemSolution | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const summary = asTrimmedString(obj.summary).slice(0, 240);
+  if (!summary) return null;
+  return {
+    summary,
+    confidence: normalizeProblemConfidence(obj.confidence),
+    evidenceStatus: normalizeProblemEvidenceStatus(obj.evidenceStatus),
+    likelyCauses: stringList(obj.likelyCauses, 5),
+    steps: stringList(obj.steps, 7),
+    risks: stringList(obj.risks, 5),
+    missingInfo: stringList(obj.missingInfo, 5),
+  };
+}
+
+function normalizeProblemConfidence(value: unknown): ProblemConfidence {
+  return value === "high" || value === "medium" || value === "low" ? value : "low";
+}
+
+function normalizeProblemEvidenceStatus(value: unknown): ProblemEvidenceStatus {
+  return value === "supported" || value === "partial" || value === "missing" ? value : "missing";
+}
+
+function stringList(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function asTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function fallbackProblemSolution(
+  question: string,
+  evidenceStatus: ProblemEvidenceStatus,
+): ProblemSolution {
+  return {
+    summary:
+      evidenceStatus === "missing"
+        ? "历史资料不足，以下是低信心通用处理建议。"
+        : "历史资料只提供了部分线索，以下建议需要结合现场信息核对。",
+    confidence: "low",
+    evidenceStatus,
+    likelyCauses: [],
+    steps: [
+      `明确问题边界：${question}`,
+      "列出已经尝试过的方法和当前失败现象。",
+      "优先从最小可验证动作开始，逐步排除原因。",
+    ],
+    risks: ["缺少足够历史证据，建议执行前先核对来源和现场约束。"],
+    missingInfo: ["缺少可直接支撑解决方案的历史经验片段。"],
+  };
+}
+
+function checkProblemSolutionCitations(
+  solution: ProblemSolution,
+  citations: SearchAnswerCitation[],
+): SearchAnswerCitationCheck {
+  return checkAnswerCitations(
+    [
+      solution.summary,
+      ...solution.likelyCauses,
+      ...solution.steps,
+      ...solution.risks,
+      ...solution.missingInfo,
+    ].join("\n"),
+    citations,
+  );
+}
+
+async function buildUniqueExperienceVaultPath(args: {
+  rootFolder: string;
+  noteId: string;
+  title: string;
+  now: number;
+  host: Pick<IHostAdapter, "exists">;
+}): Promise<string> {
+  const root = args.rootFolder.replace(/\/+$/, "") || "Aether Experience";
+  const d = new Date(args.now);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const slug = slugify(args.title).slice(0, 40) || "experience";
+  const dir = `${root}/${year}/${month}`;
+  let n = 1;
+  while (true) {
+    const suffix = n === 1 ? "" : `-${n}`;
+    const candidate = `${dir}/${args.noteId.slice(0, 10)}-${slug}${suffix}.md`;
+    if (!(await args.host.exists(candidate))) return candidate;
+    n += 1;
+  }
+}
+
+function renderExperienceCardBody(draft: ExperienceCardDraft): string {
+  const steps = draft.steps.length
+    ? draft.steps.map((step, idx) => `${idx + 1}. ${step}`).join("\n")
+    : "1. 待补充";
+  const sources = draft.citations.length
+    ? draft.citations
+        .map((citation) => `- [${citation.index}] ${citation.title} — ${citation.vaultPath}`)
+        .join("\n")
+    : "- 无历史来源";
+  return `# ${draft.title}
+
+## 问题
+${draft.problem}
+
+## 直接结论
+${draft.summary}
+
+## 推荐步骤
+${steps}
+
+## 来源
+${sources}
+`;
 }
 
 function toIndexHealthNote(

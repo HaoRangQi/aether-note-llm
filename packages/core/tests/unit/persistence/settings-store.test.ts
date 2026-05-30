@@ -8,11 +8,18 @@ describe("migrateSettings", () => {
     const s = migrateSettings({});
     expect(s.schemaVersion).toBe(2);
     expect(s.providers).toEqual([]);
-    expect(s.roles.length).toBe(7); // 7 个内置角色（含 critique / answer）
+    expect(s.roles.length).toBe(8); // 8 个内置角色（含 critique / answer / solve）
     expect(s.roles.find((r) => r.id === "summarize")?.builtIn).toBe(true);
+    expect(s.roles.find((r) => r.id === "solve")).toMatchObject({
+      builtIn: true,
+      outputKind: "metadata",
+      showInEditor: false,
+    });
     expect(s.ui.alpha).toBe(0.4);
     expect(s.ui.scanScope).toBe("vault");
     expect(s.ui.language).toBe("zh-CN");
+    expect(s.ui.experienceFolder).toBe("Aether Experience");
+    expect(s.ui.privateExperienceFolder).toBe("Aether Private Experience");
     expect(s.flags.aiTrace).toBe(false);
     expect(s.privacy).toEqual({
       privateFolders: ["Private", "Aether Private Inbox"],
@@ -175,6 +182,8 @@ describe("migrateSettings", () => {
       ui: {
         alpha: 0.7,
         aetherInboxFolder: "X",
+        experienceFolder: "Experience",
+        privateExperienceFolder: "Private Experience",
         scanScope: "aether-inbox-only",
         language: "en",
       },
@@ -188,6 +197,8 @@ describe("migrateSettings", () => {
     });
     expect(s.ui.alpha).toBe(0.7);
     expect(s.ui.aetherInboxFolder).toBe("X");
+    expect(s.ui.experienceFolder).toBe("Experience");
+    expect(s.ui.privateExperienceFolder).toBe("Private Experience");
     expect(s.ui.language).toBe("en");
     expect(s.flags.aiTrace).toBe(true);
     expect(s.importing.categories).toEqual([
