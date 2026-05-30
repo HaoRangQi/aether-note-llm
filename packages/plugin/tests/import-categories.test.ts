@@ -75,13 +75,18 @@ describe("import categories UI", () => {
 
     tab.display();
     expect((tab.containerEl as unknown as FakeElement).textContent).toContain("导入分类");
-    const card = (tab.containerEl as unknown as FakeElement).querySelector(
-      ".aether-import-categories-card",
+    const manager = (tab.containerEl as unknown as FakeElement).querySelector(
+      ".aether-category-manager",
     );
-    expect(card?.tag).toBe("details");
-    expect(card?.open).toBe(true);
-    expect(card?.querySelector(".aether-import-categories-summary")?.tag).toBe("summary");
-    expect(card?.querySelector(".aether-import-category-row")?.textContent).toContain("教程");
+    expect(manager?.tag).toBe("details");
+    expect(manager?.open).toBe(true);
+    expect(manager?.querySelector(".aether-category-manager__summary")?.tag).toBe("summary");
+    expect(manager?.querySelector(".aether-category-manager__list")).toBeTruthy();
+    expect(manager?.querySelector(".aether-category-row")).toBeTruthy();
+    expect(manager?.querySelector(".aether-category-row__fields")).toBeTruthy();
+    expect(manager?.querySelector(".aether-category-row__fallback-badge")?.textContent).toContain(
+      "兜底",
+    );
 
     const add = findButton(tab.containerEl as unknown as FakeElement, "新增分类");
     add?.onclick?.();
