@@ -608,6 +608,37 @@ describe("AetherCore", () => {
     expect(provider.calls.chat).toEqual([]);
   });
 
+  it("does not call remote answer for private scope without a trusted route", async () => {
+    const host = new InMemoryHostAdapter({
+      files: {
+        "Private/incident.md": "# Incident\nSecret incident timeline and root cause.",
+      },
+      now: () => Date.UTC(2026, 4, 24),
+    });
+    const provider = new MockProvider({
+      chatChunks: () => [{ delta: "should not be called", finishReason: "stop" }],
+    });
+    const core = new AetherCore(host);
+    await core.init();
+    await configureMockProvider(core, provider);
+    await core.settings.save({
+      ...core.settings.current,
+      providers: core.settings.current.providers.map((p) =>
+        p.id === "p" ? { ...p, trustedForPrivate: false } : p,
+      ),
+    });
+    core.applySettings(core.settings.current);
+    await core.indexExistingVaultFile("Private/incident.md");
+
+    await expect(
+      core.answerSearch({
+        query: "secret incident",
+        privacyScope: "private",
+      }),
+    ).rejects.toMatchObject({ code: "BINDING_NOT_FOUND" });
+    expect(provider.calls.chat).toEqual([]);
+  });
+
   it("reports invalid answer citations for review", async () => {
     const host = new InMemoryHostAdapter({
       files: {

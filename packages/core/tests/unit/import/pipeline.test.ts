@@ -11,6 +11,7 @@ import { RoleRegistry } from "../../../src/roles/role-registry.js";
 import { BUILTIN_ROLE_SEEDS, seedToRole } from "../../../src/roles/default-roles.js";
 import { AetherError, type ImportSource, type BuiltInRoleId } from "../../../src/index.js";
 import type { SourceConnector } from "../../../src/connectors/connector.js";
+import type { ImportCategory } from "../../../src/types.js";
 
 function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
   const list = BUILTIN_ROLE_SEEDS.filter((s) => ids.includes(s.id)).map((s) => {
@@ -18,6 +19,20 @@ function bindAll(roles: RoleRegistry, ids: BuiltInRoleId[]): void {
     r.providerId = "p";
     r.modelName = "m";
     return r;
+  });
+  roles.setRoles(list);
+}
+
+function bindPrivateImportRoles(roles: RoleRegistry): void {
+  const list = BUILTIN_ROLE_SEEDS.filter((s) =>
+    (["embedding", "inbox_metadata"] as BuiltInRoleId[]).includes(s.id),
+  ).map((seed) => {
+    const role = seedToRole(seed, 0);
+    role.providerId = "public";
+    role.modelName = "public-model";
+    role.privateProviderId = "trusted";
+    role.privateModelName = "private-model";
+    return role;
   });
   roles.setRoles(list);
 }
@@ -335,6 +350,96 @@ describe("ImportPipeline", () => {
     expect(provider.calls.embed).toHaveLength(0);
     expect(inbox.listItems()[0]).toMatchObject({
       proposedTitle: "secret",
+      duplicateOf: null,
+      status: "pending",
+    });
+  });
+
+  it("routes private import metadata and duplicate detection through the trusted private route", async () => {
+    const host = new InMemoryHostAdapter({
+      now: () => 5_000_000,
+      newId: (() => {
+        let n = 0;
+        return () => `id-${++n}`;
+      })(),
+    });
+    const store = new OramaIndexStore({ embeddingDim: 8 });
+    await store.init();
+    const inbox = new InboxStore(host);
+    const publicProvider = new MockProvider({
+      chatChunks: () => [{ delta: "public should not run", finishReason: "stop" }],
+    });
+    const trustedProvider = new MockProvider({
+      chatChunks: () => [
+        {
+          delta: '{"title":"Private AI","tags":["secret"],"summary":"Private summary"}',
+          finishReason: "stop",
+        },
+      ],
+      embedDim: 8,
+    });
+    const reg = new ProviderRegistry({
+      factories: [
+        {
+          kind: "openai-compatible",
+          create: ({ id }) => (id === "trusted" ? trustedProvider : publicProvider),
+        },
+      ],
+      fetch: async () => new Response("{}"),
+    });
+    reg.setConfigs([
+      {
+        id: "public",
+        name: "Public",
+        baseUrl: "https://public.example/v1",
+        apiKeyRef: "k-public",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+      {
+        id: "trusted",
+        name: "Trusted",
+        baseUrl: "https://trusted.example/v1",
+        apiKeyRef: "k-trusted",
+        defaultHeaders: {},
+        enabled: true,
+        createdAt: 0,
+      },
+    ]);
+    reg.setApiKeys({ "k-public": "public-secret", "k-trusted": "trusted-secret" });
+    const roles = new RoleRegistry();
+    bindPrivateImportRoles(roles);
+    const pipeline = new ImportPipeline({
+      host,
+      registry: reg,
+      roles,
+      store,
+      inbox,
+      connectors: [new MarkdownConnector()],
+      getImportCategories: (): ImportCategory[] => [
+        { id: "other", label: "Other", folderName: "Other", keywords: [] },
+      ],
+      resolvePrivateRoute: () => ({ providerId: "trusted", modelName: "private-model" }),
+    });
+    const src: ImportSource = {
+      kind: "file",
+      label: "Private/secret.md",
+      payload: { type: "markdown-file", path: "Private/secret.md", content: "top secret" },
+    };
+
+    await collect(pipeline.run(src, { privacyTarget: "private" }));
+
+    expect(publicProvider.calls.chat).toHaveLength(0);
+    expect(publicProvider.calls.embed).toHaveLength(0);
+    expect(trustedProvider.calls.chat).toHaveLength(1);
+    expect(trustedProvider.calls.chat[0]?.model).toBe("private-model");
+    expect(trustedProvider.calls.embed).toHaveLength(1);
+    expect(trustedProvider.calls.embed[0]?.model).toBe("private-model");
+    expect(inbox.listItems()[0]).toMatchObject({
+      proposedTitle: "Private AI",
+      proposedTags: ["secret"],
+      proposedSummary: "Private summary",
       duplicateOf: null,
       status: "pending",
     });
