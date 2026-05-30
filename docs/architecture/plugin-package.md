@@ -56,6 +56,10 @@ unprocessed pending items resumable and records the write as a cancelled recent
 job. Result-list `Open` actions use a guarded vault opener so Obsidian failures
 show a Notice without closing the import result modal or hiding written/merged
 rows.
+Import target is explicit (`public` / `private`): first use defaults to private,
+then remembers the last user choice. Switching to public import requires a risk
+confirmation. Approval writes to different folders (`Aether Inbox` vs `Aether
+Private Inbox`) and forwards target metadata into core privacy routing.
 
 Old `open-search` and `open-inbox` command IDs are kept as compatibility
 aliases, but both open Hub.
@@ -65,6 +69,10 @@ aliases, but both open Hub.
 `AetherSettingsTab` always works on a _deep clone_ of the current settings,
 mutates it, then saves the whole snapshot. This keeps the diff explicit and
 makes saving/loading commutative.
+Privacy settings live in the same snapshot (`settings.privacy`): private folder
+prefixes and private inbox folder. Public/private model bindings are configured
+per AI role, while provider-level trusted toggle controls whether a provider is
+allowed to access private-folder content.
 
 ## Plugin data queue
 

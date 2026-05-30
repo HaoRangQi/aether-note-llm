@@ -138,7 +138,7 @@ pnpm --filter @aether/core test:coverage
   an unavailable-role notice without calling the provider, and after cancellation
   a late provider result does not open a rewrite modal or replace the editor
   selection.
-- Current full baseline: 374 tests = core 240 + plugin 134.
+- Current full baseline: 384 tests = core 247 + plugin 137.
 
 ## Manual smoke checklist
 
@@ -151,19 +151,25 @@ Run before every release. Use a clean test vault. The full UAT script lives in
    - Add a chat Provider, set API key, and click `Test`.
    - Confirm Provider cards have a visible expand/collapse icon and newly added Providers open automatically.
    - Confirm AI Providers and the expanded new Provider form both show the risk notice for private files, API keys, passwords, and preferring local or trusted self-hosted models.
+   - Confirm each Provider card exposes `Trusted for private content`; only trusted Providers can be selected for private role bindings and used by private routes.
+   - In `Advanced`, configure `Privacy Routing` folders (`Private folders`, `Private import folder`), then configure public/private model bindings per role in `AI Roles`.
    - Add or select an embedding-capable Provider when available.
    - Apply bindings and confirm AI Roles have Provider / Model values for `inbox_metadata`, `answer`, editor roles, and `embedding`.
 4. **Import preview**
    - Command palette → `Import…`. Paste text or a URL list.
+   - Confirm import target defaults to `Private import` on first use, then remembers the last selected target.
+   - Switch to `Public import` and confirm explicit risk confirmation is required before continuing.
    - Confirm the preview list appears, edit one title/tag/summary, then write selected items.
-   - Verify a markdown file appears under `Aether Inbox/notes/<yyyy>/<mm>/` or `Aether Inbox/bookmarks/<yyyy>/<mm>/`.
+   - Verify public target writes into `Aether Inbox/...`; private target writes into `Aether Private Inbox/...`.
 5. **Pending import retry**
    - Force or simulate a write failure if practical.
    - Confirm failed write items remain pending and can be reopened from Hub or `Review pending imports`.
 6. **Search and answer**
    - Open Hub (`Open Aether Hub` or ribbon), search for imported content, and click a note result.
    - Confirm the search box shows the privacy warning about private notes, API keys, passwords, and preferring local models.
+   - Confirm Hub `Public / Private / All` scope switch forwards correctly to search and answer.
    - Run `Answer` from current results; confirm citations map to existing sources.
+   - For private scope without private/trusted route, confirm search falls back to BM25 and private answer generation is blocked with actionable guidance.
    - Copy the answer with sources; if clipboard access is denied or unavailable, confirm a failure notice appears and the answer remains visible.
    - If embedding is unavailable, confirm search falls back to BM25 with a visible reason.
 7. **Editor AI Roles**

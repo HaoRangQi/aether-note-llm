@@ -32,10 +32,15 @@ export interface ImportPipelineDeps {
     model: string;
     usage: TokenUsage;
   }) => void | Promise<void>;
+  /** 私密导入时，给指定 feature 提供覆盖路由；null 表示不允许远程调用。 */
+  resolvePrivateRoute?: (
+    feature: "inbox_metadata" | "embedding",
+  ) => { providerId: string; modelName: string } | null;
 }
 
 export interface ImportPipelineRunOptions {
   signal?: AbortSignal;
+  privacyTarget?: "public" | "private";
 }
 
 export class ImportPipeline {
@@ -110,14 +115,27 @@ export class ImportPipeline {
       };
     } else {
       try {
-        proposal = await proposeMetadata({
-          registry: this.deps.registry,
-          roles: this.deps.roles,
-          candidate,
-          fallbackTitle,
-          onUsage: this.deps.onUsage,
-          signal: options.signal,
-        });
+        const metadataRoute =
+          options.privacyTarget === "private"
+            ? (this.deps.resolvePrivateRoute?.("inbox_metadata") ?? null)
+            : null;
+        if (options.privacyTarget === "private" && !metadataRoute) {
+          proposal = {
+            title: fallbackTitle,
+            tags: candidate.tags,
+            summary: "",
+          };
+        } else {
+          proposal = await proposeMetadata({
+            registry: this.deps.registry,
+            roles: this.deps.roles,
+            candidate,
+            fallbackTitle,
+            providerOverride: metadataRoute ?? undefined,
+            onUsage: this.deps.onUsage,
+            signal: options.signal,
+          });
+        }
       } catch (e) {
         if (isAbortError(e)) throw e;
         // proposeMetadata should handle errors internally, but catch just in case
@@ -133,18 +151,42 @@ export class ImportPipeline {
     if (candidate.content.trim().length > 0) {
       try {
         throwIfAborted(options.signal);
+        const embeddingRoute =
+          options.privacyTarget === "private"
+            ? (this.deps.resolvePrivateRoute?.("embedding") ?? null)
+            : null;
+        if (options.privacyTarget === "private" && !embeddingRoute) {
+          return {
+            id: this.deps.host.newId(),
+            batchId,
+            sourceKind: "file",
+            sourceRef: candidate.sourceRef,
+            proposedTitle: proposal.title,
+            proposedTags: proposal.tags.length > 0 ? proposal.tags : candidate.tags,
+            proposedSummary: proposal.summary,
+            content: candidate.content,
+            kind: candidate.kind,
+            url: candidate.url,
+            duplicateOf: null,
+            status: "pending",
+            createdAt: this.deps.host.now(),
+            decidedAt: null,
+          };
+        }
         const role = this.deps.roles.resolve("embedding");
-        const provider = this.deps.registry.getProvider(role.providerId);
+        const providerId = embeddingRoute?.providerId ?? role.providerId;
+        const modelName = embeddingRoute?.modelName ?? role.modelName;
+        const provider = this.deps.registry.getProvider(providerId);
         const embedded = await provider.embed({
           inputs: [candidate.content.slice(0, 2000)],
-          model: role.modelName,
+          model: modelName,
           signal: options.signal,
         });
         if (embedded.usage) {
           await this.deps.onUsage?.({
             providerId: provider.id,
             feature: "embedding",
-            model: role.modelName,
+            model: modelName,
             usage: embedded.usage,
           });
         }

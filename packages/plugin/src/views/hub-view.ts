@@ -16,6 +16,7 @@ import { runRebuildJob, runRefreshIndexJob } from "../ui/job-tracker.js";
 import {
   isAetherError,
   type NoteKind,
+  type PrivacyScope,
   type SearchAnswerResponse,
   type SearchHit,
   type SearchMeta,
@@ -42,6 +43,7 @@ type Filter = "all" | "note" | "bookmark";
 export class HubView extends ItemView {
   private mode: Mode = "recent";
   private filter: Filter = "all";
+  private privacyScope: PrivacyScope = "public";
   private query = "";
   private debounce?: number;
   private resultsRequestId = 0;
@@ -136,6 +138,22 @@ export class HubView extends ItemView {
     mkChip("all", t("view.hub.filter.all"));
     mkChip("note", t("view.hub.filter.note"));
     mkChip("bookmark", t("view.hub.filter.bookmark"));
+
+    const privacyBar = root.createDiv({ cls: "aether-hub-privacy-scope" });
+    const mkScope = (scope: PrivacyScope, label: string): void => {
+      const button = privacyBar.createEl("button", { text: label });
+      if (this.privacyScope === scope) button.addClass("active");
+      button.onclick = () => {
+        this.privacyScope = scope;
+        privacyBar.findAll("button").forEach((el) => el.removeClass("active"));
+        button.addClass("active");
+        if (this.query.trim()) this.mode = "search";
+        void this.refreshResults();
+      };
+    };
+    mkScope("public", t("view.hub.privacyScope.public"));
+    mkScope("private", t("view.hub.privacyScope.private"));
+    mkScope("all", t("view.hub.privacyScope.all"));
 
     // 5. 快速操作
     const actions = root.createDiv({ cls: "aether-hub-quickactions" });
@@ -306,7 +324,11 @@ export class HubView extends ItemView {
     let meta: SearchMeta;
     try {
       const filterArg = this.filter === "all" ? undefined : (this.filter as NoteKind);
-      const req: Parameters<typeof this.plugin.core.searchWithMeta>[0] = { query: q, limit: 20 };
+      const req: Parameters<typeof this.plugin.core.searchWithMeta>[0] = {
+        query: q,
+        limit: 20,
+        privacyScope: this.privacyScope,
+      };
       if (filterArg) req.filters = { kind: filterArg };
       const result = await this.plugin.core.searchWithMeta(req);
       if (!this.isCurrentResultsRequest(requestId)) return;
@@ -431,6 +453,7 @@ export class HubView extends ItemView {
           search,
           limit: 8,
           maxContextChunks: 6,
+          privacyScope: this.privacyScope,
           signal: ac.signal,
         };
         if (filterArg) req.filters = { kind: filterArg };

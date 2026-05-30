@@ -10,6 +10,11 @@ export interface RunRoleArgs {
   roleId: string;
   /** 模板渲染变量 */
   vars: Record<string, string | number>;
+  /** 临时覆盖 provider/model（用于私密目录路由）。 */
+  providerOverride?: {
+    providerId: string;
+    modelName: string;
+  };
   /** 用户级覆盖参数（temperature 等），优先级高于 role.params */
   overrideParams?: Record<string, unknown>;
   signal?: AbortSignal;
@@ -34,7 +39,14 @@ export interface RunRoleResult {
  * 上层 wrapper（summarizeSelection 等）只是组装 vars 后再调本函数。
  */
 export async function runRole(args: RunRoleArgs): Promise<RunRoleResult> {
-  const role = args.roles.resolve(args.roleId);
+  const baseRole = args.roles.resolve(args.roleId);
+  const role = args.providerOverride
+    ? {
+        ...baseRole,
+        providerId: args.providerOverride.providerId,
+        modelName: args.providerOverride.modelName,
+      }
+    : baseRole;
 
   if (role.outputKind === "embedding") {
     return runEmbedding(args, role);

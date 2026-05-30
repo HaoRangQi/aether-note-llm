@@ -100,7 +100,7 @@ describe("pending import cancellation", () => {
     await write;
 
     expect(plugin.core.approveInboxItem).toHaveBeenCalledTimes(1);
-    expect(plugin.core.approveInboxItem).toHaveBeenCalledWith("item-1");
+    expect(plugin.core.approveInboxItem).toHaveBeenCalledWith("item-1", { target: "public" });
     expect(plugin.core.discardInboxItem).not.toHaveBeenCalled();
     expect(items[0]?.status).toBe("approved");
     expect(items[1]?.status).toBe("pending");
